@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+    This file contains Runtime Directives used by .NET Native. The defaults here are suitable for most
+    developers. However, you can modify these parameters to modify the behavior of the .NET Native
+    optimizer.
+
+    Runtime Directives are documented at https://go.microsoft.com/fwlink/?LinkID=391919
+
+    To fully enable reflection for App1.MyClass and all of its public/private members
+    <Type Name="App1.MyClass" Dynamic="Required All"/>
+
+    To enable dynamic creation of the specific instantiation of AppClass<T> over System.Int32
+    <TypeInstantiation Name="App1.AppClass" Arguments="System.Int32" Activate="Required Public" />
+
+    Using the Namespace directive to apply reflection policy to all the types in a particular namespace
+    <Namespace Name="DataClasses.ViewModels" Serialize="All" />
+-->
+
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+    <Application>
+        <!--
+      An Assembly element with Name="*Application*" applies to all assemblies in
+      the application package. The asterisks are not wildcards.
+    -->
+        <Assembly Name="*Application*" Dynamic="Required All" />
+
+        <!-- Add your application specific runtime directives here. -->
+        <Assembly Name="Jellyfin.Sdk" Dynamic="Required All" />
+        <Assembly Name="Microsoft.Extensions.DependencyInjection" Dynamic="Required All" />
+        <Assembly Name="Microsoft.Extensions.Logging" Dynamic="Required All" />
+        <Assembly Name="System.Text.Json" Dynamic="Required All" />
+
+        <!-- Ensure XAML types are preserved -->
+        <Namespace Name="Windows.UI.Xaml" Dynamic="Required All" />
+        <Namespace Name="Windows.UI.Xaml.Controls" Dynamic="Required All" />
+        <Namespace Name="Windows.UI.Xaml.Media" Dynamic="Required All" />
+        <Namespace Name="Windows.UI.Xaml.Media.Animation" Dynamic="Required All" />
+        <Namespace Name="Windows.UI" Dynamic="Required All" />
+
+        <!-- Preserve Jellyfin SDK types -->
+        <Namespace Name="Jellyfin.Sdk.Generated.Models" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.ViewModels" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Services" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Models" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Helpers" Dynamic="Required All" />
+
+        <!-- Application Namespaces -->
+        <Namespace Name="Gelatinarm" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Controls" Dynamic="Required All" />
+
+        <!-- System and Runtime -->
+        <Namespace Name="System.ComponentModel" Dynamic="Required Public" />
+        <Namespace Name="System.Runtime.CompilerServices" Dynamic="Required Public" />
+        <Namespace Name="System.Collections.ObjectModel" Dynamic="Required Public" />
+
+        <!-- Windows UI -->
+        <Namespace Name="Windows.UI.Xaml.Media.Imaging" Dynamic="Required Public" />
+        <Namespace Name="Windows.UI.Xaml.Controls.Primitives" Dynamic="Required Public" />
+        <Namespace Name="Windows.UI.Xaml.Navigation" Dynamic="Required Public" />
+        <Namespace Name="Windows.UI.Xaml.Data" Dynamic="Required Public" />
+        <Namespace Name="Windows.UI.Core" Dynamic="Required Public" />
+        <Namespace Name="Windows.UI.Text" Dynamic="Required Public" />
+        <Namespace Name="Windows.UI.Popups" Dynamic="Required Public" />
+
+        <!-- Windows Application Model -->
+        <Namespace Name="Windows.ApplicationModel" Dynamic="Required Public" />
+        <Namespace Name="Windows.ApplicationModel.Activation" Dynamic="Required Public" />
+        <Namespace Name="Windows.Storage" Dynamic="Required Public" />
+        <Namespace Name="Windows.Networking.Connectivity" Dynamic="Required Public" />
+
+        <!-- Microsoft UI and DI -->
+        <Namespace Name="Microsoft.UI.Xaml.Controls" Dynamic="Required Public" />
+
+        <!-- Types that need full reflection -->
+        <!-- ViewModels -->
+        <Type Name="Gelatinarm.ViewModels.MainViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.SettingsViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.FavoritesViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.LibraryViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.LibrarySelectionViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.MediaPlayerViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.LoginViewModel" Dynamic="Required All" />
+        <Type Name="Gelatinarm.ViewModels.ServerSelectionViewModel" Dynamic="Required All" />
+
+        <!-- Service Interfaces -->
+        <Type Name="Gelatinarm.Services.IAuthenticationService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IUnifiedDeviceService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IPreferencesService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IMediaPlaybackService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.INavigationService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IUserProfileService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IMediaDiscoveryService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.ISystemMonitorService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IUserDataService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.IErrorHandlingService" Dynamic="Required All" />
+
+        <!-- Service Implementations -->
+        <Type Name="Gelatinarm.Services.AuthenticationService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.UnifiedDeviceService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.PreferencesService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.MediaPlaybackService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.NavigationService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.UserProfileService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.MediaDiscoveryService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.SystemMonitorService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.UserDataService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.ErrorHandlingService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.MediaControlService" Dynamic="Required All" />
+        <Type Name="Gelatinarm.Services.ImageLoadingService" Dynamic="Required All" />
+
+        <!-- Base Classes -->
+        <Type Name="Gelatinarm.Services.BaseService" Dynamic="Required All" />
+
+    </Application>
+</Directives>

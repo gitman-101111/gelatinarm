@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:BasePage
+    x:Class="Gelatinarm.Views.SearchPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Gelatinarm.Controls"
+    mc:Ignorable="d"
+    Background="{StaticResource SystemChromeMediumBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Fixed Header with Search and Filters -->
+        <Grid Grid.Row="0"
+              Background="{StaticResource SystemChromeMediumBrush}"
+              BorderBrush="{StaticResource SystemBaseLowBrush}"
+              BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="350" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Search Label -->
+                <TextBlock Grid.Column="0"
+                           Text="Search"
+                           Style="{StaticResource SubheaderTextStyle}"
+                           VerticalAlignment="Center"
+                           Margin="{StaticResource SafeAreaPadding}" />
+
+                <!-- Search Box -->
+                <TextBox Grid.Column="1"
+                         x:Name="SearchBox"
+                         PlaceholderText="Search for movies, TV shows, music..."
+                         KeyDown="SearchBox_KeyDown"
+                         VerticalAlignment="Center"
+                         Height="44"
+                         VerticalContentAlignment="Center"
+                         Style="{StaticResource StandardTextBoxStyle}" />
+
+                <!-- Filter Buttons -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
+                    <Button x:Name="AllButton"
+                            Content="All"
+                            Click="FilterButton_Click"
+                            Style="{StaticResource FilterButtonStyle}" />
+                    <Button x:Name="MoviesButton"
+                            Content="Movies"
+                            Click="FilterButton_Click"
+                            Style="{StaticResource FilterButtonStyle}" />
+                    <Button x:Name="ShowsButton"
+                            Content="TV Shows"
+                            Click="FilterButton_Click"
+                            Style="{StaticResource FilterButtonStyle}" />
+                    <Button x:Name="EpisodesButton"
+                            Content="Episodes"
+                            Click="FilterButton_Click"
+                            Style="{StaticResource FilterButtonStyle}" />
+                    <Button x:Name="MusicButton"
+                            Content="Music"
+                            Click="FilterButton_Click"
+                            Style="{StaticResource FilterButtonStyle}" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Search Results -->
+        <Grid Grid.Row="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          IsTabStop="False"
+                          TabNavigation="Once">
+                <StackPanel Margin="{StaticResource SafeAreaPadding}">
+                    <!-- Results Count -->
+                    <TextBlock x:Name="ResultsCountText"
+                               Style="{StaticResource StandardBodyTextStyle}"
+                               Opacity="0.8"
+                               Margin="{StaticResource HeaderMargin}"
+                               Visibility="Collapsed" />
+
+                    <!-- Grouped Results -->
+                    <StackPanel x:Name="GroupedResultsPanel">
+                        <!-- Groups will be added dynamically in code-behind -->
+                    </StackPanel>
+
+                    <!-- No Results Panel -->
+                    <StackPanel x:Name="NoResultsPanel"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Visibility="Collapsed"
+                                Margin="{StaticResource SectionMargin}">
+                        <TextBlock Text="{x:Bind EmptyStateTitle, Mode=OneWay}"
+                                   Style="{StaticResource SubheaderTextStyle}"
+                                   Opacity="0.6"
+                                   TextAlignment="Center" />
+                        <TextBlock Text="{x:Bind EmptyStateMessage, Mode=OneWay}"
+                                   Style="{StaticResource StandardBodyTextStyle}"
+                                   Opacity="0.4"
+                                   TextAlignment="Center"
+                                   Margin="{StaticResource StandardControlMargin}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Loading Indicator - Last so it appears on top -->
+            <controls:LoadingOverlay x:Name="LoadingOverlay"
+                                     IsLoading="False"
+                                     LoadingText="Searching..." />
+        </Grid>
+    </Grid>
+
+    <!-- Item Template Resource -->
+    <views:BasePage.Resources>
+        <!-- Reuse compact template for consistency with other pages -->
+        <StaticResource x:Key="SearchItemTemplate" ResourceKey="CompactPosterTemplate" />
+
+        <!-- Episode Template - Use compact version for search results -->
+        <StaticResource x:Key="EpisodeItemTemplate" ResourceKey="CompactEpisodeTemplate" />
+
+        <!-- Music Item Template - Use compact album template -->
+        <StaticResource x:Key="MusicItemTemplate" ResourceKey="CompactAlbumTemplate" />
+    </views:BasePage.Resources>
+</views:BasePage>

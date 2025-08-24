@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:DetailsPage
+    x:Class="Gelatinarm.Views.PersonDetailsPage"
+    x:Name="Page"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:controls="using:Gelatinarm.Controls"
+    mc:Ignorable="d"
+    x:DefaultBindMode="OneWay"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}"
+    NavigationCacheMode="Disabled">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Views/DetailsPage.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <!-- Loading Overlay -->
+        <controls:LoadingOverlay x:Name="LoadingOverlay" Grid.RowSpan="3" />
+
+        <ListView x:Name="ContentScrollViewer" SelectionMode="None"
+                  IsItemClickEnabled="False"
+                  IsTabStop="False"
+                  TabNavigation="Once"
+                  Padding="{StaticResource SafeAreaPadding}"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  ScrollViewer.VerticalScrollMode="Auto"
+                  ScrollViewer.HorizontalScrollMode="Disabled">
+            <ListView.ItemContainerStyle>
+                <StaticResource ResourceKey="NonInteractiveListViewItemStyle" />
+            </ListView.ItemContainerStyle>
+
+            <!-- Person Header -->
+            <ListViewItem Margin="0,20,0,0" IsTabStop="False">
+                <Grid Margin="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Person Image -->
+                    <Border Grid.Column="0"
+                            Width="200"
+                            Height="250">
+                        <Image Source="{x:Bind ViewModel.PersonImage}"
+                               Stretch="UniformToFill" />
+                    </Border>
+
+                    <!-- Person Info -->
+                    <StackPanel Grid.Column="2"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.PersonName}"
+                                   FontSize="36"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{x:Bind ViewModel.BirthDate}"
+                                       Style="{StaticResource StandardBodyTextStyle}"
+                                       Visibility="{x:Bind ViewModel.IsBirthDateVisible, Converter={StaticResource BoolToVisibility}}"
+                                       Opacity="0.8"
+                                       Margin="0,0,16,0" />
+                            <TextBlock Text="{x:Bind ViewModel.BirthPlace}"
+                                       Style="{StaticResource StandardBodyTextStyle}"
+                                       Visibility="{x:Bind ViewModel.IsBirthPlaceVisible, Converter={StaticResource BoolToVisibility}}"
+                                       Opacity="0.8" />
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.Overview}"
+                                       Style="{StaticResource StandardBodyTextStyle}"
+                                       TextWrapping="Wrap"
+                                       Opacity="0.9"
+                                       MaxHeight="{x:Bind ViewModel.OverviewMaxHeight}"
+                                       Visibility="{x:Bind ViewModel.IsOverviewVisible, Converter={StaticResource BoolToVisibility}}"
+                                       TextTrimming="WordEllipsis" />
+                            <Button Content="{x:Bind ViewModel.ExpandBioButtonText}"
+                                    Command="{x:Bind ViewModel.ToggleBioExpansionCommand}"
+                                    Margin="0,8,0,0"
+                                    Visibility="{x:Bind ViewModel.IsExpandBioButtonVisible, Converter={StaticResource BoolToVisibility}}"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource TextBlockButtonStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </ListViewItem>
+
+            <!-- Movies Section -->
+            <ListViewItem Margin="0" IsTabStop="False">
+                <StackPanel
+                    Visibility="{x:Bind ViewModel.IsMoviesSectionVisible, Converter={StaticResource BoolToVisibility}}"
+                    Margin="0">
+                    <TextBlock Text="Movies"
+                               Style="{StaticResource SectionHeaderTextStyle}"
+                               Margin="0,0,0,8" />
+
+                    <ScrollViewer HorizontalScrollMode="Enabled"
+                                  VerticalScrollMode="Disabled"
+                                  HorizontalScrollBarVisibility="Hidden">
+                        <GridView x:Name="MoviesList"
+                                  ItemsSource="{x:Bind ViewModel.Movies}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="OnMovieItemClick"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  Padding="0,0,24,0"
+                                  TabNavigation="Local">
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                            <GridView.ItemContainerStyle>
+                                <StaticResource ResourceKey="StandardMediaGridViewItemStyle" />
+                            </GridView.ItemContainerStyle>
+                            <GridView.ItemTemplate>
+                                <StaticResource ResourceKey="StandardPosterTemplate" />
+                            </GridView.ItemTemplate>
+                        </GridView>
+                    </ScrollViewer>
+                </StackPanel>
+            </ListViewItem>
+
+            <!-- TV Shows Section -->
+            <ListViewItem Margin="0" IsTabStop="False">
+                <StackPanel
+                    Visibility="{x:Bind ViewModel.IsTVShowsSectionVisible, Converter={StaticResource BoolToVisibility}}"
+                    Margin="0">
+                    <TextBlock Text="TV Shows"
+                               Style="{StaticResource SectionHeaderTextStyle}"
+                               Margin="0,0,0,8" />
+
+                    <ScrollViewer HorizontalScrollMode="Enabled"
+                                  VerticalScrollMode="Disabled"
+                                  HorizontalScrollBarVisibility="Hidden">
+                        <GridView x:Name="TVShowsList"
+                                  ItemsSource="{x:Bind ViewModel.TvShows}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="OnTVShowItemClick"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  Padding="0,0,24,0"
+                                  TabNavigation="Local">
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                            <GridView.ItemContainerStyle>
+                                <StaticResource ResourceKey="StandardMediaGridViewItemStyle" />
+                            </GridView.ItemContainerStyle>
+                            <GridView.ItemTemplate>
+                                <StaticResource ResourceKey="StandardPosterTemplate" />
+                            </GridView.ItemTemplate>
+                        </GridView>
+                    </ScrollViewer>
+                </StackPanel>
+            </ListViewItem>
+
+        </ListView>
+    </Grid>
+</views:DetailsPage>

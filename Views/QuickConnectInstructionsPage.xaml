@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:BasePage
+    x:Class="Gelatinarm.Views.QuickConnectInstructionsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}"
+    IsTabStop="False">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="48,24,48,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="BackButton"
+                    Grid.Column="0"
+                    Command="{x:Bind ViewModel.GoBackCommand}"
+                    Style="{StaticResource NavigationButtonStyle}"
+                    Visibility="Collapsed"
+                    IsTabStop="True">
+                <SymbolIcon Symbol="Back" />
+            </Button>
+
+            <TextBlock Grid.Column="1"
+                       Text="Quick Connect Instructions"
+                       Style="{StaticResource TitleTextStyle}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- Instructions Content -->
+        <ScrollViewer Grid.Row="1"
+                      Margin="{StaticResource ContentPageMargin}"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="48,12,48,80">
+            <StackPanel>
+
+                <!-- Quick Connect Code Display -->
+                <Border Style="{StaticResource InstructionHighlightBoxStyle}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Your Quick Connect Code:"
+                                   Style="{StaticResource StandardBodyTextStyle}"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   Margin="4" />
+                        <TextBlock Text="{x:Bind ViewModel.QuickConnectCode, Mode=OneWay}"
+                                   Style="{StaticResource SubheaderTextStyle}"
+                                   Foreground="White"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   FontFamily="Consolas" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Step-by-step Instructions -->
+                <StackPanel>
+                    <TextBlock Text="Follow these steps to connect:"
+                               Style="{StaticResource StandardBodyTextStyle}"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8" />
+
+                    <!-- Step 1 -->
+                    <StackPanel Style="{StaticResource InstructionStepContainerStyle}">
+                        <Border Style="{StaticResource InstructionStepNumberStyle}">
+                            <TextBlock Text="1" Style="{StaticResource InstructionStepNumberTextStyle}" />
+                        </Border>
+                        <TextBlock Text="Open your Jellyfin web interface in a browser on any device"
+                                   Style="{StaticResource StandardBodyTextStyle}"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- Step 2 -->
+                    <StackPanel Style="{StaticResource InstructionStepContainerStyle}">
+                        <Border Style="{StaticResource InstructionStepNumberStyle}">
+                            <TextBlock Text="2" Style="{StaticResource InstructionStepNumberTextStyle}" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Navigate to the Quick Connect page:"
+                                       Style="{StaticResource StandardBodyTextStyle}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{x:Bind ViewModel.QuickConnectUrl, Mode=OneWay}"
+                                       Style="{StaticResource StandardCaptionTextStyle}"
+                                       Foreground="{StaticResource SystemControlHighlightAccentBrush}"
+                                       FontFamily="Consolas"
+                                       Margin="{StaticResource CompactControlMargin}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Step 3 -->
+                    <StackPanel Style="{StaticResource InstructionStepContainerStyle}">
+                        <Border Style="{StaticResource InstructionStepNumberStyle}">
+                            <TextBlock Text="3" Style="{StaticResource InstructionStepNumberTextStyle}" />
+                        </Border>
+                        <TextBlock Text="Enter the code shown above"
+                                   Style="{StaticResource StandardBodyTextStyle}"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- Step 4 -->
+                    <StackPanel Style="{StaticResource InstructionStepContainerStyle}">
+                        <Border Style="{StaticResource InstructionStepNumberStyle}">
+                            <TextBlock Text="4" Style="{StaticResource InstructionStepNumberTextStyle}" />
+                        </Border>
+                        <TextBlock Text="Click 'Submit' and this app will automatically sign in"
+                                   Style="{StaticResource StandardBodyTextStyle}"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Connection Status -->
+        <StackPanel Grid.Row="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="{StaticResource StandardControlMargin}">
+            <ProgressRing IsActive="{x:Bind ViewModel.IsConnectionProgressActive, Mode=OneWay}"
+                          Width="40"
+                          Height="40"
+                          Foreground="{StaticResource SystemControlHighlightAccentBrush}" />
+
+            <!-- Animated loading dots -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Margin="0,8,0,8">
+                <TextBlock Text="{x:Bind ViewModel.ConnectionStatus, Mode=OneWay}"
+                           Style="{StaticResource StandardBodyTextStyle}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text=" " VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Bottom Actions -->
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Margin="48,12,48,24">
+            <Button Content="Cancel"
+                    Command="{x:Bind ViewModel.CancelCommand}"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Width="120"
+                    IsTabStop="True"
+                    TabIndex="1" />
+        </StackPanel>
+
+        <!-- Loading Overlay -->
+        <Grid Grid.RowSpan="3"
+              Background="#AA000000"
+              Visibility="{x:Bind ViewModel.IsLoadingOverlayVisible, Mode=OneWay}">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <ProgressRing IsActive="True"
+                              Width="60"
+                              Height="60"
+                              Foreground="{StaticResource SystemControlHighlightAccentBrush}" />
+                <TextBlock Text="Checking authentication..."
+                           Style="{StaticResource StandardBodyTextStyle}"
+                           Foreground="White"
+                           Margin="{StaticResource ContentMargin}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</views:BasePage>

@@ -1,0 +1,890 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Application
+    x:Class="Gelatinarm.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:visibilityConverters="using:Gelatinarm.Converters.Visibility"
+    xmlns:textConverters="using:Gelatinarm.Converters.Text"
+    xmlns:dataConverters="using:Gelatinarm.Converters.Data"
+    xmlns:imageConverters="using:Gelatinarm.Converters.Image"
+    xmlns:controls="using:Gelatinarm.Controls">
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Essential Colors -->
+            <!-- Remove hardcoded SystemAccentColor to use system theme -->
+            <Color x:Key="SystemBaseHighColor">#FFFFFF</Color>
+            <Color x:Key="SystemBaseMediumColor">#99FFFFFF</Color>
+            <Color x:Key="SystemBaseLowColor">#33FFFFFF</Color>
+            <Color x:Key="SystemChromeMediumColor">#101010</Color>
+            <Color x:Key="SystemChromeMediumLowColor">#141414</Color>
+            <Color x:Key="SystemChromeLowColor">#0A0A0A</Color>
+            <Color x:Key="SystemChromeHighColor">#0A0A0A</Color>
+            <Color x:Key="SystemBaseMediumLowColor">#66FFFFFF</Color>
+
+            <!-- Essential Brushes -->
+            <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#101010" />
+            <SolidColorBrush x:Key="SystemControlForegroundBaseHighBrush" Color="{StaticResource SystemBaseHighColor}" />
+            <SolidColorBrush x:Key="SystemControlForegroundBaseMediumBrush"
+                             Color="{StaticResource SystemBaseMediumColor}" />
+            <SolidColorBrush x:Key="SystemControlForegroundBaseLowBrush" Color="{StaticResource SystemBaseLowColor}" />
+            <SolidColorBrush x:Key="SystemChromeMediumLowBrush" Color="{StaticResource SystemChromeMediumLowColor}" />
+            <SolidColorBrush x:Key="SystemChromeMediumBrush" Color="{StaticResource SystemChromeMediumColor}" />
+            <SolidColorBrush x:Key="SystemChromeLowBrush" Color="{StaticResource SystemChromeLowColor}" />
+            <SolidColorBrush x:Key="SystemChromeHighBrush" Color="{StaticResource SystemChromeHighColor}" />
+            <SolidColorBrush x:Key="SystemBaseLowBrush" Color="{StaticResource SystemBaseLowColor}" />
+            <SolidColorBrush x:Key="SystemControlBackgroundBaseLowBrush" Color="{StaticResource SystemBaseLowColor}" />
+            <SolidColorBrush x:Key="SystemControlBackgroundBaseMediumLowBrush"
+                             Color="{StaticResource SystemBaseMediumLowColor}" />
+            <SolidColorBrush x:Key="SystemControlHighlightAccentBrush" Color="{ThemeResource SystemAccentColor}" />
+            <SolidColorBrush x:Key="UnwatchedIndicatorBrush" Color="#1E88E5" />
+            <SolidColorBrush x:Key="SystemControlBackgroundChromeMediumBrush"
+                             Color="{StaticResource SystemChromeMediumColor}" />
+            <SolidColorBrush x:Key="AppAccentBrush" Color="{ThemeResource SystemAccentColor}" />
+
+            <!-- Essential Margins -->
+            <!-- Margins - TV safe areas are now handled automatically by ApplicationViewBoundsMode.UsableAreaOnly -->
+            <Thickness x:Key="ContentPageMargin">0,0,0,0</Thickness>
+            <Thickness x:Key="HeaderMargin">0,8,0,8</Thickness>
+            <Thickness x:Key="SectionHeaderMargin">0,0,0,12</Thickness>
+            <Thickness x:Key="StandardControlMargin">8</Thickness>
+            <Thickness x:Key="CompactControlMargin">4</Thickness>
+            <Thickness x:Key="ItemMargin">6</Thickness>
+            <Thickness x:Key="ContentMargin">16</Thickness>
+            <Thickness x:Key="DialogMargin">24</Thickness>
+
+            <!-- Essential Text Styles -->
+            <Style x:Key="SubheaderTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+            </Style>
+
+            <Style x:Key="StandardBodyTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+            </Style>
+
+            <Style x:Key="StandardCaptionTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+            </Style>
+
+            <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+            </Style>
+
+            <Style x:Key="TitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="28" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+            </Style>
+
+            <Style x:Key="SmallCaptionTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+            </Style>
+
+            <!-- Essential Button Styles -->
+            <Style x:Key="AccentButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Height" Value="32" />
+            </Style>
+
+            <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Height" Value="32" />
+            </Style>
+
+            <Style x:Key="JellyfinButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource AppAccentBrush}" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="MinHeight" Value="48" />
+            </Style>
+
+            <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource SystemChromeMediumBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Height" Value="32" />
+            </Style>
+
+            <!-- Media Transport Button Style - Matches system transport controls transparency -->
+            <Style x:Key="MediaTransportButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="#CC000000" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Padding" Value="12,0" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid x:Name="RootGrid">
+                                <Border x:Name="BackgroundBorder"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding CornerRadius}" />
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Padding="{TemplateBinding Padding}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver" />
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="BackgroundBorder"
+                                                                               Storyboard.TargetProperty="Background">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="#99000000" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter"
+                                                                               Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="#66FFFFFF" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Standard Button Style for consistent sizing -->
+            <Style x:Key="StandardButtonStyle" TargetType="Button">
+                <Setter Property="Height" Value="32" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Padding" Value="12,6" />
+            </Style>
+
+
+            <!-- Essential Control Styles -->
+
+            <Style x:Key="TransparentButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="TransparentToggleButtonStyle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver" />
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid"
+                                                                               Storyboard.TargetProperty="Background">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="#66FFFFFF" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter"
+                                                                               Storyboard.TargetProperty="Opacity">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="0.5" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Checked">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter"
+                                                                               Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0"
+                                                                            Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedPointerOver">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter"
+                                                                               Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0"
+                                                                            Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedPressed">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid"
+                                                                               Storyboard.TargetProperty="Background">
+                                                    <DiscreteObjectKeyFrame KeyTime="0" Value="#66FFFFFF" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter"
+                                                                               Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0"
+                                                                            Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Padding="{TemplateBinding Padding}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Navigation Button Styles -->
+            <Style x:Key="NavigationButtonStyle" TargetType="Button" BasedOn="{StaticResource TransparentButtonStyle}">
+                <Setter Property="Width" Value="48" />
+                <Setter Property="Height" Value="48" />
+            </Style>
+
+            <Style x:Key="PageTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextStyle}" />
+
+
+            <Style x:Key="StandardPageContainerStyle" TargetType="StackPanel">
+                <Setter Property="Spacing" Value="24" />
+            </Style>
+
+            <!-- Quick Connect Instruction Styles -->
+            <Style x:Key="InstructionStepContainerStyle" TargetType="StackPanel">
+                <Setter Property="Orientation" Value="Horizontal" />
+                <Setter Property="Margin" Value="0,0,0,8" />
+            </Style>
+
+            <Style x:Key="InstructionStepNumberStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                <Setter Property="Width" Value="28" />
+                <Setter Property="Height" Value="28" />
+                <Setter Property="Margin" Value="0,0,8,0" />
+            </Style>
+
+            <Style x:Key="InstructionStepNumberTextStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="FontSize" Value="14" />
+            </Style>
+
+            <Style x:Key="InstructionHighlightBoxStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                <Setter Property="Margin" Value="0,0,0,12" />
+                <Setter Property="Padding" Value="20,12,20,12" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+            </Style>
+
+            <!-- Additional Margins -->
+            <Thickness x:Key="SectionMargin">0,0,0,32</Thickness>
+            <Thickness x:Key="SafeAreaPadding">48,24,48,24</Thickness>
+
+            <!-- Additional Text Styles -->
+            <Style x:Key="SectionHeaderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SubheaderTextStyle}">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,0,0,12" />
+            </Style>
+
+            <Style x:Key="SubsectionHeaderTextStyle" TargetType="TextBlock"
+                   BasedOn="{StaticResource StandardBodyTextStyle}">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+            </Style>
+
+            <!-- Control Styles for Settings -->
+            <Style x:Key="StandardSliderStyle" TargetType="Slider">
+                <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+            </Style>
+
+            <Style x:Key="StandardToggleSwitchStyle" TargetType="ToggleSwitch">
+                <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+            </Style>
+
+            <Style x:Key="StandardComboBoxStyle" TargetType="ComboBox">
+                <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="MinWidth" Value="200" />
+            </Style>
+
+            <Style x:Key="StandardTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="Padding" Value="12,8" />
+            </Style>
+
+            <Style x:Key="LibraryHeaderComboBoxStyle" TargetType="ComboBox"
+                   BasedOn="{StaticResource StandardComboBoxStyle}">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="MinWidth" Value="150" />
+            </Style>
+
+            <Style x:Key="MediaItemButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+            </Style>
+
+
+            <Style x:Key="NonInteractiveListViewItemStyle" TargetType="ListViewItem">
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Media Grid Styles -->
+            <Style x:Key="StandardMediaGridViewItemStyle" TargetType="GridViewItem">
+                <Setter Property="Margin" Value="6" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                <Setter Property="FocusVisualSecondaryBrush" Value="Transparent" />
+                <Setter Property="FocusVisualPrimaryThickness" Value="3" />
+                <Setter Property="FocusVisualSecondaryThickness" Value="0" />
+                <Setter Property="FocusVisualMargin" Value="-4" />
+            </Style>
+
+            <!-- Data Templates -->
+            <DataTemplate x:Key="StandardPosterTemplate">
+                <Grid Width="200" MinHeight="250">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="280" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Poster Image -->
+                    <Border Grid.Row="0"
+                            Background="{StaticResource SystemChromeMediumBrush}">
+                        <Grid>
+                            <Image
+                                Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                                Stretch="UniformToFill" />
+                            <!-- Unwatched Indicator -->
+                            <controls:UnwatchedIndicator
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0"
+                                DataContext="{Binding}"
+                                ItemType="{Binding Type}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Title -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding Name}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Foreground="White"
+                               FontWeight="Bold"
+                               Margin="4,4,4,0"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+
+                    <!-- Subtitle (Year for movies, Series name for episodes) -->
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding Converter={StaticResource MediaSubtitleConverter}}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Margin="4,0,4,4"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Movie Poster Template with Year -->
+            <DataTemplate x:Key="MoviePosterTemplate">
+                <Grid Width="200" MinHeight="250">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="280" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Poster Image -->
+                    <Border Grid.Row="0"
+                            Background="{StaticResource SystemChromeMediumBrush}">
+                        <Grid>
+                            <Image
+                                Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                                Stretch="UniformToFill" />
+                            <!-- Unwatched Indicator -->
+                            <controls:UnwatchedIndicator
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0"
+                                DataContext="{Binding}"
+                                ItemType="{Binding Type}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Title -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding Name}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Foreground="White"
+                               FontWeight="Bold"
+                               Margin="4,4,4,0"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+
+                    <!-- Year -->
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding ProductionYear, Converter={StaticResource YearDisplayConverter}}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Margin="4,0,4,4"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Recently Added Template - Shows series poster for episodes -->
+            <DataTemplate x:Key="RecentlyAddedTemplate">
+                <Grid Width="200" MinHeight="250">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="280" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Poster Image -->
+                    <Border Grid.Row="0"
+                            Background="{StaticResource SystemChromeMediumBrush}">
+                        <Grid>
+                            <Image
+                                Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                                Stretch="UniformToFill" />
+                            <!-- Unwatched Indicator -->
+                            <controls:UnwatchedIndicator
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0"
+                                DataContext="{Binding}"
+                                ItemType="{Binding Type}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Title - Shows series name for seasons/episodes, regular name for movies -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding Converter={StaticResource RecentlyAddedTitleConverter}}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Foreground="White"
+                               FontWeight="Bold"
+                               Margin="4,4,4,0"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+
+                    <!-- Subtitle - Season info, episode count, or year -->
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding Converter={StaticResource RecentlyAddedSubtitleConverter}}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Margin="4,0,4,4"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Compact Poster Template for Grid Views -->
+            <DataTemplate x:Key="CompactPosterTemplate">
+                <Grid Width="130" Margin="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Poster Image -->
+                    <Border Grid.Row="0">
+                        <Grid>
+                            <Rectangle Fill="{StaticResource SystemChromeMediumBrush}" />
+                            <Image
+                                Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                                Stretch="Uniform"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center" />
+                            <controls:UnwatchedIndicator
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0"
+                                DataContext="{Binding}"
+                                ItemType="{Binding Type}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Title with Scrolling Behavior -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding Name}"
+                               Style="{StaticResource StandardBodyTextStyle}"
+                               FontSize="11"
+                               TextWrapping="NoWrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="2,2,2,0"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <!-- Subtitle (Year/Series info) -->
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding Converter={StaticResource MediaTextConverter}}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               FontSize="10"
+                               Opacity="0.6"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="2,0,2,0" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Compact Episode Template for Grid Views -->
+            <DataTemplate x:Key="CompactEpisodeTemplate">
+                <Grid Width="240" Height="180">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="135" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Episode Thumbnail -->
+                    <Border Grid.Row="0" Background="{StaticResource SystemChromeMediumBrush}">
+                        <Grid>
+                            <Image
+                                Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Backdrop}"
+                                Stretch="UniformToFill" />
+                            <!-- Progress Bar (if watching) -->
+                            <Rectangle Height="4"
+                                       VerticalAlignment="Bottom"
+                                       HorizontalAlignment="Left"
+                                       Fill="{StaticResource SystemControlHighlightAccentBrush}"
+                                       Visibility="{Binding UserData.PlayedPercentage, Converter={StaticResource ProgressBarVisibilityConverter}, FallbackValue=Collapsed}">
+                                <Rectangle.Width>
+                                    <Binding Path="UserData.PlayedPercentage"
+                                             Converter="{StaticResource PercentageToWidthConverter}"
+                                             ConverterParameter="240" FallbackValue="0" />
+                                </Rectangle.Width>
+                            </Rectangle>
+                        </Grid>
+                    </Border>
+
+                    <!-- Episode Info -->
+                    <StackPanel Grid.Row="1" Margin="4,4,4,0">
+                        <TextBlock Text="{Binding Name}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SeriesName}"
+                                   FontSize="11"
+                                   Opacity="0.6"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <!-- Compact Album Template for Grid Views -->
+            <DataTemplate x:Key="CompactAlbumTemplate">
+                <Grid Width="150">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="130" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Square Album Art -->
+                    <Border Grid.Row="0"
+                            Width="130"
+                            Height="130"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Background="{StaticResource SystemChromeMediumBrush}">
+                        <Image Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                               Stretch="UniformToFill" />
+                    </Border>
+
+                    <!-- Album Name -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding Name}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               Margin="0,2,0,0" />
+
+                    <!-- Artist Name -->
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding AlbumArtist}"
+                               FontSize="11"
+                               Opacity="0.6"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               Margin="0,0,0,2" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Album/Music Template with Square Aspect Ratio -->
+            <DataTemplate x:Key="AlbumPosterTemplate">
+                <Grid Width="200" MinHeight="250">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="200" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Square Album Art -->
+                    <Border Grid.Row="0">
+                        <Grid>
+                            <Image
+                                Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                                Stretch="UniformToFill" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Album Name -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding Name}"
+                               Style="{StaticResource StandardBodyTextStyle}"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,8,0,0" />
+
+                    <!-- Artist/Album Info -->
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding Converter={StaticResource MediaTextConverter}}"
+                               Style="{StaticResource StandardCaptionTextStyle}"
+                               Opacity="0.6"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,4,0,8" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Additional Missing Styles -->
+            <Style x:Key="TextBlockButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Padding="{TemplateBinding Padding}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver" />
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter"
+                                                                               Storyboard.TargetProperty="Foreground">
+                                                    <DiscreteObjectKeyFrame KeyTime="0"
+                                                                            Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="StandardMediaGridStyle" TargetType="GridView">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="TabNavigation" Value="Once" />
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Disabled" />
+                <Setter Property="ScrollViewer.IsHorizontalRailEnabled" Value="False" />
+                <Setter Property="ScrollViewer.VerticalScrollMode" Value="Enabled" />
+                <Setter Property="ScrollViewer.IsVerticalRailEnabled" Value="True" />
+                <Setter Property="IsItemClickEnabled" Value="True" />
+                <Setter Property="SelectionMode" Value="None" />
+            </Style>
+
+            <Style x:Key="MediaItemTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="32" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="MaxLines" Value="2" />
+            </Style>
+
+            <!-- Filter Button Styles -->
+            <Style x:Key="FilterButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource SystemChromeMediumBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="Margin" Value="{StaticResource CompactControlMargin}" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="ActiveFilterButtonStyle" TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
+            </Style>
+
+            <!-- Data Templates -->
+            <DataTemplate x:Key="ContinueWatchingItemTemplate">
+                <Grid Width="400" Height="225">
+                    <!-- Background Image -->
+                    <Border Background="Black">
+                        <Image
+                            Source="{Binding Converter={StaticResource ImageConverter}, ConverterParameter=Backdrop}"
+                            Stretch="Uniform"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Subtle Dark Overlay at Bottom -->
+                    <Border VerticalAlignment="Bottom"
+                            Height="100">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="Transparent" Offset="0" />
+                                <GradientStop Color="#BB000000" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+
+                    <!-- Text Content -->
+                    <Border VerticalAlignment="Bottom"
+                            Padding="12,8,12,12"
+                            MinHeight="60"
+                            HorizontalAlignment="Stretch">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name, FallbackValue='[No Title]', TargetNullValue='[No Title]'}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Text="{Binding Converter={StaticResource ContinueWatchingSubtitleConverter}, FallbackValue='[No Subtitle]'}"
+                                FontSize="14"
+                                Foreground="White"
+                                Opacity="0.9"
+                                TextWrapping="NoWrap"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Progress Bar -->
+                    <Rectangle Height="6"
+                               VerticalAlignment="Bottom"
+                               HorizontalAlignment="Left"
+                               Fill="{StaticResource AppAccentBrush}"
+                               Visibility="{Binding UserData.PlayedPercentage, Converter={StaticResource ProgressBarVisibilityConverter}, FallbackValue=Collapsed}">
+                        <Rectangle.Width>
+                            <Binding Path="UserData.PlayedPercentage"
+                                     Converter="{StaticResource PercentageToWidthConverter}" ConverterParameter="400"
+                                     FallbackValue="0" />
+                        </Rectangle.Width>
+                    </Rectangle>
+                </Grid>
+            </DataTemplate>
+
+            <!-- Converters -->
+            <!-- Visibility Converters - Using consolidated VisibilityConverter -->
+            <visibilityConverters:VisibilityConverter x:Key="VisibilityConverter" />
+            <visibilityConverters:VisibilityConverter x:Key="BooleanToVisibilityConverter" ConversionType="Boolean" />
+            <visibilityConverters:VisibilityConverter x:Key="BoolToVisibility" ConversionType="Boolean" />
+            <visibilityConverters:VisibilityConverter x:Key="InverseBooleanToVisibilityConverter"
+                                                      ConversionType="Inverse" />
+            <visibilityConverters:VisibilityConverter x:Key="NullableToVisibilityConverter" ConversionType="Nullable" />
+            <visibilityConverters:VisibilityConverter x:Key="ProgressBarVisibilityConverter"
+                                                      ConversionType="ProgressBar" />
+            <visibilityConverters:VisibilityConverter x:Key="UnwatchedIndicatorVisibilityConverter"
+                                                      ConversionType="UnwatchedIndicator" />
+            <visibilityConverters:VisibilityConverter x:Key="FirstItemToVisibilityConverter" ConversionType="FirstItem" />
+
+            <!-- Data Converters -->
+            <dataConverters:PercentageToWidthConverter x:Key="PercentageToWidthConverter" />
+            <dataConverters:PlayedToOpacityConverter x:Key="PlayedToOpacityConverter" />
+            <dataConverters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+
+            <!-- Image Converters -->
+            <imageConverters:ImageConverter x:Key="ImageConverter" />
+            <imageConverters:LibraryIconConverter x:Key="LibraryIconConverter" />
+
+            <!-- Text Converters -->
+            <textConverters:MediaTextConverter x:Key="MediaTextConverter" />
+            <textConverters:YearDisplayConverter x:Key="YearDisplayConverter" />
+            <textConverters:RuntimeTicksConverter x:Key="RuntimeTicksConverter" />
+            <textConverters:SortFilterConverter x:Key="SortFilterConverter" />
+
+            <!-- Text Converters -->
+            <textConverters:MediaTextConverter x:Key="ContinueWatchingSubtitleConverter"
+                                               ConversionType="ContinueWatching" />
+            <textConverters:MediaTextConverter x:Key="MediaSubtitleConverter" ConversionType="Media" />
+            <textConverters:MediaTextConverter x:Key="RecentlyAddedSubtitleConverter" ConversionType="RecentlyAdded" />
+            <textConverters:MediaTextConverter x:Key="RecentlyAddedTitleConverter" ConversionType="RecentlyAddedTitle" />
+            <textConverters:SortFilterConverter x:Key="SortOrderToIconConverter" />
+            <textConverters:SortFilterConverter x:Key="SortOrderToTextConverter" />
+            <textConverters:SortFilterConverter x:Key="FilterCountToTextConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

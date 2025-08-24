@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:BasePage
+    x:Class="Gelatinarm.Views.ArtistDetailsPage"
+    x:Name="Page"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:controls="using:Gelatinarm.Controls"
+    xmlns:converters="using:Gelatinarm.Converters.Visibility"
+    mc:Ignorable="d"
+    x:DefaultBindMode="OneWay"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}"
+    NavigationCacheMode="Enabled">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Views/DetailsPage.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters -->
+            <converters:VisibilityConverter x:Key="VisibilityConverter" />
+            
+            <!-- Track Button Style -->
+            <Style x:Key="TrackButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="8,4" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="UseSystemFocusVisuals" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  Padding="{TemplateBinding Padding}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver" />
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetProperty="Background"
+                                                                               Storyboard.TargetName="RootGrid">
+                                                    <DiscreteObjectKeyFrame KeyTime="0"
+                                                                            Value="{StaticResource SystemControlBackgroundListMediumBrush}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <ScrollViewer x:Name="ContentScrollViewer" VerticalScrollBarVisibility="Auto"
+                      VerticalScrollMode="Auto"
+                      HorizontalScrollMode="Disabled"
+                      Padding="48,24,48,48"
+                      XYFocusKeyboardNavigation="Enabled">
+            <StackPanel>
+
+                <!-- Artist Header Section -->
+                <Grid Background="{StaticResource SystemChromeLowBrush}"
+                      Margin="0,0,0,24"
+                      Height="300"
+                      XYFocusKeyboardNavigation="Enabled"
+                      AllowFocusOnInteraction="True">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Artist Image -->
+                    <Border Grid.Column="0"
+                            Margin="24"
+
+                            Background="{StaticResource SystemControlBackgroundChromeMediumBrush}">
+                        <Image Source="{x:Bind ViewModel.ArtistImage}"
+                               Stretch="UniformToFill" />
+                    </Border>
+
+                    <!-- Artist Info -->
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Margin="0,24,24,24">
+                        <TextBlock Text="{x:Bind ViewModel.ArtistName}"
+                                   Style="{StaticResource PageTitleTextStyle}"
+                                   TextWrapping="Wrap" />
+
+                        <TextBlock Text="{x:Bind ViewModel.Overview}"
+                                   Style="{StaticResource StandardBodyTextStyle}"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="WordEllipsis"
+                                   Opacity="0.8" />
+
+                        <!-- Action Buttons -->
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8"
+                                    Margin="0,12,0,0">
+                            <Button x:Name="PlayAllButton"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="12,0"
+                                    Command="{x:Bind ViewModel.PlayCommand}"
+                                    XYFocusDown="{Binding ElementName=AlbumsItemsControl}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE768;" FontSize="16" />
+                                    <TextBlock Text="Play All" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShuffleButton"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="12,0"
+                                    Command="{x:Bind ViewModel.ShuffleCommand}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE8B1;" FontSize="16" />
+                                    <TextBlock Text="Shuffle" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="InstantMixButton"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="12,0"
+                                    Command="{x:Bind ViewModel.InstantMixCommand}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE8E5;" FontSize="16" />
+                                    <TextBlock Text="Instant Mix" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="FavoriteButton"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="12,0"
+                                    Command="{x:Bind ViewModel.ToggleFavoriteCommand}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <FontIcon x:Name="FavoriteIcon"
+                                              Glyph="&#xE734;"
+                                              FontSize="16" />
+                                    <TextBlock Text="{x:Bind ViewModel.FavoriteButtonText}" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Albums Section -->
+                <StackPanel Margin="24,0,24,24">
+                    <TextBlock Text="Albums"
+                               Style="{StaticResource SubheaderTextStyle}"
+                               Margin="0,0,0,12" />
+
+                    <!-- Albums List -->
+                    <ItemsControl x:Name="AlbumsItemsControl"
+                                  ItemsSource="{x:Bind ViewModel.Albums}"
+                                  IsTabStop="False"
+                                  XYFocusUp="{Binding ElementName=PlayAllButton}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,16"
+                                        Background="{StaticResource SystemChromeMediumLowColor}"
+
+                                        Padding="16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Album Art -->
+                                        <Image Grid.Column="0"
+                                               Width="150"
+                                               Height="150"
+                                               Source="{Binding Album, Converter={StaticResource ImageConverter}, ConverterParameter=Primary}"
+                                               Stretch="UniformToFill"
+                                               IsHitTestVisible="False" />
+
+                                        <!-- Track List -->
+                                        <StackPanel Grid.Column="1"
+                                                    Margin="16,0,0,0">
+                                            <TextBlock Text="{Binding Album.Name}"
+                                                       Style="{StaticResource SubheaderTextStyle}"
+                                                       Margin="0,0,0,8" />
+
+                                            <TextBlock Text="{Binding Album.ProductionYear}"
+                                                       Style="{StaticResource StandardCaptionTextStyle}"
+                                                       Opacity="0.7"
+                                                       Margin="0,0,0,12" />
+
+                                            <!-- Album Tracks -->
+                                            <ListView ItemsSource="{Binding Tracks}"
+                                                      SelectionMode="None"
+                                                      IsItemClickEnabled="True"
+                                                      ScrollViewer.VerticalScrollMode="Auto"
+                                                      ScrollViewer.HorizontalScrollMode="Disabled"
+                                                      IsTabStop="True"
+                                                      PreviewKeyDown="OnPreviewKeyDown">
+                                                <ListView.ItemContainerStyle>
+                                                    <Style TargetType="ListViewItem">
+                                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                        <Setter Property="Padding" Value="0" />
+                                                        <Setter Property="Margin" Value="0,2" />
+                                                        <Setter Property="MinHeight" Value="0" />
+                                                        <Setter Property="UseSystemFocusVisuals" Value="True" />
+                                                    </Style>
+                                                </ListView.ItemContainerStyle>
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource TrackButtonStyle}"
+                                                                Click="OnTrackButtonClick"
+                                                                Tag="{Binding}">
+                                                            <Button.ContextFlyout>
+                                                                <MenuFlyout>
+                                                                    <MenuFlyoutItem Text="Play"
+                                                                        Command="{Binding DataContext.PlayTrackCommand, ElementName=Page}"
+                                                                        CommandParameter="{Binding}">
+                                                                        <MenuFlyoutItem.Icon>
+                                                                            <SymbolIcon Symbol="Play" />
+                                                                        </MenuFlyoutItem.Icon>
+                                                                    </MenuFlyoutItem>
+                                                                    <MenuFlyoutItem Text="Play Next"
+                                                                        Command="{Binding DataContext.PlayNextCommand, ElementName=Page}"
+                                                                        CommandParameter="{Binding}">
+                                                                        <MenuFlyoutItem.Icon>
+                                                                            <SymbolIcon Symbol="Next" />
+                                                                        </MenuFlyoutItem.Icon>
+                                                                    </MenuFlyoutItem>
+                                                                    <MenuFlyoutItem Text="Add to Queue"
+                                                                        Command="{Binding DataContext.AddToQueueCommand, ElementName=Page}"
+                                                                        CommandParameter="{Binding}">
+                                                                        <MenuFlyoutItem.Icon>
+                                                                            <SymbolIcon Symbol="Add" />
+                                                                        </MenuFlyoutItem.Icon>
+                                                                    </MenuFlyoutItem>
+                                                                    <MenuFlyoutSeparator />
+                                                                    <MenuFlyoutItem Text="Start Instant Mix"
+                                                                        Command="{Binding DataContext.StartInstantMixCommand, ElementName=Page}"
+                                                                        CommandParameter="{Binding}">
+                                                                        <MenuFlyoutItem.Icon>
+                                                                            <FontIcon Glyph="&#xE8E5;" />
+                                                                        </MenuFlyoutItem.Icon>
+                                                                    </MenuFlyoutItem>
+                                                                </MenuFlyout>
+                                                            </Button.ContextFlyout>
+                                                            <Grid Padding="8,4">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="50" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <!-- Track Number (shows disc-track for multi-disc albums) -->
+                                                                <TextBlock Grid.Column="0"
+                                                                           Text="{Binding Overview}"
+                                                                           Opacity="0.6"
+                                                                           VerticalAlignment="Center" />
+
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Name}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="8,0" />
+
+                                                                <TextBlock Grid.Column="2"
+                                                                           Text="{Binding RunTimeTicks, Converter={StaticResource RuntimeConverter}, ConverterParameter=full}"
+                                                                           Opacity="0.6"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="12,0,16,0" />
+                                                            </Grid>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+
+        <!-- Loading State -->
+        <controls:LoadingOverlay x:Name="LoadingOverlay"
+                                 IsLoading="{x:Bind ViewModel.IsLoading}"
+                                 LoadingText="Loading artist details..." />
+    </Grid>
+</views:BasePage>

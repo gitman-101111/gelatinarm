@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<controls:BaseControl
+    x:Class="Gelatinarm.Controls.PlaybackSettings"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Gelatinarm.Controls"
+    mc:Ignorable="d"
+    d:DesignHeight="600"
+    d:DesignWidth="400">
+
+    <ScrollViewer>
+        <Grid Width="400" Padding="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Xbox Client Settings"
+                       Style="{StaticResource SubheaderTextStyle}"
+                       Margin="0,0,0,12" />
+
+            <StackPanel Grid.Row="1">
+                <!-- Playback Behavior -->
+                <TextBlock Text="Playback Behavior"
+                           Style="{StaticResource StandardBodyTextStyle}"
+                           Margin="0,12,0,0" />
+
+                <ToggleSwitch x:Name="AutoSkipIntroToggle"
+                              Header="Skip Intro When Available"
+                              OnContent="Enabled"
+                              OffContent="Disabled"
+                              Toggled="AutoSkipIntroToggle_Toggled" />
+
+                <!-- Language Settings -->
+                <TextBlock Text="Language Settings (Global Default)"
+                           Style="{StaticResource StandardBodyTextStyle}"
+                           Margin="0,12,0,0" />
+                <TextBlock Text="Note: These are global defaults. For per-item settings, use the playback menu."
+                           Style="{StaticResource StandardCaptionTextStyle}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
+
+                <!-- UI Settings -->
+                <TextBlock Text="Xbox UI Settings"
+                           Style="{StaticResource StandardBodyTextStyle}"
+                           Margin="0,12,0,0" />
+
+                <ComboBox x:Name="VideoStretchModeCombo"
+                          Header="Video Display Mode"
+                          SelectionChanged="VideoStretchModeCombo_SelectionChanged">
+                    <ComboBoxItem>Show Black Bars (Default)</ComboBoxItem>
+                    <ComboBoxItem>Fill Screen</ComboBoxItem>
+                </ComboBox>
+
+                <TextBlock Text="Overlay Settings" Style="{StaticResource BaseTextBlockStyle}" Margin="0,12,0,0" />
+
+                <Slider x:Name="ControlsHideDelayBox"
+                        Header="Controls Hide Delay (seconds)"
+                        Minimum="1"
+                        Maximum="30"
+                        Value="3"
+                        ValueChanged="ControlsHideDelayBox_ValueChanged"
+                        StepFrequency="1"
+                        TickFrequency="5"
+                        SnapsTo="StepValues" />
+
+                <!-- Save Button -->
+                <Button x:Name="SaveButton"
+                        Content="Save as Default Settings"
+                        HorizontalAlignment="Stretch"
+                        Height="32"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Margin="0,24,0,0"
+                        Click="SaveButton_Click" />
+
+                <!-- Server Settings Link -->
+                <HyperlinkButton x:Name="ServerSettingsLink"
+                                 Content="Configure language and auto-play preferences in server settings"
+                                 HorizontalAlignment="Center"
+                                 Click="ServerSettingsLink_Click" />
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</controls:BaseControl>

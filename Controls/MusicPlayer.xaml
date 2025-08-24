@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<controls:BaseControl
+    x:Name="MusicPlayerRoot"
+    x:Class="Gelatinarm.Controls.MusicPlayer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Gelatinarm.Controls"
+    mc:Ignorable="d"
+    d:DesignHeight="80"
+    d:DesignWidth="800"
+    Height="80">
+    <Grid>
+        <!-- Main MusicPlayer Content -->
+        <Grid Background="{StaticResource SystemChromeMediumLowBrush}"
+              AllowFocusOnInteraction="False"
+              XYFocusKeyboardNavigation="Enabled">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="96" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Album Art -->
+            <Border Grid.Column="0"
+                    Width="64"
+                    Height="64"
+                    Margin="8">
+                <Image x:Name="AlbumArt"
+                       Stretch="UniformToFill" />
+            </Border>
+
+            <!-- Track Info -->
+            <StackPanel Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Margin="8,0">
+                <TextBlock x:Name="TrackName"
+                           Style="{StaticResource StandardBodyTextStyle}"
+                           TextTrimming="CharacterEllipsis"
+                           FontWeight="SemiBold"
+                           Foreground="White" />
+                <TextBlock x:Name="ArtistName"
+                           Style="{StaticResource StandardCaptionTextStyle}"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="#CCFFFFFF" />
+
+                <!-- Progress Bar with Time -->
+                <Grid Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Current Time -->
+                    <TextBlock x:Name="CurrentTimeText"
+                               Grid.Column="0"
+                               Text="0:00"
+                               Style="{StaticResource SmallCaptionTextStyle}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"
+                               Foreground="#CCFFFFFF" />
+
+                    <!-- Progress Bar -->
+                    <Grid Grid.Column="1"
+                          VerticalAlignment="Center">
+                        <Rectangle Height="2"
+                                   Fill="{StaticResource SystemControlBackgroundBaseMediumLowBrush}" />
+                        <Rectangle x:Name="ProgressBar"
+                                   Height="2"
+                                   HorizontalAlignment="Left"
+                                   Fill="{StaticResource SystemControlHighlightAccentBrush}" />
+                    </Grid>
+
+                    <!-- Total Time -->
+                    <TextBlock x:Name="TotalTimeText"
+                               Grid.Column="2"
+                               Text="0:00"
+                               Style="{StaticResource SmallCaptionTextStyle}"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"
+                               Foreground="#CCFFFFFF" />
+                </Grid>
+            </StackPanel>
+
+            <!-- Playback Controls -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="8,0">
+
+                <!-- Shuffle -->
+                <ToggleButton x:Name="ShuffleButton"
+                              Width="40"
+                              Height="40"
+                              Margin="0,0,2,0"
+                              IsTabStop="True"
+                              Opacity="0.6">
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                                            <VisualStateManager.VisualStateGroups>
+                                                <VisualStateGroup x:Name="CommonStates">
+                                                    <VisualState x:Name="Normal" />
+                                                    <VisualState x:Name="PointerOver" />
+                                                    <VisualState x:Name="Pressed">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames
+                                                                Storyboard.TargetName="RootGrid"
+                                                                Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#66FFFFFF" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Disabled">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames
+                                                                Storyboard.TargetName="ContentPresenter"
+                                                                Storyboard.TargetProperty="Opacity">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.5" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Checked" />
+                                                    <VisualState x:Name="CheckedPointerOver" />
+                                                    <VisualState x:Name="CheckedPressed">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames
+                                                                Storyboard.TargetName="RootGrid"
+                                                                Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#66FFFFFF" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                </VisualStateGroup>
+                                            </VisualStateManager.VisualStateGroups>
+                                            <ContentPresenter x:Name="ContentPresenter"
+                                                              Content="{TemplateBinding Content}"
+                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                              Padding="{TemplateBinding Padding}" />
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ToggleButton.Style>
+                    <FontIcon Glyph="&#xE8B1;" FontSize="16" />
+                </ToggleButton>
+
+                <!-- Previous -->
+                <Button x:Name="PreviousButton"
+                        Width="40"
+                        Height="40"
+                        Margin="0,0,2,0"
+                        Style="{StaticResource TransparentButtonStyle}"
+                        IsTabStop="True">
+                    <FontIcon Glyph="&#xE892;" FontSize="16" />
+                </Button>
+
+                <!-- Rewind -->
+                <Button x:Name="RewindButton"
+                        Width="40"
+                        Height="40"
+                        Margin="2,0,2,0"
+                        Style="{StaticResource TransparentButtonStyle}"
+
+                        IsTabStop="True">
+                    <FontIcon Glyph="&#xEB9E;" FontSize="16" />
+                </Button>
+
+                <!-- Play/Pause -->
+                <Button x:Name="PlayPauseButton"
+                        Width="48"
+                        Height="48"
+                        Margin="2,0,2,0"
+                        Style="{StaticResource TransparentButtonStyle}"
+
+                        IsTabStop="True">
+                    <FontIcon x:Name="PlayPauseIcon"
+                              Glyph="&#xE768;"
+                              FontSize="20" />
+                </Button>
+
+                <!-- Fast Forward -->
+                <Button x:Name="FastForwardButton"
+                        Width="40"
+                        Height="40"
+                        Margin="2,0,2,0"
+                        Style="{StaticResource TransparentButtonStyle}"
+
+                        IsTabStop="True">
+                    <FontIcon Glyph="&#xEB9D;" FontSize="16" />
+                </Button>
+
+                <!-- Next -->
+                <Button x:Name="NextButton"
+                        Width="40"
+                        Height="40"
+                        Margin="2,0,0,0"
+                        Style="{StaticResource TransparentButtonStyle}"
+                        IsTabStop="True">
+                    <FontIcon Glyph="&#xE893;" FontSize="16" />
+                </Button>
+
+                <!-- Repeat -->
+                <Button x:Name="RepeatButton"
+                        Width="40"
+                        Height="40"
+                        Margin="2,0,0,0"
+                        Style="{StaticResource TransparentButtonStyle}"
+                        IsTabStop="True"
+                        Click="RepeatButton_Click"
+                        Opacity="0.6">
+                    <FontIcon x:Name="RepeatIcon" Glyph="&#xE8EE;" FontSize="16" />
+                </Button>
+            </StackPanel>
+
+            <!-- Menu Button -->
+            <Button Grid.Column="3"
+                    x:Name="MenuButton"
+                    Width="40"
+                    Height="40"
+                    Margin="4"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    BorderThickness="0"
+                    IsTabStop="True">
+                <FontIcon Glyph="&#xE712;" FontSize="16" />
+                <Button.Flyout>
+                    <MenuFlyout x:Name="MenuFlyout" Placement="Top">
+                        <MenuFlyoutItem x:Name="GoToArtistItem"
+                                        Text="Go to Artist"
+                                        Click="GoToArtist_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE77B;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem x:Name="GoToAlbumItem"
+                                        Text="Go to Album"
+                                        Click="GoToAlbum_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE93C;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem x:Name="InstantMixItem"
+                                        Text="Start Instant Mix"
+                                        Click="StartInstantMix_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8E5;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem x:Name="ClearQueueItem"
+                                        Text="Clear Queue"
+                                        Click="ClearQueue_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE74D;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem x:Name="ClosePlayerItem"
+                                        Text="Close Player"
+                                        Click="ClosePlayer_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE711;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+        </Grid>
+    </Grid>
+</controls:BaseControl>

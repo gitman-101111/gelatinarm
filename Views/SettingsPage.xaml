@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:BasePage
+    x:Class="Gelatinarm.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:viewmodels="using:Gelatinarm.ViewModels"
+    mc:Ignorable="d"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}"
+    d:DataContext="{d:DesignInstance Type=viewmodels:SettingsViewModel}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0"
+              Background="{StaticResource SystemChromeLowBrush}"
+              Height="60">
+            <TextBlock Text="Settings"
+                       Style="{StaticResource TitleTextStyle}"
+                       Margin="{StaticResource ContentMargin}"
+                       VerticalAlignment="Center" />
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" Padding="{StaticResource SafeAreaPadding}">
+            <StackPanel Style="{StaticResource StandardPageContainerStyle}">
+
+                <!-- Server Settings -->
+                <StackPanel x:Name="ServerSettings" Margin="{StaticResource SectionMargin}">
+                    <TextBlock Text="Server" Style="{StaticResource SectionHeaderTextStyle}" />
+
+                    <Button Content="Sign Out"
+                            Command="{x:Bind TypedViewModel.ServerSettings.SignOutCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+
+                    <TextBlock Text="Connection" Style="{StaticResource SubsectionHeaderTextStyle}"
+                               Margin="{StaticResource HeaderMargin}" />
+                    <StackPanel>
+                        <TextBlock>
+                            <Run Text="Connection Timeout: " />
+                            <Run Text="{x:Bind TypedViewModel.ServerSettings.ConnectionTimeout, Mode=OneWay}" />
+                            <Run Text=" seconds" />
+                        </TextBlock>
+                        <Slider Minimum="5"
+                                Maximum="120"
+                                StepFrequency="5"
+                                Value="{x:Bind TypedViewModel.ServerSettings.ConnectionTimeout, Mode=TwoWay}"
+                                Style="{StaticResource StandardSliderStyle}" />
+                        <TextBlock Text="Changes to connection timeout require app restart to take effect."
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   Opacity="0.7"
+                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap"
+                                   FontSize="12" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Accessibility Settings -->
+                <StackPanel x:Name="AccessibilitySettings" Margin="{StaticResource SectionMargin}">
+                    <TextBlock Text="Accessibility" Style="{StaticResource SectionHeaderTextStyle}" />
+                    <StackPanel>
+                        <TextBlock>
+                            <Run Text="Text Size: " />
+                            <Run Text="{x:Bind TypedViewModel.TextSize, Mode=OneWay, FallbackValue=14}" />
+                            <Run Text="pt" />
+                        </TextBlock>
+                        <Slider Minimum="12" Maximum="24"
+                                StepFrequency="1"
+                                Value="{x:Bind TypedViewModel.TextSize, Mode=TwoWay}"
+                                Style="{StaticResource StandardSliderStyle}" />
+                    </StackPanel>
+
+                </StackPanel>
+
+                <!-- Audio Settings -->
+                <StackPanel x:Name="AudioSettings" Margin="{StaticResource SectionMargin}">
+                    <TextBlock Text="Audio" Style="{StaticResource SectionHeaderTextStyle}" />
+
+                    <ToggleSwitch Header="Night Mode"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.IsNightModeEnabled, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock
+                        Text="Reduces the difference between loud and quiet sounds. Perfect for late-night viewing when you don't want explosions to wake others but still need to hear dialogue clearly."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+                </StackPanel>
+
+                <!-- Video Settings -->
+                <StackPanel x:Name="VideoSettings" Margin="{StaticResource SectionMargin}">
+                    <TextBlock Text="Video" Style="{StaticResource SectionHeaderTextStyle}" />
+
+                    <ComboBox Header="Display Mode"
+                              x:Name="VideoStretchModeComboBox"
+                              SelectedValuePath="Tag"
+                              SelectedValue="{x:Bind TypedViewModel.PlaybackSettings.VideoStretchMode, Mode=TwoWay}"
+                              Style="{StaticResource StandardComboBoxStyle}">
+                        <ComboBoxItem Content="Original Aspect Ratio" Tag="Uniform" />
+                        <ComboBoxItem Content="Fill Screen (Zoom)" Tag="UniformToFill" />
+                    </ComboBox>
+                    <TextBlock
+                        Text="Original Aspect Ratio: Shows the entire video with black bars if needed. Fill Screen: Zooms in to fill your display, may crop edges."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+                </StackPanel>
+
+                <!-- Playback Settings -->
+                <StackPanel x:Name="PlaybackSettings" Margin="{StaticResource SectionMargin}">
+                    <TextBlock Text="Playback" Style="{StaticResource SectionHeaderTextStyle}" />
+
+
+                    <ToggleSwitch Header="Auto-Play Next Episode"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.AutoPlayNextEpisode, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock
+                        Text="Automatically starts the next episode when the current one ends. Great for binge-watching TV shows."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+
+                    <ToggleSwitch Header="Pause When Xbox Guide Opens"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.PauseOnFocusLoss, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock
+                        Text="Automatically pauses playback when you open the Xbox Guide or switch apps. Prevents missing content while multitasking."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+
+                    <ToggleSwitch Header="Auto-Skip Intros"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.AutoSkipIntros, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}"
+                                  OnContent="Skip intros automatically"
+                                  OffContent="Show intro skip button" />
+                    <TextBlock
+                        Text="When enabled, automatically skips TV show intros. When disabled, shows a button to skip manually. Requires server-side intro detection."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+
+                    <StackPanel>
+                        <TextBlock>
+                            <Run Text="Controls Auto-Hide Delay: " />
+                            <Run Text="{x:Bind TypedViewModel.PlaybackSettings.ControlsHideDelay, Mode=OneWay}" />
+                            <Run Text=" seconds" />
+                        </TextBlock>
+                        <Slider Minimum="1"
+                                Maximum="30"
+                                Value="{x:Bind TypedViewModel.PlaybackSettings.ControlsHideDelay, Mode=TwoWay}"
+                                StepFrequency="1"
+                                TickFrequency="5"
+                                SnapsTo="StepValues"
+                                Style="{StaticResource StandardSliderStyle}" />
+                    </StackPanel>
+
+
+                    <ToggleSwitch Header="Direct Play"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.EnableDirectPlay, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}"
+                                  OnContent="Stream original files when compatible"
+                                  OffContent="Always convert video for compatibility" />
+                    <TextBlock
+                        Text="When enabled, plays media files directly without conversion if your device supports the format. Provides best quality and uses less server resources. Disable if you experience playback issues."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+
+                    <ToggleSwitch Header="Audio Direct Stream"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.AllowAudioStreamCopy, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}"
+                                  OnContent="Stream original audio without conversion"
+                                  OffContent="Allow audio conversion for compatibility" />
+                    <TextBlock
+                        Text="Streams audio in its original format when possible. Provides best audio quality but may not work with all audio formats. Disable if you have no sound or audio sync issues."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
+
+
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</views:BasePage>

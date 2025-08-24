@@ -1,0 +1,640 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:BasePage
+    x:Class="Gelatinarm.Views.LibraryPage"
+    x:Name="Page"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Gelatinarm.Models"
+    xmlns:local="using:Gelatinarm.Views"
+    xmlns:controls="using:Gelatinarm.Controls"
+    mc:Ignorable="d"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+
+    <views:BasePage.Resources>
+        <!-- Alphabet Button Style -->
+        <Style x:Key="AlphabetButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="2,2" />
+            <Setter Property="MinWidth" Value="24" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+            <Setter Property="IsTabStop" Value="True" />
+        </Style>
+
+        <!-- Selected Alphabet Button Style -->
+    </views:BasePage.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="40" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Fixed Header with Filters -->
+        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="{StaticResource SystemChromeLowBrush}"
+                BorderBrush="{StaticResource SystemChromeHighBrush}"
+                BorderThickness="0,0,0,1"
+                Margin="0,0,0,0"
+                Padding="25,0,25,0">
+            <Grid>
+                <!-- Single Row Layout -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Library Name with Count as subtitle -->
+                <StackPanel Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Margin="{StaticResource HeaderMargin}">
+                    <TextBlock Text="{x:Bind ViewModel.LibraryName, Mode=OneWay}"
+                               Style="{StaticResource SectionHeaderTextStyle}" Margin="0" />
+                    <TextBlock Text="{x:Bind ViewModel.ItemCountSubtitle, Mode=OneWay}"
+                               FontSize="12"
+                               Opacity="0.7"
+                               Visibility="{x:Bind ViewModel.ItemCountSubtitle, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+                </StackPanel>
+
+                <!-- Centered Controls -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <!-- Music View Type Dropdown - Only visible for music libraries -->
+                    <ComboBox x:Name="MusicViewComboBox"
+                              Visibility="{x:Bind ViewModel.ShowShuffleButton, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              PlaceholderText="View"
+                              HorizontalAlignment="Left" MinWidth="100"
+                              Height="32"
+                              VerticalAlignment="Center"
+                              SelectionChanged="MusicViewComboBox_SelectionChanged"
+                              SelectedIndex="0"
+                              Style="{StaticResource LibraryHeaderComboBoxStyle}">
+                        <ComboBoxItem Content="Artists" Tag="Artists" />
+                        <ComboBoxItem Content="Albums" Tag="Albums" />
+                    </ComboBox>
+                    <!-- Sort By ComboBox - MOVED FIRST -->
+                    <ComboBox x:Name="SortByComboBox"
+                              PlaceholderText="Sort By"
+                              Width="120"
+                              Height="32"
+                              VerticalAlignment="Center"
+                              Style="{StaticResource LibraryHeaderComboBoxStyle}"
+                              SelectedIndex="{x:Bind ViewModel.SelectedSortIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="Name" />
+                        <ComboBoxItem Content="Date Added" />
+                        <ComboBoxItem Content="Release Date" />
+                        <ComboBoxItem Content="Community Rating" />
+                        <ComboBoxItem Content="Critic Rating" />
+                        <ComboBoxItem Content="Random" />
+                    </ComboBox>
+
+                    <!-- Sort Order Button - WIDER -->
+                    <Button x:Name="SortOrderButton"
+                            Margin="{StaticResource CompactControlMargin}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Width="120"
+                            VerticalAlignment="Center"
+                            Click="SortOrderButton_Click">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <FontIcon
+                                Glyph="{x:Bind ViewModel.IsAscending, Mode=OneWay, Converter={StaticResource SortFilterConverter}, ConverterParameter=Icon}"
+                                FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock
+                                Text="{x:Bind ViewModel.IsAscending, Mode=OneWay, Converter={StaticResource SortFilterConverter}, ConverterParameter=Text}"
+                                VerticalAlignment="Center" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Search Button -->
+                    <Button x:Name="SearchButton"
+                            Margin="{StaticResource CompactControlMargin}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Width="40"
+                            VerticalAlignment="Center"
+                            Click="SearchButton_Click"
+                            ToolTipService.ToolTip="Search">
+                        <FontIcon Glyph="&#xE094;" FontSize="16" VerticalAlignment="Center" />
+                    </Button>
+
+                    <!-- Filter Button that opens multi-select flyout -->
+                    <Button x:Name="FilterButton"
+                            Margin="{StaticResource CompactControlMargin}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Width="40"
+                            VerticalAlignment="Center"
+                            ToolTipService.ToolTip="Filters">
+                        <Grid>
+                            <FontIcon Glyph="&#xE71C;" FontSize="16" VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
+                            <!-- Filter count badge -->
+                            <Border Background="{ThemeResource SystemAccentColor}"
+                                    CornerRadius="6"
+                                    MinWidth="12"
+                                    Height="12"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    Margin="0,-4,-4,0"
+                                    Padding="2,0"
+                                    Visibility="{x:Bind ViewModel.HasActiveFilters, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{x:Bind ViewModel.ActiveFilterCount, Mode=OneWay}"
+                                           FontSize="9"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                        <Button.Flyout>
+                            <Flyout x:Name="FilterFlyout" Placement="Full" Opening="FilterFlyout_Opening"
+                                    Opened="FilterFlyout_Opened" Closed="FilterFlyout_Closed">
+                                <Flyout.FlyoutPresenterStyle>
+                                    <Style TargetType="FlyoutPresenter">
+                                        <Setter Property="MaxWidth" Value="800" />
+                                        <Setter Property="MinWidth" Value="800" />
+                                        <Setter Property="MaxHeight" Value="800" />
+                                        <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Disabled" />
+                                        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                                        <Setter Property="IsTabStop" Value="False" />
+                                        <Setter Property="TabNavigation" Value="Once" />
+                                    </Style>
+                                </Flyout.FlyoutPresenterStyle>
+                                <Grid x:Name="FilterGrid" MinHeight="600" MaxHeight="800"
+                                      XYFocusKeyboardNavigation="Enabled">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Header -->
+                                    <TextBlock Grid.Row="0"
+                                               Text="Filter Options"
+                                               Style="{StaticResource SubheaderTextStyle}"
+                                               Margin="{StaticResource HeaderMargin}" />
+
+                                    <!-- Filter Lists -->
+                                    <ScrollViewer Grid.Row="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollMode="Disabled"
+                                                  VerticalScrollMode="Enabled"
+                                                  IsTabStop="False"
+                                                  TabNavigation="Once"
+                                                  Padding="{StaticResource HeaderMargin}">
+                                        <StackPanel>
+                                            <!-- Watched/Unwatched Filter -->
+                                            <Border BorderBrush="{StaticResource SystemControlForegroundBaseLowBrush}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="{StaticResource StandardControlMargin}"
+                                                    Visibility="{x:Bind ViewModel.ShowPlayedStatusFilter, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Status"
+                                                               Style="{StaticResource StandardBodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="{StaticResource StandardControlMargin}" />
+                                                    <ItemsControl
+                                                        ItemsSource="{x:Bind ViewModel.PlayedStatuses, Mode=OneWay}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:FilterItem">
+                                                                <CheckBox Content="{x:Bind Name}"
+                                                                          IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                          Margin="{StaticResource CompactControlMargin}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Genre Filter -->
+                                            <Border BorderBrush="{StaticResource SystemControlForegroundBaseLowBrush}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="{StaticResource StandardControlMargin}"
+                                                    Visibility="{x:Bind ViewModel.ShowGenreFilter, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Genres"
+                                                               Style="{StaticResource StandardBodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="{StaticResource StandardControlMargin}" />
+                                                    <ListView ItemsSource="{x:Bind ViewModel.Genres, Mode=OneWay}"
+                                                              SelectionMode="None"
+                                                              IsItemClickEnabled="False"
+                                                              TabNavigation="Once">
+                                                        <ListView.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="240"
+                                                                               MaximumRowsOrColumns="3" />
+                                                            </ItemsPanelTemplate>
+                                                        </ListView.ItemsPanel>
+                                                        <ListView.ItemContainerStyle>
+                                                            <Style TargetType="ListViewItem">
+                                                                <Setter Property="HorizontalContentAlignment"
+                                                                        Value="Stretch" />
+                                                                <Setter Property="Padding" Value="0" />
+                                                                <Setter Property="Margin" Value="0" />
+                                                                <Setter Property="MinHeight" Value="32" />
+                                                                <Setter Property="IsTabStop" Value="False" />
+                                                            </Style>
+                                                        </ListView.ItemContainerStyle>
+                                                        <ListView.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:FilterItem">
+                                                                <CheckBox Content="{x:Bind Name}"
+                                                                          IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                          Margin="{StaticResource CompactControlMargin}"
+                                                                          IsTabStop="True" />
+                                                            </DataTemplate>
+                                                        </ListView.ItemTemplate>
+                                                    </ListView>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Year Filter -->
+                                            <Border x:Name="YearFilterBorder"
+                                                    BorderBrush="{StaticResource SystemControlForegroundBaseLowBrush}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="{StaticResource StandardControlMargin}"
+                                                    Visibility="{x:Bind ViewModel.ShowYearFilter, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Years"
+                                                               Style="{StaticResource StandardBodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="{StaticResource StandardControlMargin}" />
+
+                                                    <!-- Decade Checkboxes -->
+                                                    <Grid x:Name="DecadesGrid" Margin="0,8,0,8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                        </Grid.RowDefinitions>
+
+                                                        <!-- Decades will be populated in code-behind -->
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Rating Filter -->
+                                            <Border x:Name="RatingFilterBorder"
+                                                    BorderBrush="{StaticResource SystemControlForegroundBaseLowBrush}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="{StaticResource StandardControlMargin}"
+                                                    Visibility="{x:Bind ViewModel.ShowRatingFilter, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Ratings"
+                                                               Style="{StaticResource StandardBodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="{StaticResource StandardControlMargin}" />
+                                                    <ListView x:Name="RatingsList"
+                                                              ItemsSource="{x:Bind ViewModel.Ratings, Mode=OneWay}"
+                                                              SelectionMode="None"
+                                                              IsItemClickEnabled="False"
+                                                              TabNavigation="Once">
+                                                        <ListView.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="240"
+                                                                               MaximumRowsOrColumns="3" />
+                                                            </ItemsPanelTemplate>
+                                                        </ListView.ItemsPanel>
+                                                        <ListView.ItemContainerStyle>
+                                                            <Style TargetType="ListViewItem">
+                                                                <Setter Property="HorizontalContentAlignment"
+                                                                        Value="Stretch" />
+                                                                <Setter Property="Padding" Value="0" />
+                                                                <Setter Property="Margin" Value="0" />
+                                                                <Setter Property="MinHeight" Value="32" />
+                                                                <Setter Property="IsTabStop" Value="False" />
+                                                            </Style>
+                                                        </ListView.ItemContainerStyle>
+                                                        <ListView.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:FilterItem">
+                                                                <CheckBox Content="{x:Bind Name}"
+                                                                          IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                          Margin="{StaticResource CompactControlMargin}"
+                                                                          IsTabStop="True" />
+                                                            </DataTemplate>
+                                                        </ListView.ItemTemplate>
+                                                    </ListView>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Resolution Filter -->
+                                            <Border BorderBrush="{StaticResource SystemControlForegroundBaseLowBrush}"
+                                                    BorderThickness="0,0,0,0"
+                                                    Padding="0,0,0,12"
+                                                    Visibility="{x:Bind ViewModel.ShowResolutionFilter, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Quality"
+                                                               Style="{StaticResource StandardBodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="{StaticResource StandardControlMargin}" />
+                                                    <ListView x:Name="ResolutionsList"
+                                                              ItemsSource="{x:Bind ViewModel.Resolutions, Mode=OneWay}"
+                                                              SelectionMode="None"
+                                                              IsItemClickEnabled="False"
+                                                              TabNavigation="Once">
+                                                        <ListView.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="180"
+                                                                               MaximumRowsOrColumns="4" />
+                                                            </ItemsPanelTemplate>
+                                                        </ListView.ItemsPanel>
+                                                        <ListView.ItemContainerStyle>
+                                                            <Style TargetType="ListViewItem">
+                                                                <Setter Property="HorizontalContentAlignment"
+                                                                        Value="Stretch" />
+                                                                <Setter Property="Padding" Value="0" />
+                                                                <Setter Property="Margin" Value="0" />
+                                                                <Setter Property="MinHeight" Value="32" />
+                                                                <Setter Property="IsTabStop" Value="False" />
+                                                            </Style>
+                                                        </ListView.ItemContainerStyle>
+                                                        <ListView.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:FilterItem">
+                                                                <CheckBox Content="{x:Bind Name}"
+                                                                          IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                          Margin="{StaticResource CompactControlMargin}"
+                                                                          IsTabStop="True" />
+                                                            </DataTemplate>
+                                                        </ListView.ItemTemplate>
+                                                    </ListView>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </ScrollViewer>
+
+                                    <!-- Action Buttons -->
+                                    <Grid Grid.Row="2" Margin="{StaticResource HeaderMargin}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button Grid.Column="0"
+                                                x:Name="ClearFiltersButton"
+                                                Content="Clear All"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Click="ClearFiltersButton_Click"
+                                                HorizontalAlignment="Left"
+                                                XYFocusRight="{x:Bind CancelFilterButton}" />
+
+                                        <StackPanel Grid.Column="1"
+                                                    Orientation="Horizontal"
+
+                                                    HorizontalAlignment="Right">
+                                            <Button x:Name="CancelFilterButton"
+                                                    Content="Cancel"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Margin="0,0,4,0"
+                                                    Click="CancelFilterButton_Click"
+                                                    XYFocusLeft="{x:Bind ClearFiltersButton}" />
+                                            <Button x:Name="ApplyFilterButton"
+                                                    Content="Apply"
+                                                    Style="{StaticResource PrimaryButtonStyle}"
+                                                    Click="ApplyFilterButton_Click"
+                                                    XYFocusLeft="{x:Bind CancelFilterButton}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+
+                <!-- Right-side buttons -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <!-- Shuffle Button - Only visible for music libraries -->
+                    <Button x:Name="ShuffleButton"
+                            Visibility="{x:Bind ViewModel.ShowShuffleButton, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Width="110"
+                            Click="ShuffleButton_Click">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE8B1;" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Shuffle All" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Alphabet Selector -->
+        <ScrollViewer Grid.Row="1" Grid.Column="1"
+                      VerticalScrollMode="Enabled"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Hidden">
+            <StackPanel x:Name="AlphabetPanel"
+                        Margin="{StaticResource StandardControlMargin}">
+                <Button Content="#"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="#"
+                        Style="{StaticResource AlphabetButtonStyle}"
+                        XYFocusUp="{x:Bind FilterButton}" />
+                <Button Content="A"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="A"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="B"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="B"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="C"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="C"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="D"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="D"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="E"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="E"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="F"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="F"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="G"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="G"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="H"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="H"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="I"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="I"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="J"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="J"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="K"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="K"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="L"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="L"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="M"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="M"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="N"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="N"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="O"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="O"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="P"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="P"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="Q"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="Q"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="R"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="R"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="S"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="S"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="T"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="T"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="U"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="U"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="V"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="V"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="W"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="W"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="X"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="X"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="Y"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="Y"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+                <Button Content="Z"
+                        Command="{x:Bind ViewModel.ScrollToAlphabetCommand}"
+                        CommandParameter="Z"
+                        Style="{StaticResource AlphabetButtonStyle}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Media List Container -->
+        <Grid Grid.Row="1" Grid.Column="0">
+            <!-- Media List -->
+            <ListView x:Name="MediaGrid"
+                      DataContext="{x:Bind ViewModel}"
+                      ItemsSource="{x:Bind ViewModel.MediaItems, Mode=OneWay}"
+                      SelectionMode="None"
+                      IsItemClickEnabled="True"
+                      ItemClick="MediaGrid_ItemClick"
+                      Margin="{StaticResource StandardControlMargin}"
+                      IncrementalLoadingTrigger="Edge"
+                      IncrementalLoadingThreshold="3"
+                      ScrollViewer.VerticalScrollMode="Enabled"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollMode="Disabled"
+                      ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                      ScrollViewer.IsVerticalRailEnabled="True">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplateSelector>
+                    <local:LibraryItemTemplateSelector>
+                        <local:LibraryItemTemplateSelector.DefaultTemplate>
+                            <StaticResource ResourceKey="CompactPosterTemplate" />
+                        </local:LibraryItemTemplateSelector.DefaultTemplate>
+                        <local:LibraryItemTemplateSelector.ArtistTemplate>
+                            <StaticResource ResourceKey="CompactAlbumTemplate" />
+                        </local:LibraryItemTemplateSelector.ArtistTemplate>
+                        <local:LibraryItemTemplateSelector.AlbumTemplate>
+                            <StaticResource ResourceKey="CompactAlbumTemplate" />
+                        </local:LibraryItemTemplateSelector.AlbumTemplate>
+                    </local:LibraryItemTemplateSelector>
+                </ListView.ItemTemplateSelector>
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal"
+                                       HorizontalAlignment="Left"
+                                       ItemWidth="{Binding ItemWidth}"
+                                       ItemHeight="{Binding ItemHeight}" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+            </ListView>
+        </Grid>
+
+        <!-- Loading Indicator -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Grid.Column="0" Grid.ColumnSpan="2"
+              Background="#CC000000"
+              Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+              IsHitTestVisible="True">
+            <controls:LoadingOverlay IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                                     LoadingText="Loading library..."
+                                     Background="Transparent" />
+        </Grid>
+
+        <!-- Empty State -->
+        <StackPanel Grid.Row="1" Grid.Column="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBlock Text="{x:Bind ViewModel.EmptyStateTitle, Mode=OneWay}"
+                       Style="{StaticResource SectionHeaderTextStyle}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Opacity="0.8"
+                       Margin="0,0,0,16" />
+            <TextBlock Text="{x:Bind ViewModel.EmptyStateMessage, Mode=OneWay}"
+                       Style="{StaticResource StandardBodyTextStyle}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Opacity="0.6"
+                       MaxWidth="400" />
+        </StackPanel>
+    </Grid>
+</views:BasePage>

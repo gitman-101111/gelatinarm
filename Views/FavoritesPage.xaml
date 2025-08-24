@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<views:BasePage
+    x:Class="Gelatinarm.Views.FavoritesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Gelatinarm.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Gelatinarm.Controls"
+    mc:Ignorable="d"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Fixed Header with Title and Filters -->
+        <Grid Grid.Row="0"
+              Background="{StaticResource SystemChromeMediumLowColor}"
+              BorderBrush="{StaticResource SystemBaseLowBrush}"
+              BorderThickness="0,0,0,1">
+            <Grid Margin="{StaticResource SafeAreaPadding}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Title -->
+                <TextBlock Grid.Column="0"
+                           Text="Favorites"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+
+                <!-- Filter Buttons -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Margin="24,0,0,0">
+                    <Button x:Name="AllButton"
+                            Content="All"
+                            Click="FilterButton_Click"
+                            Tag="All"
+                            Style="{StaticResource ActiveFilterButtonStyle}" />
+                    <Button x:Name="MoviesButton"
+                            Content="Movies"
+                            Click="FilterButton_Click"
+                            Tag="Movies"
+                            Style="{StaticResource FilterButtonStyle}" />
+                    <Button x:Name="ShowsButton"
+                            Content="TV Shows"
+                            Click="FilterButton_Click"
+                            Tag="Shows"
+                            Style="{StaticResource FilterButtonStyle}" />
+                    <Button x:Name="MusicButton"
+                            Content="Music"
+                            Click="FilterButton_Click"
+                            Tag="Music"
+                            Style="{StaticResource FilterButtonStyle}" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Favorites Grid -->
+        <ListView Grid.Row="1"
+                  x:Name="FavoritesGrid"
+                  ItemsSource="{x:Bind ViewModel.FavoriteItems, Mode=OneWay}"
+                  SelectionMode="None"
+                  IsItemClickEnabled="True"
+                  ItemClick="FavoritesGrid_ItemClick"
+                  HorizontalAlignment="Center"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid Orientation="Horizontal"
+                                   HorizontalAlignment="Left"
+                                   ItemWidth="150"
+                                   ItemHeight="245" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Margin" Value="6" />
+                    <Setter Property="Padding" Value="0" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <StaticResource ResourceKey="CompactPosterTemplate" />
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- Empty State -->
+        <StackPanel Grid.Row="1"
+                    x:Name="EmptyStatePanel"
+                    Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+            <TextBlock x:Name="EmptyStateTitle"
+                       Text="{x:Bind ViewModel.EmptyStateTitle, Mode=OneWay}"
+                       Style="{StaticResource SectionHeaderTextStyle}"
+                       HorizontalAlignment="Center" />
+            <TextBlock x:Name="EmptyStateMessage"
+                       Text="{x:Bind ViewModel.EmptyStateMessage, Mode=OneWay}"
+                       Style="{StaticResource StandardBodyTextStyle}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Opacity="0.7"
+                       MaxWidth="400" />
+        </StackPanel>
+
+        <!-- Loading State -->
+        <controls:LoadingOverlay Grid.Row="0" Grid.RowSpan="2"
+                                 IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                                 LoadingText="Loading favorites..." />
+    </Grid>
+</views:BasePage>

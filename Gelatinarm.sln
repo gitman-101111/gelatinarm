@@ -1,0 +1,26 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36212.18
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gelatinarm", "Gelatinarm.csproj", "{12345678-1234-1234-1234-123456789ABC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.Build.0 = Debug|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.Deploy.0 = Debug|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release|x64.ActiveCfg = Release|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release|x64.Build.0 = Release|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release|x64.Deploy.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D2E9E14A-83D3-4B89-A8F7-6E11C7E6D1A2}
+	EndGlobalSection
+EndGlobal

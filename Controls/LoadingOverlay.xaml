@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<UserControl
+    x:Class="Gelatinarm.Controls.LoadingOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="#DD000000"
+          Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+          IsHitTestVisible="True"
+          Canvas.ZIndex="1000">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Invisible button to capture focus and block navigation -->
+        <Button x:Name="FocusCapture"
+                Grid.RowSpan="4"
+                Opacity="0"
+                IsTabStop="True"
+                UseSystemFocusVisuals="False"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                KeyDown="FocusCapture_KeyDown" />
+
+        <ProgressRing Grid.Row="1"
+                      IsActive="{x:Bind IsLoading, Mode=OneWay}"
+                      Width="60"
+                      Height="60"
+                      Foreground="{StaticResource SystemControlHighlightAccentBrush}" />
+
+        <TextBlock Grid.Row="2"
+                   Text="{x:Bind LoadingText, Mode=OneWay}"
+                   HorizontalAlignment="Center"
+                   Margin="0,16,0,0"
+                   FontSize="16"
+                   Foreground="White"
+                   Visibility="{x:Bind LoadingText, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+    </Grid>
+</UserControl>
