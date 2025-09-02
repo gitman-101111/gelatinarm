@@ -17,7 +17,7 @@ namespace Gelatinarm.Services
     {
         protected readonly ILogger Logger;
         private IErrorHandlingService _errorHandler;
-        private bool _disposed;
+        private bool _disposed = false;
 
         protected BaseService(ILogger logger)
         {

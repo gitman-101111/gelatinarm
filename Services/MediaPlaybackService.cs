@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Gelatinarm.Constants;
@@ -25,14 +26,14 @@ namespace Gelatinarm.Services
         private readonly IPreferencesService _preferencesService;
         private readonly IUserProfileService _userProfileService;
         private BaseItemDto _currentItem;
-        private bool _hasReportedStart;
-        private bool _hasReportedStop;
+        private bool _hasReportedStart = false;
+        private bool _hasReportedStop = false;
         private IMusicPlayerService _musicPlayerService;
         private string _playSessionId;
 
         // Session management state
         private MediaPlaybackParams _playbackParams;
-        private int _positionReportCounter;
+        private int _positionReportCounter = 0;
         private Task _activeProgressReportTask;
 
         public MediaPlaybackService(
@@ -205,11 +206,17 @@ namespace Gelatinarm.Services
                     return null;
                 }
 
+                if (!Guid.TryParse(seasonId, out var seasonGuid))
+                {
+                    Logger?.LogError($"Invalid season ID format: {seasonId}");
+                    return new BaseItemDtoQueryResult { Items = new List<BaseItemDto>() };
+                }
+
                 return await RetryAsync(
                     async () => await _apiClient.Items.GetAsync(config =>
                     {
                         config.QueryParameters.UserId = userGuid;
-                        config.QueryParameters.ParentId = Guid.Parse(seasonId);
+                        config.QueryParameters.ParentId = seasonGuid;
                         config.QueryParameters.SortBy = new[] { ItemSortBy.SortName };
                         config.QueryParameters.Fields = new[]
                         {

@@ -25,8 +25,6 @@ namespace Gelatinarm.ViewModels
         private readonly List<BaseItemDto> _playableItems = new();
 
         // Observable properties
-        [ObservableProperty] private BaseItemDto _currentItem;
-
         [ObservableProperty] private bool _isItemCountVisible;
 
         [ObservableProperty] private bool _isOverviewVisible;
@@ -41,13 +39,9 @@ namespace Gelatinarm.ViewModels
 
         private CancellationTokenSource _loadCts;
 
-        [ObservableProperty] private string _overview;
-
         [ObservableProperty] private string _playButtonText = "Play";
 
         [ObservableProperty] private BitmapImage _posterImage;
-
-        [ObservableProperty] private string _title;
 
         public CollectionDetailsViewModel(
             ILogger<CollectionDetailsViewModel> logger,
@@ -321,7 +315,12 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // For mixed content, play first item
-                var firstItem = _playableItems.First();
+                var firstItem = _playableItems.FirstOrDefault();
+                if (firstItem == null)
+                {
+                    Logger?.LogWarning("No playable items found in collection");
+                    return;
+                }
 
                 if (firstItem.Type == BaseItemDto_Type.Movie)
                 {
@@ -398,6 +397,12 @@ namespace Gelatinarm.ViewModels
                 // Shuffle the items
                 var random = new Random();
                 var shuffledItems = _playableItems.OrderBy(x => random.Next()).ToList();
+                
+                if (shuffledItems.Count == 0)
+                {
+                    Logger?.LogWarning("No items to shuffle in collection");
+                    return;
+                }
 
                 var playbackParams = new MediaPlaybackParams
                 {
@@ -432,6 +437,9 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         public void Cleanup()
         {
+            // Clear collections - if we're not on UI thread, this might throw but 
+            // that's acceptable as Cleanup is typically called during page navigation
+            // which should be on UI thread
             Items.Clear();
             _playableItems.Clear();
         }

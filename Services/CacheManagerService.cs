@@ -23,14 +23,14 @@ namespace Gelatinarm.Services
         private readonly ILogger<CacheManagerService> _logger;
         private readonly LinkedList<string> _lruList = new();
         private readonly Dictionary<string, LinkedListNode<string>> _lruNodes = new();
-        private long _currentEstimatedSize;
+        private long _currentEstimatedSize = 0;
 
-        private bool _disposed;
-        private int _evictionCount;
-        private int _hitCount;
+        private bool _disposed = false;
+        private int _evictionCount = 0;
+        private int _hitCount = 0;
 
         private long _maxSizeInBytes = 100 * 1024 * 1024; // Default 100MB for Xbox 1GB limit
-        private int _missCount;
+        private int _missCount = 0;
 
         public CacheManagerService(ILogger<CacheManagerService> logger)
         {
@@ -396,7 +396,7 @@ namespace Gelatinarm.Services
             var provider = GetCacheProvider(providerName);
             if (provider != null)
             {
-                await provider.SetAsync(key, data, expiration);
+                await provider.SetAsync(key, data, expiration).ConfigureAwait(false);
             }
             else
             {
@@ -412,7 +412,7 @@ namespace Gelatinarm.Services
             var provider = GetCacheProvider(providerName);
             if (provider != null)
             {
-                return await provider.GetAsync(key);
+                return await provider.GetAsync(key).ConfigureAwait(false);
             }
 
             _logger.LogWarning($"Cache provider not found: {providerName}");

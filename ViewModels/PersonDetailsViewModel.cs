@@ -26,8 +26,6 @@ namespace Gelatinarm.ViewModels
         [ObservableProperty] private string _birthPlace;
 
         // Observable properties
-        [ObservableProperty] private BaseItemDto _currentItem;
-
         [ObservableProperty] private string _expandBioButtonText = "Show More";
 
         [ObservableProperty] private bool _isBioExpanded;
@@ -47,8 +45,6 @@ namespace Gelatinarm.ViewModels
         private CancellationTokenSource _loadCts;
 
         [ObservableProperty] private ObservableCollection<BaseItemDto> _movies = new();
-
-        [ObservableProperty] private string _overview;
 
         [ObservableProperty] private double _overviewMaxHeight = 200;
 
@@ -152,9 +148,11 @@ namespace Gelatinarm.ViewModels
                     throw new Exception("Failed to load person details");
                 }
 
-                CurrentItem = person;
-
-                await RunOnUIThreadAsync(() => UpdatePersonUI());
+                await RunOnUIThreadAsync(() =>
+                {
+                    CurrentItem = person;
+                    UpdatePersonUI();
+                });
 
                 // Load related content in parallel
                 var tasks = new List<Task>
@@ -220,9 +218,10 @@ namespace Gelatinarm.ViewModels
             }
 
             // Birth place
-            if (!string.IsNullOrEmpty(CurrentItem.ProductionLocations?.FirstOrDefault()))
+            var firstLocation = CurrentItem.ProductionLocations?.FirstOrDefault();
+            if (!string.IsNullOrEmpty(firstLocation))
             {
-                BirthPlace = $"Birthplace: {CurrentItem.ProductionLocations.First()}";
+                BirthPlace = $"Birthplace: {firstLocation}";
                 IsBirthPlaceVisible = true;
             }
             else
@@ -255,7 +254,10 @@ namespace Gelatinarm.ViewModels
                     var imageUrl = ImageHelper.BuildImageUrl(CurrentItem.Id.Value, "Primary", 400, null, imageTag);
                     if (!string.IsNullOrEmpty(imageUrl))
                     {
-                        PersonImage = new BitmapImage(new Uri(imageUrl));
+                        await RunOnUIThreadAsync(() =>
+                        {
+                            PersonImage = new BitmapImage(new Uri(imageUrl));
+                        });
                     }
                 }
                 catch (Exception ex)

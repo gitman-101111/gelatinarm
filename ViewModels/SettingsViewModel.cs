@@ -20,8 +20,8 @@ namespace Gelatinarm.ViewModels
         private readonly IUnifiedDeviceService _unifiedDeviceService;
 
         // UI Properties
-        private bool _isInitialized;
-        private double _textSize;
+        private volatile bool _isInitialized = false;
+        private double _textSize = 14.0;
 
         public SettingsViewModel(
             IUnifiedDeviceService unifiedDeviceService,
@@ -116,16 +116,16 @@ namespace Gelatinarm.ViewModels
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }
 
-        protected override Task ClearDataCoreAsync()
+        protected override async Task ClearDataCoreAsync()
         {
-            _isInitialized = false;
-            return Task.CompletedTask;
+            await RunOnUIThreadAsync(() => _isInitialized = false);
         }
 
         private void ResetSettings()
         {
             ServerSettings.ResetToDefaults();
-            PlaybackSettings.ResetToDefaults(); TextSize = 14.0;
+            PlaybackSettings.ResetToDefaults();
+            TextSize = 14.0;
         }
 
         protected override void Dispose(bool disposing)

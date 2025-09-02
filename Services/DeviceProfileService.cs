@@ -122,8 +122,8 @@ namespace Gelatinarm.Services
                     Context = TranscodingProfile_Context.Streaming,
                     Protocol = TranscodingProfile_Protocol.Hls,
                     // MaxAudioChannels removed to support Atmos/DTS:X/7.1+ audio
-                    MinSegments = 2,  // Ensure at least 2 segments are ready before playback
-                    SegmentLength = 3, // 3-second segments for more precise seeking and faster recovery
+                    MinSegments = 5,  // Ensure at least 5 segments are ready before playback
+                    SegmentLength = 10, // 10-second segments to prevent end-of-stream corruption
                     BreakOnNonKeyFrames = false, // Keep segments on keyframes for stability
                     CopyTimestamps = false,
                     EnableSubtitlesInManifest = false

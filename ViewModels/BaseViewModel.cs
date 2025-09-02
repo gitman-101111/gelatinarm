@@ -14,13 +14,13 @@ namespace Gelatinarm.ViewModels
     /// </summary>
     public abstract class BaseViewModel : ObservableObject, IDisposable
     {
-        private bool _disposed;
+        private bool _disposed = false;
         private string _errorMessage;
-        private bool _hasData;
-        private bool _isError;
-        private bool _isLoading;
-        private bool _isRefreshing;
-        private DateTime _lastDataLoad;
+        private bool _hasData = false;
+        private bool _isError = false;
+        private bool _isLoading = false;
+        private bool _isRefreshing = false;
+        private DateTime _lastDataLoad = DateTime.MinValue;
         private CancellationTokenSource _loadDataCts;
 
         protected BaseViewModel(ILogger logger = null)

@@ -24,8 +24,8 @@ namespace Gelatinarm.Services
         private readonly JellyfinApiClient _sdkClient;
         private readonly IHttpClientFactory _httpClientFactory;
         private BaseItemDto _currentItem;
-        private bool _hasAutoSkippedIntro;
-        private bool _hasAutoSkippedOutro;
+        private bool _hasAutoSkippedIntro = false;
+        private bool _hasAutoSkippedOutro = false;
         private TimeSpan? _introEndTime;
         private TimeSpan? _introStartTime;
 

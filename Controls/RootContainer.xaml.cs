@@ -9,7 +9,7 @@ namespace Gelatinarm.Controls
     public sealed partial class RootContainer : BaseControl
     {
         private DispatcherTimer _rightTriggerHoldTimer;
-        private bool _isRightTriggerDown;
+        private bool _isRightTriggerDown = false;
         private const int TRIGGER_HOLD_DELAY_MS = 500;
 
         public RootContainer()

@@ -21,7 +21,7 @@ namespace Gelatinarm.Views
         {
             InitializeComponent();
 
-            var serviceProvider = ((App)Application.Current)._serviceProvider;
+            var serviceProvider = ((App)Application.Current).Services;
             ViewModel = serviceProvider.GetRequiredService<LibrarySelectionViewModel>();
             _navigationService = serviceProvider.GetRequiredService<INavigationService>();
             // Logger is initialized in BasePage
@@ -57,11 +57,14 @@ namespace Gelatinarm.Views
             // Log the back stack for debugging
             if (Frame != null)
             {
-                Logger?.LogInformation($"LibrarySelectionPage - BackStack count: {Frame.BackStackDepth}");
-                for (var i = 0; i < Frame.BackStack.Count; i++)
+                Logger?.LogInformation($"LibrarySelectionPage - BackStack count: {Frame?.BackStackDepth ?? 0}");
+                if (Frame?.BackStack != null)
                 {
-                    var entry = Frame.BackStack[i];
-                    Logger?.LogInformation($"LibrarySelectionPage - BackStack[{i}]: {entry.SourcePageType.Name}");
+                    for (var i = 0; i < Frame.BackStack.Count; i++)
+                    {
+                        var entry = Frame.BackStack[i];
+                        Logger?.LogInformation($"LibrarySelectionPage - BackStack[{i}]: {entry.SourcePageType.Name}");
+                    }
                 }
             }
 

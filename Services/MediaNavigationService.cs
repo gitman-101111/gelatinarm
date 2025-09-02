@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,17 +21,17 @@ namespace Gelatinarm.Services
         private readonly IEpisodeQueueService _episodeQueueService;
         private readonly INavigationService _navigationService;
         private readonly INavigationStateService _navigationStateService;
-        private readonly HashSet<Guid> _playedEpisodesInSession = new();
+        private readonly ConcurrentDictionary<Guid, bool> _playedEpisodesInSession = new();
         private readonly IPreferencesService _preferencesService;
         private readonly JellyfinApiClient _sdkClient;
         private readonly Random _shuffleRandom;
 
         // Advanced shuffled queue management
-        private readonly Queue<BaseItemDto> _shuffledEpisodeQueue = new();
+        private readonly ConcurrentQueue<BaseItemDto> _shuffledEpisodeQueue = new();
         private readonly IUserProfileService _userProfileService;
         private BaseItemDto _currentItem;
-        private bool _isFetchingMoreEpisodes;
-        private bool _isShuffleEnabled;
+        private bool _isFetchingMoreEpisodes = false;
+        private bool _isShuffleEnabled = false;
         private BaseItemDto _nextEpisode;
         private List<BaseItemDto> _originalQueue;
 
@@ -73,7 +74,7 @@ namespace Gelatinarm.Services
             // Mark current episode as played in shuffle session
             if (_isShuffleEnabled && currentItem.Type == BaseItemDto_Type.Episode && currentItem.Id.HasValue)
             {
-                _playedEpisodesInSession.Add(currentItem.Id.Value);
+                _playedEpisodesInSession.TryAdd(currentItem.Id.Value, true);
 
                 // Start filling the shuffled queue
                 FireAndForget(() => RefillShuffledQueueAsync(), "RefillShuffledQueue");
@@ -104,9 +105,9 @@ namespace Gelatinarm.Services
                         FireAndForget(() => RefillShuffledQueueAsync(), "RefillShuffledQueueLowThreshold");
                     }
 
-                    if (_shuffledEpisodeQueue.Count > 0)
+                    if (_shuffledEpisodeQueue.TryPeek(out var peekedEpisode))
                     {
-                        _nextEpisode = _shuffledEpisodeQueue.Peek();
+                        _nextEpisode = peekedEpisode;
                         return _nextEpisode;
                     }
 
@@ -178,12 +179,11 @@ namespace Gelatinarm.Services
 
                 // For shuffled episodes, dequeue and mark as played
                 if (_isShuffleEnabled && _currentItem?.Type == BaseItemDto_Type.Episode &&
-                    _shuffledEpisodeQueue.Count > 0)
+                    _shuffledEpisodeQueue.TryDequeue(out var dequeuedEpisode))
                 {
-                    var dequeuedEpisode = _shuffledEpisodeQueue.Dequeue();
                     if (dequeuedEpisode.Id.HasValue)
                     {
-                        _playedEpisodesInSession.Add(dequeuedEpisode.Id.Value);
+                        _playedEpisodesInSession.TryAdd(dequeuedEpisode.Id.Value, true);
                     }
 
                     Logger.LogInformation($"Dequeued episode from shuffled queue: {dequeuedEpisode.Name}");
@@ -532,7 +532,7 @@ namespace Gelatinarm.Services
 
                 // Filter out already played episodes
                 var availableEpisodes = allEpisodes
-                    .Where(e => e.Id.HasValue && !_playedEpisodesInSession.Contains(e.Id.Value))
+                    .Where(e => e.Id.HasValue && !_playedEpisodesInSession.ContainsKey(e.Id.Value))
                     .ToList();
 
                 if (!availableEpisodes.Any())

@@ -20,7 +20,7 @@ namespace Gelatinarm.Controls
     public sealed partial class MusicPlayer : BaseControl
     {
         private MediaPlayer _currentMediaPlayer;
-        private bool _isUpdatingProgress;
+        private bool _isUpdatingProgress = false;
         private IMusicPlayerService _musicPlayerService;
         private DispatcherTimer _progressTimer;
         private IServiceProvider _serviceProvider;

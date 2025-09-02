@@ -16,7 +16,7 @@ namespace Gelatinarm.Controls
     /// </summary>
     public abstract class BaseControl : UserControl
     {
-        private bool _servicesInitialized;
+        private bool _servicesInitialized = false;
 
         protected BaseControl()
         {

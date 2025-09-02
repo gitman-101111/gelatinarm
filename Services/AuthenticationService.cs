@@ -71,7 +71,7 @@ namespace Gelatinarm.Services
             }
 
             // Check network connectivity before attempting authentication
-            if (!await NetworkHelper.CheckNetworkAsync(ErrorHandler, Logger))
+            if (!await NetworkHelper.CheckNetworkAsync(ErrorHandler, Logger).ConfigureAwait(false))
             {
                 return false;
             }
@@ -214,7 +214,7 @@ namespace Gelatinarm.Services
         public async Task<QuickConnectResult> InitiateQuickConnectAsync(CancellationToken cancellationToken = default)
         {
             // Check network connectivity before attempting Quick Connect
-            if (!await NetworkHelper.CheckNetworkAsync(ErrorHandler, Logger))
+            if (!await NetworkHelper.CheckNetworkAsync(ErrorHandler, Logger).ConfigureAwait(false))
             {
                 return null;
             }
@@ -338,7 +338,7 @@ namespace Gelatinarm.Services
         public async Task<bool> ValidateTokenAsync(CancellationToken cancellationToken = default)
         {
             // Check network connectivity before attempting validation
-            if (!await NetworkHelper.CheckNetworkAsync(ErrorHandler, Logger))
+            if (!await NetworkHelper.CheckNetworkAsync(ErrorHandler, Logger).ConfigureAwait(false))
             {
                 return false;
             }

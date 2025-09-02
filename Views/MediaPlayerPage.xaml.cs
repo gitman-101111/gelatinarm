@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
@@ -28,9 +29,9 @@ namespace Gelatinarm.Views
         private readonly IDialogService _dialogService;
 
         private readonly INavigationStateService _navigationStateService;
-        private int _controlVisibilityCounter;
+        private volatile int _controlVisibilityCounter = 0;
         private DispatcherTimer _controlVisibilityTimer;
-        private bool _isDisposing;
+        private volatile int _isDisposing = 0; // 0 = not disposing, 1 = disposing
         private MediaPlaybackState? _stateBeforeFocusLost;
 
         public MediaPlayerPage() : base(typeof(MediaPlayerPage))
@@ -65,12 +66,10 @@ namespace Gelatinarm.Views
 
         private void Dispose()
         {
-            if (_isDisposing)
+            if (Interlocked.CompareExchange(ref _isDisposing, 1, 0) != 0)
             {
-                return;
+                return; // Already disposing
             }
-
-            _isDisposing = true;
 
             try
             {
@@ -484,12 +483,15 @@ namespace Gelatinarm.Views
         {
             // Log detailed information about the MediaEnded event
             var naturalDuration = sender.PlaybackSession?.NaturalDuration;
-            var currentPosition = sender.PlaybackSession?.Position ?? TimeSpan.Zero;
+            var rawPosition = sender.PlaybackSession?.Position ?? TimeSpan.Zero;
+            // Use ViewModel.Position which already includes HLS offset
+            var currentPosition = ViewModel?.Position ?? rawPosition;
             var metadataDuration = ViewModel?.CurrentItem?.RunTimeTicks != null && ViewModel.CurrentItem.RunTimeTicks > 0
                 ? TimeSpan.FromTicks(ViewModel.CurrentItem.RunTimeTicks.Value)
                 : TimeSpan.Zero;
 
-            Logger.LogInformation($"MediaEnded event - Position: {currentPosition:mm\\:ss}, " +
+            Logger.LogInformation($"MediaEnded event - RawPosition: {rawPosition:mm\\:ss}, " +
+                $"Position (with offset): {currentPosition:mm\\:ss}, " +
                 $"NaturalDuration: {naturalDuration:mm\\:ss}, " +
                 $"MetadataDuration: {metadataDuration:mm\\:ss}");
 
@@ -506,7 +508,7 @@ namespace Gelatinarm.Views
             {
                 var percentComplete = currentPosition.TotalSeconds / metadataDuration.TotalSeconds * 100;
                 var percentOfNatural = naturalDuration.HasValue && naturalDuration.Value > TimeSpan.Zero
-                    ? currentPosition.TotalSeconds / naturalDuration.Value.TotalSeconds * 100
+                    ? rawPosition.TotalSeconds / naturalDuration.Value.TotalSeconds * 100  // Compare raw to raw!
                     : 0;
 
                 // If we're not actually near the end (less than 95%), this is likely a false MediaEnded
@@ -514,7 +516,7 @@ namespace Gelatinarm.Views
                 var isHlsCorruption = naturalDuration.HasValue &&
                                      naturalDuration.Value < TimeSpan.FromMinutes(1) &&
                                      metadataDuration > TimeSpan.FromMinutes(5) &&
-                                     currentPosition > naturalDuration.Value;
+                                     rawPosition > naturalDuration.Value;  // Compare raw to raw!
 
                 if (percentComplete < 95)
                 {
@@ -687,7 +689,7 @@ namespace Gelatinarm.Views
             try
             {
                 // Defensive check for disposal
-                if (_isDisposing || CustomControlsOverlay == null || InfoOverlay == null)
+                if (_isDisposing == 1 || CustomControlsOverlay == null || InfoOverlay == null)
                 {
                     Logger?.LogWarning("Cannot show controls - page is being disposed or controls are null");
                     return;
@@ -765,7 +767,7 @@ namespace Gelatinarm.Views
             try
             {
                 // Defensive check for disposal
-                if (_isDisposing || CustomControlsOverlay == null || InfoOverlay == null)
+                if (_isDisposing == 1 || CustomControlsOverlay == null || InfoOverlay == null)
                 {
                     Logger?.LogWarning("Cannot hide controls - page is being disposed or controls are null");
                     return;
@@ -900,7 +902,7 @@ namespace Gelatinarm.Views
 
         private void ResetControlVisibilityTimer()
         {
-            _controlVisibilityCounter = 0;
+            Interlocked.Exchange(ref _controlVisibilityCounter, 0);
             _controlVisibilityTimer.Stop();
             _controlVisibilityTimer.Start();
         }
@@ -911,7 +913,7 @@ namespace Gelatinarm.Views
             if (CheckControlVisibility() &&
                 MediaPlayer?.MediaPlayer?.PlaybackSession?.PlaybackState == MediaPlaybackState.Playing)
             {
-                _controlVisibilityCounter++;
+                Interlocked.Increment(ref _controlVisibilityCounter);
 
                 // Get user preferences for hide delay
                 var preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
@@ -929,19 +931,19 @@ namespace Gelatinarm.Views
                         Logger?.LogInformation(
                             $"Auto-hiding controls after {preferences?.ControlsHideDelay ?? 5} seconds of inactivity");
                         HideControls();
-                        _controlVisibilityCounter = 0;
+                        Interlocked.Exchange(ref _controlVisibilityCounter, 0);
                     }
                     else
                     {
                         // Reset counter if flyouts are open
-                        _controlVisibilityCounter = 0;
+                        Interlocked.Exchange(ref _controlVisibilityCounter, 0);
                     }
                 }
             }
             else
             {
                 // Reset counter if not playing or controls are hidden
-                _controlVisibilityCounter = 0;
+                Interlocked.Exchange(ref _controlVisibilityCounter, 0);
             }
         }
 
@@ -1056,7 +1058,7 @@ namespace Gelatinarm.Views
                         // The navigation added an entry, remove the MediaPlayerPage entry
                         for (int i = Frame.BackStack.Count - 1; i >= 0; i--)
                         {
-                            if (Frame.BackStack[i].SourcePageType == typeof(MediaPlayerPage))
+                            if (Frame?.BackStack?[i].SourcePageType == typeof(MediaPlayerPage))
                             {
                                 Frame.BackStack.RemoveAt(i);
                                 Logger?.LogInformation($"Removed MediaPlayerPage from back stack at index {i} after navigating to SeasonDetailsPage");
@@ -1171,9 +1173,9 @@ namespace Gelatinarm.Views
                 $"MediaPlayerPage_KeyDown: Key={e.Key}, OriginalSource={e.OriginalSource?.GetType().Name}");
 
             // Defensive check for disposal
-            if (_isDisposing || ViewModel == null)
+            if (_isDisposing == 1 || ViewModel == null)
             {
-                Logger?.LogWarning($"Ignoring key {e.Key} - disposing: {_isDisposing}");
+                Logger?.LogWarning($"Ignoring key {e.Key} - disposing: {_isDisposing == 1}");
                 return;
             }
 
@@ -1344,6 +1346,10 @@ namespace Gelatinarm.Views
                 if (e.WindowActivationState == CoreWindowActivationState.Deactivated)
                 {
                     // App lost focus (e.g., Xbox guide opened)
+                    if (MediaPlayer?.MediaPlayer?.PlaybackSession == null)
+                    {
+                        return;
+                    }
                     var currentState = MediaPlayer.MediaPlayer.PlaybackSession.PlaybackState;
                     Logger?.LogInformation($"Window deactivated, current playback state: {currentState}");
 
@@ -1395,6 +1401,10 @@ namespace Gelatinarm.Views
                 if (!e.Visible)
                 {
                     // Window is being hidden/minimized
+                    if (MediaPlayer?.MediaPlayer?.PlaybackSession == null)
+                    {
+                        return;
+                    }
                     var currentState = MediaPlayer.MediaPlayer.PlaybackSession.PlaybackState;
 
                     if (currentState == MediaPlaybackState.Playing)

@@ -154,13 +154,15 @@ namespace Gelatinarm.Services
             _userProfileService; // Kept, though not directly used in provided snippets, may be used by other methods
 
         private SystemMetrics _currentMetrics;
-        private bool _disposed;
+        private volatile bool _disposed = false;
 
-        private double _lastBandwidth;
+        private double _lastBandwidth = 0.0;
+        private readonly object _bandwidthLock = new object();
         private DateTime _lastBandwidthTest = DateTime.MinValue;
-        private AppMemoryUsageLevel _lastMemoryPressure;
-        private bool _lastNetworkStatus;
-        private ConnectionQuality _lastConnectionQuality = ConnectionQuality.Good;
+        private readonly object _bandwidthTestLock = new object();
+        private volatile AppMemoryUsageLevel _lastMemoryPressure = AppMemoryUsageLevel.Low;
+        private volatile bool _lastNetworkStatus = false;
+        private volatile ConnectionQuality _lastConnectionQuality = ConnectionQuality.Good;
         private DispatcherTimer _monitoringTimer;
 
         public SystemMonitorService(
@@ -598,10 +600,19 @@ namespace Gelatinarm.Services
                     var connectionType = isLikelyEthernet ? ConnectionType.Ethernet : ConnectionType.WiFi;
 
                     double measuredBandwidth = 0;
-                    if (DateTime.UtcNow - _lastBandwidthTest > _bandwidthTestInterval)
+                    bool shouldTestBandwidth;
+                    lock (_bandwidthTestLock)
+                    {
+                        shouldTestBandwidth = DateTime.UtcNow - _lastBandwidthTest > _bandwidthTestInterval;
+                    }
+                    
+                    if (shouldTestBandwidth)
                     {
                         measuredBandwidth = await MeasureBandwidthAsync().ConfigureAwait(false);
-                        _lastBandwidthTest = DateTime.UtcNow;
+                        lock (_bandwidthTestLock)
+                        {
+                            _lastBandwidthTest = DateTime.UtcNow;
+                        }
                     }
 
                     if (measuredBandwidth > 0)
@@ -750,7 +761,13 @@ namespace Gelatinarm.Services
                 _lastNetworkStatus = current.IsNetworkAvailable;
             }
 
-            if (Math.Abs(current.CurrentBandwidth - _lastBandwidth) > 1_000_000)
+            double lastBandwidth;
+            lock (_bandwidthLock)
+            {
+                lastBandwidth = _lastBandwidth;
+            }
+
+            if (Math.Abs(current.CurrentBandwidth - lastBandwidth) > 1_000_000)
             {
                 BandwidthChanged?.Invoke(this, current.CurrentBandwidth);
 
@@ -760,7 +777,10 @@ namespace Gelatinarm.Services
                     BandwidthKbps = (int)(current.CurrentBandwidth / 1000) // Convert to Kbps
                 });
 
-                _lastBandwidth = current.CurrentBandwidth;
+                lock (_bandwidthLock)
+                {
+                    _lastBandwidth = current.CurrentBandwidth;
+                }
             }
 
             if (current.NetworkMetrics != null)

@@ -318,7 +318,10 @@ namespace Gelatinarm.ViewModels
                 }
                 finally
                 {
-                    IsLoading = false;
+                    await RunOnUIThreadAsync(() =>
+                    {
+                        IsLoading = false;
+                    });
                 }
             }
             catch (Exception ex)
@@ -370,11 +373,14 @@ namespace Gelatinarm.ViewModels
 
                         await SelectSpecificEpisodeAsync(targetEpisode);
 
-                        // Ensure UI is properly updated
-                        OnPropertyChanged(nameof(IsEpisodesListVisible));
-                        OnPropertyChanged(nameof(IsSeriesPosterVisible));
-                        OnPropertyChanged(nameof(IsEpisodeThumbnailVisible));
-                        OnPropertyChanged(nameof(IsSeriesNameVisible));
+                        // Ensure UI is properly updated on UI thread
+                        await RunOnUIThreadAsync(() =>
+                        {
+                            OnPropertyChanged(nameof(IsEpisodesListVisible));
+                            OnPropertyChanged(nameof(IsSeriesPosterVisible));
+                            OnPropertyChanged(nameof(IsEpisodeThumbnailVisible));
+                            OnPropertyChanged(nameof(IsSeriesNameVisible));
+                        });
                     }
                     else
                     {
@@ -428,10 +434,10 @@ namespace Gelatinarm.ViewModels
                 {
                     if (CurrentSeason?.SeriesId.HasValue == true)
                     {
-                        var seriesId = CurrentSeason.SeriesId.Value.ToString();
+                        var seriesId = CurrentSeason.SeriesId.Value;
                         Logger?.LogInformation($"Loading series data for ID: {seriesId}");
 
-                        var response = await ApiClient.Items[Guid.Parse(seriesId)].GetAsync(config =>
+                        var response = await ApiClient.Items[seriesId].GetAsync(config =>
                         {
                             config.QueryParameters.UserId = UserIdGuid.Value;
                         }, _loadingCts.Token);
@@ -448,7 +454,7 @@ namespace Gelatinarm.ViewModels
                             Logger?.LogWarning("Failed to load series data");
                         }
 
-                        await LoadSeasonsAsync();
+                        await LoadSeasonsAsync().ConfigureAwait(false);
                     }
                     else
                     {
@@ -464,8 +470,12 @@ namespace Gelatinarm.ViewModels
                     if (Episodes.Any())
                     {
                         SelectedEpisodeIndex = 0;
-                        await SelectEpisodeAsync(Episodes.First());
-                        Logger?.LogInformation($"Selected first episode: {Episodes.First().Name}");
+                        var firstEpisode = Episodes.FirstOrDefault();
+                        if (firstEpisode != null)
+                        {
+                            await SelectEpisodeAsync(firstEpisode);
+                            Logger?.LogInformation($"Selected first episode: {firstEpisode.Name}");
+                        }
                     }
                     else
                     {
@@ -475,9 +485,13 @@ namespace Gelatinarm.ViewModels
                 finally
                 {
                     Logger?.LogInformation("LoadSeasonDataAsync completed - Setting IsLoading = false");
-                    // Small delay to ensure UI updates properly
-                    await Task.Delay(50);
-                    IsLoading = false;
+                    // Ensure UI property updates happen on UI thread
+                    await RunOnUIThreadAsync(async () =>
+                    {
+                        // Small delay to ensure UI updates properly
+                        await Task.Delay(50);
+                        IsLoading = false;
+                    });
                 }
             }
             catch (Exception ex)
@@ -523,11 +537,17 @@ namespace Gelatinarm.ViewModels
 
                 if (seasonsResult?.Items != null)
                 {
-                    Seasons.Clear();
-                    foreach (var season in seasonsResult.Items.OrderBy(s => s.IndexNumber ?? int.MaxValue))
+                    var orderedSeasons = seasonsResult.Items.OrderBy(s => s.IndexNumber ?? int.MaxValue).ToList();
+                    
+                    // Ensure UI updates happen on UI thread
+                    await RunOnUIThreadAsync(() =>
                     {
-                        Seasons.Add(season);
-                    }
+                        Seasons.Clear();
+                        foreach (var season in orderedSeasons)
+                        {
+                            Seasons.Add(season);
+                        }
+                    });
 
                     Logger?.LogInformation($"LoadSeasonsAsync: Loaded {Seasons.Count} seasons");
 
@@ -590,11 +610,15 @@ namespace Gelatinarm.ViewModels
 
                 if (episodesResult?.Items != null)
                 {
-                    Episodes.Clear();
-                    foreach (var episode in episodesResult.Items)
+                    // Ensure UI updates happen on UI thread
+                    await RunOnUIThreadAsync(() =>
                     {
-                        Episodes.Add(episode);
-                    }
+                        Episodes.Clear();
+                        foreach (var episode in episodesResult.Items)
+                        {
+                            Episodes.Add(episode);
+                        }
+                    });
                 }
             }
             catch (Exception ex)
@@ -812,17 +836,20 @@ namespace Gelatinarm.ViewModels
                 {
                     if (Series != null)
                     {
-                        SeriesName = Series.Name;
+                        await RunOnUIThreadAsync(() => SeriesName = Series.Name);
                         await LoadBackdropImageAsync(Series);
-                        await LoadSeasonsAsync();
+                        await LoadSeasonsAsync().ConfigureAwait(false);
 
-                        SelectedSeasonIndex = -1;
+                        await RunOnUIThreadAsync(() => SelectedSeasonIndex = -1);
                         await ShowSeriesOverviewAsync();
                     }
                 }
                 finally
                 {
-                    IsLoading = false;
+                    await RunOnUIThreadAsync(() =>
+                    {
+                        IsLoading = false;
+                    });
                 }
             }
             catch (Exception ex)
@@ -846,57 +873,64 @@ namespace Gelatinarm.ViewModels
             var context = CreateErrorContext("ShowSeriesOverview", ErrorCategory.User);
             try
             {
-                SelectedSeasonIndex = -1;
+                // Ensure UI properties are updated on UI thread
+                await RunOnUIThreadAsync(() =>
+                {
+                    SelectedSeasonIndex = -1;
 
-                IsEpisodesListVisible = false;
-                IsSeriesPosterVisible = true;
-                IsSeriesNameVisible = false; // Hide to avoid duplication
-                IsEpisodeThumbnailVisible = false;
+                    IsEpisodesListVisible = false;
+                    IsSeriesPosterVisible = true;
+                    IsSeriesNameVisible = false; // Hide to avoid duplication
+                    IsEpisodeThumbnailVisible = false;
+                });
 
                 await LoadSeriesPosterAsync(Series);
 
-                EpisodeTitle = Series.Name;
-
-                // Show premiered year instead of episode number
-                if (Series.PremiereDate.HasValue)
+                await RunOnUIThreadAsync(() =>
                 {
-                    EpisodeNumber = $"Premiered: {Series.PremiereDate.Value.Year}";
-                }
-                else
-                {
-                    EpisodeNumber = "";
-                }
+                    EpisodeTitle = Series.Name;
 
-                EpisodeOverview = Series.Overview ?? "No overview available.";
+                    // Show premiered year instead of episode number
+                    if (Series.PremiereDate.HasValue)
+                    {
+                        EpisodeNumber = $"Premiered: {Series.PremiereDate.Value.Year}";
+                    }
+                    else
+                    {
+                        EpisodeNumber = "";
+                    }
 
-                // Hide air date for series overview
-                IsAirDateVisible = false;
-                IsAirDateSeparatorVisible = false;
+                    EpisodeOverview = Series.Overview ?? "No overview available.";
 
-                // Show genres in runtime field
-                if (Series.Genres?.Any() == true)
-                {
-                    Runtime = string.Join(", ", Series.Genres);
-                    IsRuntimeVisible = true;
-                    IsRuntimeSeparatorVisible = false;
-                }
-                else
-                {
-                    IsRuntimeVisible = false;
-                    IsRuntimeSeparatorVisible = false;
-                }
+                    // Hide air date for series overview
+                    IsAirDateVisible = false;
+                    IsAirDateSeparatorVisible = false;
 
-                IsProgressVisible = false;
-                IsResumeButtonVisible = false;
-                IsPlayButtonVisible = true;
-                PlayButtonText = "Play";
-                IsShuffleButtonVisible = true;
-                IsMarkWatchedButtonVisible = true;
-                MarkWatchedText = Series?.UserData?.Played == true ? "Mark Series Unwatched" : "Mark Series Watched";
+                    // Show genres in runtime field
+                    if (Series.Genres?.Any() == true)
+                    {
+                        Runtime = string.Join(", ", Series.Genres);
+                        IsRuntimeVisible = true;
+                        IsRuntimeSeparatorVisible = false;
+                    }
+                    else
+                    {
+                        IsRuntimeVisible = false;
+                        IsRuntimeSeparatorVisible = false;
+                    }
 
-                // Update favorite button
-                IsFavorite = Series?.UserData?.IsFavorite ?? false;
-                FavoriteButtonText = IsFavorite ? "Unfavorite" : "Favorite";
+                    IsProgressVisible = false;
+                    IsResumeButtonVisible = false;
+                    IsPlayButtonVisible = true;
+                    PlayButtonText = "Play";
+                    IsShuffleButtonVisible = true;
+                    IsMarkWatchedButtonVisible = true;
+                    MarkWatchedText = Series?.UserData?.Played == true ? "Mark Series Unwatched" : "Mark Series Watched";
+
+                    // Update favorite button
+                    IsFavorite = Series?.UserData?.IsFavorite ?? false;
+                    FavoriteButtonText = IsFavorite ? "Unfavorite" : "Favorite";
+                });
             }
             catch (Exception ex)
             {
@@ -1091,7 +1125,11 @@ namespace Gelatinarm.ViewModels
                 if (Episodes.Any())
                 {
                     SelectedEpisodeIndex = 0;
-                    await SelectEpisodeAsync(Episodes.First());
+                    var firstEpisode = Episodes.FirstOrDefault();
+                    if (firstEpisode != null)
+                    {
+                        await SelectEpisodeAsync(firstEpisode);
+                    }
                 }
             }
         }
@@ -1245,6 +1283,11 @@ namespace Gelatinarm.ViewModels
                     var preferences = await _preferencesService?.GetAppPreferencesAsync();
 
                     // Create playback params
+                    if (shuffledQueue.Count == 0)
+                    {
+                        Logger?.LogError("Shuffled queue is empty");
+                        return;
+                    }
                     var playbackParams = new MediaPlaybackParams
                     {
                         ItemId = shuffledQueue[0].Id.ToString(),
@@ -1302,8 +1345,11 @@ namespace Gelatinarm.ViewModels
             var currentIndex = GetCurrentSeasonIndex();
             if (currentIndex == -1 && Seasons.Any())
             {
-                var firstSeason = Seasons[0];
-                await SelectSeasonAsync(firstSeason);
+                var firstSeason = Seasons.FirstOrDefault();
+                if (firstSeason != null)
+                {
+                    await SelectSeasonAsync(firstSeason);
+                }
             }
             else if (currentIndex >= 0 && currentIndex < Seasons.Count - 1)
             {

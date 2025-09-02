@@ -399,7 +399,7 @@ namespace Gelatinarm.Services
 
         private void OnCurrentStateChanged(MediaPlayer sender, object args)
         {
-            var playbackState = sender.PlaybackSession.PlaybackState;
+            var playbackState = sender?.PlaybackSession?.PlaybackState ?? MediaPlaybackState.None;
             Logger.LogDebug($"Playback state changed to: {playbackState}");
             PlaybackStateChanged?.Invoke(this, playbackState);
         }

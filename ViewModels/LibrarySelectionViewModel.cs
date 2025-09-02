@@ -71,9 +71,14 @@ namespace Gelatinarm.ViewModels
             }
 
             // Use API to get user views
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                Logger?.LogError($"Invalid user ID format: {userId}");
+                throw new ArgumentException($"Invalid user ID format: {userId}", nameof(userId));
+            }
             var userViews = await _apiClient.UserViews.GetAsync(config =>
             {
-                config.QueryParameters.UserId = Guid.Parse(userId);
+                config.QueryParameters.UserId = userGuid;
             }, cancellationToken).ConfigureAwait(false);
 
             if (userViews?.Items != null)
@@ -103,8 +108,11 @@ namespace Gelatinarm.ViewModels
 
         protected override async Task RefreshDataCoreAsync()
         {
-            // Clear and reload libraries
-            Libraries.Clear();
+            // Clear and reload libraries on UI thread
+            await RunOnUIThreadAsync(() =>
+            {
+                Libraries.Clear();
+            });
             await LoadDataCoreAsync(DisposalCts.Token);
         }
 

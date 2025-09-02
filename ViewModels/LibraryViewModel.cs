@@ -41,21 +41,25 @@ namespace Gelatinarm.ViewModels
         private string _emptyStateMessage = "Try adjusting your filters or search term";
         private string _emptyStateTitle = "No items found";
 
-        private bool _hasLoadedOnce;
+        private bool _hasLoadedOnce = false;
 
         private bool _hasMoreItems;
         private bool _isAscending = true;
-        private bool _isLoadingMore;
+        private bool _isLoadingMore = false;
 
         private CancellationTokenSource _loadFiltersCts;
+        private readonly object _loadFiltersCtsLock = new object();
 
         private CancellationTokenSource _loadLibrariesCts;
+        private readonly object _loadLibrariesCtsLock = new object();
+        
         private CancellationTokenSource _loadMoreCts = new();
+        private readonly object _loadMoreCtsLock = new object();
 
         private string _searchTerm = string.Empty;
 
         private BaseItemDto _selectedLibrary;
-        private int _selectedSortIndex;
+        private int _selectedSortIndex = 0;
 
         private bool _showGenreFilter = true;
         private bool _showPlayedStatusFilter = true;
@@ -63,7 +67,7 @@ namespace Gelatinarm.ViewModels
         private bool _showResolutionFilter = true;
         private bool _showYearFilter = true;
 
-        private int _totalItemCount;
+        private int _totalItemCount = 0;
 
         public LibraryViewModel(
             JellyfinApiClient apiClient,
@@ -484,11 +488,16 @@ namespace Gelatinarm.ViewModels
 
         private async Task LoadLibrariesAsync(CancellationToken cancellationToken = default)
         {
-            // Cancel any previous load
-            _loadLibrariesCts?.Cancel();
-            _loadLibrariesCts?.Dispose();
-            _loadLibrariesCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var localToken = _loadLibrariesCts.Token;
+            // Cancel any previous load and create new token source atomically
+            CancellationTokenSource localCts;
+            lock (_loadLibrariesCtsLock)
+            {
+                _loadLibrariesCts?.Cancel();
+                _loadLibrariesCts?.Dispose();
+                _loadLibrariesCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                localCts = _loadLibrariesCts;
+            }
+            var localToken = localCts.Token;
 
             IsError = false;
             ErrorMessage = string.Empty;
@@ -548,16 +557,19 @@ namespace Gelatinarm.ViewModels
 
         private async Task LoadFiltersAsync(CancellationToken cancellationToken = default)
         {
-            // Cancel any previous load
-            _loadFiltersCts?.Cancel();
-            _loadFiltersCts?.Dispose();
-
-            // Create a new cancellation token source
-            _loadFiltersCts = new CancellationTokenSource();
+            // Cancel any previous load and create new token source atomically
+            CancellationTokenSource localCts;
+            lock (_loadFiltersCtsLock)
+            {
+                _loadFiltersCts?.Cancel();
+                _loadFiltersCts?.Dispose();
+                _loadFiltersCts = new CancellationTokenSource();
+                localCts = _loadFiltersCts;
+            }
 
             // Link with the parent token if provided
             using var linkedCts =
-                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _loadFiltersCts.Token);
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, localCts.Token);
             var localToken = linkedCts.Token;
 
             if (_currentUserId == null || SelectedLibrary == null || !SelectedLibrary.Id.HasValue)
@@ -869,7 +881,7 @@ namespace Gelatinarm.ViewModels
         {
             var queryParams = new Dictionary<string, string>
             {
-                ["userId"] = _currentUserId.ToString(),
+                ["userId"] = _currentUserId?.ToString() ?? string.Empty,
                 ["recursive"] = "true",
                 ["enableUserData"] = "true",
                 ["imageTypeLimit"] = "1",
@@ -967,13 +979,27 @@ namespace Gelatinarm.ViewModels
                                     break;
                                 case "includeItemTypes":
                                 case "IncludeItemTypes":
-                                    config.QueryParameters.IncludeItemTypes = param.Value.Split(',')
-                                        .Select(t => Enum.Parse<BaseItemKind>(t)).ToArray();
+                                    var includeTypes = param.Value.Split(',')
+                                        .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                                        .Where(k => k.HasValue)
+                                        .Select(k => k.Value)
+                                        .ToArray();
+                                    if (includeTypes.Length > 0)
+                                    {
+                                        config.QueryParameters.IncludeItemTypes = includeTypes;
+                                    }
                                     break;
                                 case "excludeItemTypes":
                                 case "ExcludeItemTypes":
-                                    config.QueryParameters.ExcludeItemTypes = param.Value.Split(',')
-                                        .Select(t => Enum.Parse<BaseItemKind>(t)).ToArray();
+                                    var excludeTypes = param.Value.Split(',')
+                                        .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                                        .Where(k => k.HasValue)
+                                        .Select(k => k.Value)
+                                        .ToArray();
+                                    if (excludeTypes.Length > 0)
+                                    {
+                                        config.QueryParameters.ExcludeItemTypes = excludeTypes;
+                                    }
                                     break;
                                 case "genres":
                                 case "Genres":
@@ -981,15 +1007,20 @@ namespace Gelatinarm.ViewModels
                                     break;
                                 case "years":
                                 case "Years":
-                                    config.QueryParameters.Years =
-                                        param.Value.Split(',').Select(y => (int?)int.Parse(y)).ToArray();
+                                    config.QueryParameters.Years = param.Value.Split(',')
+                                        .Select(y => int.TryParse(y, out var year) ? (int?)year : null)
+                                        .Where(y => y.HasValue)
+                                        .ToArray();
                                     break;
                                 case "officialRatings":
                                 case "OfficialRatings":
                                     config.QueryParameters.OfficialRatings = param.Value.Split(',');
                                     break;
                                 case "MinWidth":
-                                    config.QueryParameters.MinWidth = int.Parse(param.Value);
+                                    if (int.TryParse(param.Value, out var minWidth))
+                                    {
+                                        config.QueryParameters.MinWidth = minWidth;
+                                    }
                                     break;
                                 case "isPlayed":
                                     config.QueryParameters.IsPlayed = bool.Parse(param.Value);
@@ -998,10 +1029,16 @@ namespace Gelatinarm.ViewModels
                                     config.QueryParameters.Is4K = bool.Parse(param.Value);
                                     break;
                                 case "minHeight":
-                                    config.QueryParameters.MinHeight = int.Parse(param.Value);
+                                    if (int.TryParse(param.Value, out var minHeight))
+                                    {
+                                        config.QueryParameters.MinHeight = minHeight;
+                                    }
                                     break;
                                 case "maxHeight":
-                                    config.QueryParameters.MaxHeight = int.Parse(param.Value);
+                                    if (int.TryParse(param.Value, out var maxHeight))
+                                    {
+                                        config.QueryParameters.MaxHeight = maxHeight;
+                                    }
                                     break;
                                 case "Filters":
                                     if (param.Value == "IsPlayed")
@@ -1043,10 +1080,16 @@ namespace Gelatinarm.ViewModels
                                         .ToArray();
                                     break;
                                 case "StartIndex":
-                                    config.QueryParameters.StartIndex = int.Parse(param.Value);
+                                    if (int.TryParse(param.Value, out var startIndex))
+                                    {
+                                        config.QueryParameters.StartIndex = startIndex;
+                                    }
                                     break;
                                 case "Limit":
-                                    config.QueryParameters.Limit = int.Parse(param.Value);
+                                    if (int.TryParse(param.Value, out var limit))
+                                    {
+                                        config.QueryParameters.Limit = limit;
+                                    }
                                     break;
                                 case "searchTerm":
                                 case "SearchTerm":

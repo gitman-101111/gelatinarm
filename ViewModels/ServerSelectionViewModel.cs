@@ -138,7 +138,15 @@ namespace Gelatinarm.ViewModels
                 if (!isAvailable && !ServerUrl.Trim().Contains("://"))
                 {
                     Logger?.LogWarning($"HTTPS connection to {trimmedUrl} failed. Trying HTTP.");
-                    trimmedUrl = "http://" + ServerUrl.Trim().Split(new[] { "://" }, StringSplitOptions.None).Last();
+                    var urlParts = ServerUrl.Trim().Split(new[] { "://" }, StringSplitOptions.None);
+                    var lastPart = urlParts.LastOrDefault();
+                    if (string.IsNullOrWhiteSpace(lastPart))
+                    {
+                        Logger?.LogError("Failed to parse server URL for HTTP fallback");
+                        await ShowErrorAsync("Invalid server URL format", "Connection Error");
+                        return;
+                    }
+                    trimmedUrl = "http://" + lastPart;
                     Logger?.LogInformation($"Attempting HTTP fallback: {trimmedUrl}");
                     isAvailable = await TestConnectionAsync(trimmedUrl);
                 }

@@ -22,7 +22,7 @@ namespace Gelatinarm.Services
         private readonly Jellyfin.Sdk.JellyfinApiClient _apiClient;
         private MediaSourceInfo _currentMediaSource;
         private SubtitleTrack _currentSubtitle;
-        private bool _isDisposed;
+        private volatile bool _isDisposed = false;
 
         private MediaPlayer _mediaPlayer;
         private MediaPlaybackParams _playbackParams;
@@ -101,7 +101,7 @@ namespace Gelatinarm.Services
                 else
                 {
                     _currentSubtitle = _subtitleTracks.FirstOrDefault(s => s.IsDefault) ??
-                                       _subtitleTracks.First();
+                                       _subtitleTracks.FirstOrDefault();
                 }
 
                 return await Task.FromResult(_subtitleTracks);

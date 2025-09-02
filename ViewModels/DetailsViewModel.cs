@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -216,6 +217,7 @@ namespace Gelatinarm.ViewModels
         {
             if (CurrentItem?.Id == null)
             {
+                Logger?.LogWarning($"LoadPrimaryImage: CurrentItem or ID is null");
                 return;
             }
 
@@ -224,22 +226,41 @@ namespace Gelatinarm.ViewModels
             {
                 try
                 {
+                    Logger?.LogInformation($"LoadPrimaryImage: Starting for {CurrentItem.Name} (ID: {CurrentItem.Id})");
+                    
                     string imageTag = null;
+                    
+                    // Try to get image tag from ImageTags
                     if (CurrentItem.ImageTags?.AdditionalData?.ContainsKey("Primary") == true)
                     {
                         imageTag = CurrentItem.ImageTags.AdditionalData["Primary"]?.ToString();
+                        Logger?.LogInformation($"LoadPrimaryImage: Found Primary image tag: {imageTag}");
+                    }
+                    else
+                    {
+                        Logger?.LogInformation($"LoadPrimaryImage: No image tag found, will try without tag");
                     }
 
+                    // Build image URL - even without a tag, the server should provide the image if it exists
                     var imageUrl = ImageHelper.BuildImageUrl(CurrentItem.Id.Value, "Primary", 400, null, imageTag);
+                    Logger?.LogInformation($"LoadPrimaryImage: Built URL: {imageUrl}");
+                    
                     if (!string.IsNullOrEmpty(imageUrl))
                     {
-                        setImageAction(new BitmapImage(new Uri(imageUrl)));
+                        var bitmap = new BitmapImage(new Uri(imageUrl));
+                        setImageAction(bitmap);
+                        Logger?.LogInformation($"LoadPrimaryImage: Image loaded successfully for {CurrentItem.Name}");
+                    }
+                    else
+                    {
+                        Logger?.LogWarning($"LoadPrimaryImage: No image URL generated for {CurrentItem.Name}");
                     }
 
                     await Task.CompletedTask;
                 }
                 catch (Exception ex)
                 {
+                    Logger?.LogError(ex, $"LoadPrimaryImage: Failed to load image for {CurrentItem?.Name}");
                     await ErrorHandler.HandleErrorAsync(ex, context, false);
                 }
             });
@@ -562,10 +583,14 @@ namespace Gelatinarm.ViewModels
             // Load backdrop image
             if (CurrentItem.BackdropImageTags?.Count > 0)
             {
-                BackdropImage = await ImageLoadingService.GetImageAsync(
-                    CurrentItem.Id.Value,
-                    ImageType.Backdrop,
-                    CurrentItem.BackdropImageTags[0]) as BitmapImage;
+                var firstTag = CurrentItem.BackdropImageTags.FirstOrDefault();
+                if (firstTag != null)
+                {
+                    BackdropImage = await ImageLoadingService.GetImageAsync(
+                        CurrentItem.Id.Value,
+                        ImageType.Backdrop,
+                        firstTag) as BitmapImage;
+                }
             }
         }
 

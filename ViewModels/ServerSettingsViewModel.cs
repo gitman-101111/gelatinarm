@@ -40,12 +40,12 @@ namespace Gelatinarm.ViewModels
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
-        private bool _hasUnsavedChanges;
+        private bool _hasUnsavedChanges = false;
         private string _validationError;
 
         // Settings properties
-        private bool _allowSelfSignedCertificates;
-        private int _connectionTimeout;
+        private bool _allowSelfSignedCertificates = false;
+        private int _connectionTimeout = 30;
 
         // Server properties
         private string _serverUrl;
@@ -98,23 +98,25 @@ namespace Gelatinarm.ViewModels
 
         protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
         {
-            ValidationError = null;
+            await RunOnUIThreadAsync(() => ValidationError = null);
             await LoadSettingsAsync(cancellationToken).ConfigureAwait(false);
-            HasUnsavedChanges = false;
+            await RunOnUIThreadAsync(() => HasUnsavedChanges = false);
         }
 
         protected override async Task RefreshDataCoreAsync()
         {
             // Refresh just reloads settings
             await LoadSettingsAsync(CancellationToken.None).ConfigureAwait(false);
-            HasUnsavedChanges = false;
+            await RunOnUIThreadAsync(() => HasUnsavedChanges = false);
         }
 
-        protected override Task ClearDataCoreAsync()
+        protected override async Task ClearDataCoreAsync()
         {
-            ValidationError = null;
-            HasUnsavedChanges = false;
-            return Task.CompletedTask;
+            await RunOnUIThreadAsync(() =>
+            {
+                ValidationError = null;
+                HasUnsavedChanges = false;
+            });
         }
 
         /// <summary>

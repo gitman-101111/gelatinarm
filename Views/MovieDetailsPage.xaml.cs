@@ -14,7 +14,7 @@ namespace Gelatinarm.Views
     /// </summary>
     public sealed partial class MovieDetailsPage : DetailsPage
     {
-        private bool _isNavigatingToPerson;
+        private bool _isNavigatingToPerson = false;
 
         public MovieDetailsPage() : base(typeof(MovieDetailsPage))
         {

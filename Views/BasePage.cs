@@ -22,11 +22,11 @@ namespace Gelatinarm.Views
     public abstract class BasePage : Page
     {
         private readonly Type _loggerType;
-        private bool _hasInitialized;
+        private bool _hasInitialized = false;
 
         // State tracking
-        private bool _isPageLoaded;
-        private bool _servicesInitialized;
+        private bool _isPageLoaded = false;
+        private bool _servicesInitialized = false;
 
         protected BasePage() : this(typeof(BasePage))
         {

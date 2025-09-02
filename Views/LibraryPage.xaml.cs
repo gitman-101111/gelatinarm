@@ -236,10 +236,13 @@ namespace Gelatinarm.Views
             {
                 Logger?.LogInformation($"LibraryPage - BackStack count: {Frame.BackStackDepth}");
                 // Log the back stack entries for debugging
-                for (var i = 0; i < Frame.BackStack.Count; i++)
+                if (Frame.BackStack != null)
                 {
-                    var entry = Frame.BackStack[i];
-                    Logger?.LogInformation($"LibraryPage - BackStack[{i}]: {entry.SourcePageType.Name}");
+                    for (var i = 0; i < Frame.BackStack.Count; i++)
+                    {
+                        var entry = Frame.BackStack[i];
+                        Logger?.LogInformation($"LibraryPage - BackStack[{i}]: {entry.SourcePageType.Name}");
+                    }
                 }
             }
             else
@@ -279,9 +282,16 @@ namespace Gelatinarm.Views
                     Logger?.LogInformation(
                         $"LibraryPage: Restoring library from preferences: {savedLibraryName} (ID: {savedLibraryId}, Type: {savedLibraryType})");
 
+                    if (!Guid.TryParse(savedLibraryId, out var libraryGuid))
+                    {
+                        Logger?.LogError($"Invalid library ID format: {savedLibraryId}");
+                        // Invalid saved library ID, will fall through to default selection
+                        return;
+                    }
+
                     var restoredLibrary = new BaseItemDto
                     {
-                        Id = Guid.Parse(savedLibraryId),
+                        Id = libraryGuid,
                         Name = savedLibraryName,
                         Type = BaseItemDto_Type.CollectionFolder
                     };

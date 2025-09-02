@@ -23,6 +23,7 @@ namespace Gelatinarm.Converters.Image
             Auto // Automatically determine based on context
         }
 
+
         public object Convert(object value, Type targetType, object parameter, string language)
         {
             try
@@ -129,7 +130,7 @@ namespace Gelatinarm.Converters.Image
                             config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
                             config.QueryParameters.MaxWidth = 400;
                         });
-                    return requestInfo.URI.ToString();
+                    return apiClient.BuildUri(requestInfo).ToString();
                 }
 
                 // Standard primary image handling
@@ -145,7 +146,7 @@ namespace Gelatinarm.Converters.Image
                             config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
                             config.QueryParameters.MaxWidth = 400;
                         });
-                    return requestInfo.URI.ToString();
+                    return apiClient.BuildUri(requestInfo).ToString();
                 }
 
                 // Fallback to primary without tag
@@ -158,7 +159,7 @@ namespace Gelatinarm.Converters.Image
                             config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
                             config.QueryParameters.MaxWidth = 400;
                         });
-                    return requestInfo.URI.ToString();
+                    return apiClient.BuildUri(requestInfo).ToString();
                 }
             }
             catch (Exception)
@@ -199,7 +200,7 @@ namespace Gelatinarm.Converters.Image
                                 config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
                                 config.QueryParameters.MaxWidth = 600;
                             });
-                        url = requestInfo.URI.ToString();
+                        url = apiClient.BuildUri(requestInfo).ToString();
                     }
                     else if (item.Id != null)
                     {
@@ -210,34 +211,42 @@ namespace Gelatinarm.Converters.Image
                                 config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
                                 config.QueryParameters.MaxWidth = 600;
                             });
-                        url = requestInfo.URI.ToString();
+                        url = apiClient.BuildUri(requestInfo).ToString();
                     }
                 }
-                // For movies, prefer backdrop
+                // For movies, always try to get backdrop
                 else if (item.Type == BaseItemDto_Type.Movie)
                 {
+                    // Try to get backdrop with tag if available
                     if (item.BackdropImageTags?.Any() == true)
                     {
-                        var backdropTag = item.BackdropImageTags.First();
+                        var backdropTag = item.BackdropImageTags.FirstOrDefault();
+                        if (!string.IsNullOrEmpty(backdropTag))
+                        {
+                            var requestInfo = apiClient.Items[item.Id.Value]
+                                .Images["Backdrop"][0]
+                                .ToGetRequestInformation(config =>
+                                {
+                                    config.QueryParameters.Tag = backdropTag;
+                                    config.QueryParameters.Quality = MediaConstants.BACKDROP_QUALITY;
+                                    config.QueryParameters.MaxWidth = 600;
+                                });
+                            url = apiClient.BuildUri(requestInfo).ToString();
+                        }
+                    }
+                    
+                    // If no tag or tag failed, try to get backdrop without tag
+                    // The server should still return the backdrop if it exists
+                    if (string.IsNullOrEmpty(url) && item.Id != null)
+                    {
                         var requestInfo = apiClient.Items[item.Id.Value]
-                            .Images["Backdrop/0"]
+                            .Images["Backdrop"][0]
                             .ToGetRequestInformation(config =>
                             {
-                                config.QueryParameters.Tag = backdropTag;
                                 config.QueryParameters.Quality = MediaConstants.BACKDROP_QUALITY;
                                 config.QueryParameters.MaxWidth = 600;
                             });
-                        url = requestInfo.URI.ToString();
-                    }
-                    // Fall back to primary if no backdrop
-                    else
-                    {
-                        url = GetPrimaryImageUrl(item, serverUrl);
-                        // Adjust width for backdrop usage
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            url = url.Replace("maxWidth=400", "maxWidth=600");
-                        }
+                        url = apiClient.BuildUri(requestInfo).ToString();
                     }
                 }
                 // Other types use primary with backdrop dimensions

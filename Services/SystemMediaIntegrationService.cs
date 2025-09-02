@@ -69,6 +69,11 @@ namespace Gelatinarm.Services
             try
             {
                 var updater = _systemMediaTransportControls.DisplayUpdater;
+                if (updater == null)
+                {
+                    Logger.LogWarning("SystemMediaTransportControls.DisplayUpdater returned null");
+                    return;
+                }
                 updater.Type = MediaPlaybackType.Music;
 
                 // Set music properties
@@ -276,6 +281,11 @@ namespace Gelatinarm.Services
                 }
 
                 _systemMediaTransportControls = _mediaPlayer.SystemMediaTransportControls;
+                if (_systemMediaTransportControls == null)
+                {
+                    Logger.LogWarning("MediaPlayer.SystemMediaTransportControls returned null");
+                    return;
+                }
                 _systemMediaTransportControls.IsEnabled = true;
                 _systemMediaTransportControls.IsPauseEnabled = true;
                 _systemMediaTransportControls.IsPlayEnabled = true;

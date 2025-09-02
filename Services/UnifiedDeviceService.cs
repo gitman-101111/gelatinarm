@@ -90,6 +90,7 @@ namespace Gelatinarm.Services
         private readonly ApplicationView _appView;
         private readonly Dictionary<string, bool> _codecSupport;
         private readonly List<Gamepad> _connectedGamepads = new();
+        private readonly object _gamepadLock = new object();
         private readonly string _deviceVersion;
         private readonly CoreDispatcher _dispatcher;
         private readonly DisplayInformation _displayInfo;
@@ -98,12 +99,13 @@ namespace Gelatinarm.Services
         // Device Info implementation
         private DeviceInfo _cachedDeviceInfo;
         private string _deviceId;
-        private bool _disposed;
-        private int _inputTickCount;
+        private volatile bool _disposed = false;
+        private volatile int _inputTickCount = 0;
         private DispatcherTimer _inputTimer;
         private GamepadReading _lastReading;
-        private ApplicationDataContainer _localSettings;
-        private int _monitoringTickCount;
+        private volatile ApplicationDataContainer _localSettings;
+        private readonly object _localSettingsLock = new object();
+        private volatile int _monitoringTickCount = 0;
         private DispatcherTimer _monitoringTimer;
         private MediaProtectionManager _protectionManager;
         private DateTime _startTime;
@@ -909,11 +911,14 @@ namespace Gelatinarm.Services
             {
                 try
                 {
-                    if (_connectedGamepads.Remove(g))
+                    lock (_gamepadLock)
                     {
-                        Logger.LogInformation($"Ctrl Remove. Total:{_connectedGamepads.Count}");
-                        ControllerDisconnected?.Invoke(this, new GamepadEventArgs { Gamepad = g, ControllerId = -1 });
-                        UpdateControllerProperties();
+                        if (_connectedGamepads.Remove(g))
+                        {
+                            Logger.LogInformation($"Ctrl Remove. Total:{_connectedGamepads.Count}");
+                            ControllerDisconnected?.Invoke(this, new GamepadEventArgs { Gamepad = g, ControllerId = -1 });
+                            UpdateControllerProperties();
+                        }
                     }
 
                     await Task.CompletedTask;
@@ -927,8 +932,11 @@ namespace Gelatinarm.Services
 
         private void UpdateControllerProperties()
         {
-            IsControllerConnected = _connectedGamepads.Any();
-            ConnectedControllerCount = _connectedGamepads.Count;
+            lock (_gamepadLock)
+            {
+                IsControllerConnected = _connectedGamepads.Any();
+                ConnectedControllerCount = _connectedGamepads.Count;
+            }
         }
 
         private string GetAppVersion()
@@ -1151,7 +1159,7 @@ namespace Gelatinarm.Services
 
         private void OnMonitoringTick(object s, object e)
         {
-            _monitoringTickCount++;
+            System.Threading.Interlocked.Increment(ref _monitoringTickCount);
             try
             {
                 SystemEvent?.Invoke(this,
@@ -1179,16 +1187,20 @@ namespace Gelatinarm.Services
         {
             try
             {
-                _inputTickCount++;
-                if (!_connectedGamepads.Any())
+                System.Threading.Interlocked.Increment(ref _inputTickCount);
+                Gamepad g;
+                lock (_gamepadLock)
                 {
-                    return;
-                }
+                    if (!_connectedGamepads.Any())
+                    {
+                        return;
+                    }
 
-                var g = _connectedGamepads.FirstOrDefault();
-                if (g == null)
-                {
-                    return;
+                    g = _connectedGamepads.FirstOrDefault();
+                    if (g == null)
+                    {
+                        return;
+                    }
                 }
 
                 var r = g.GetCurrentReading();
@@ -1263,20 +1275,26 @@ namespace Gelatinarm.Services
         {
             if (_localSettings == null)
             {
-                try
+                lock (_localSettingsLock)
                 {
-                    _localSettings = ApplicationData.Current.LocalSettings;
-
-                    // Now that we have LocalSettings, update the device ID if needed
-                    var storedId = GetOrCreateDeviceId();
-                    if (!string.IsNullOrEmpty(storedId))
+                    if (_localSettings == null) // Double-check after acquiring lock
                     {
-                        _deviceId = storedId;
+                        try
+                        {
+                            _localSettings = ApplicationData.Current.LocalSettings;
+
+                            // Now that we have LocalSettings, update the device ID if needed
+                            var storedId = GetOrCreateDeviceId();
+                            if (!string.IsNullOrEmpty(storedId))
+                            {
+                                _deviceId = storedId;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger?.LogError(ex, "Failed to get LocalSettings");
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Logger?.LogError(ex, "Failed to get LocalSettings");
                 }
             }
         }
@@ -1336,7 +1354,10 @@ namespace Gelatinarm.Services
 
                 UnregisterDeviceEvents();
 
-                _connectedGamepads.Clear();
+                lock (_gamepadLock)
+                {
+                    _connectedGamepads.Clear();
+                }
                 UpdateControllerProperties();
 
                 _monitoringTimer = null;

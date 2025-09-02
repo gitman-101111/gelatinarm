@@ -13,7 +13,7 @@ namespace Gelatinarm.Controls
     public sealed partial class PlaybackSettings : BaseControl
     {
 
-        private bool _isInitializing;
+        private bool _isInitializing = false;
         private JellyfinApiClient _jellyfinApi;
         private AppPreferences _preferences;
         private IPreferencesService _preferencesService;

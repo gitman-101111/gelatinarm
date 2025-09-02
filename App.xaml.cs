@@ -36,7 +36,7 @@ namespace Gelatinarm
         private IAuthenticationService _authService;
         private IUnifiedDeviceService _deviceInfo;
         private ILogger<App> _logger;
-        public IServiceProvider _serviceProvider;
+        private volatile IServiceProvider _serviceProvider;
 
 
         public App()
@@ -184,6 +184,7 @@ namespace Gelatinarm
                 }
                 client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
             })
+            .SetHandlerLifetime(TimeSpan.FromMinutes(10))
             .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
             {
                 var handler = new HttpClientHandler();
@@ -1089,7 +1090,7 @@ namespace Gelatinarm
                 }
 
                 var musicPlayerService = _serviceProvider.GetService<IMusicPlayerService>();
-                if (musicPlayerService?.IsPlaying == true && musicPlayerService.MediaPlayer != null)
+                if (musicPlayerService?.IsPlaying == true && musicPlayerService.MediaPlayer?.PlaybackSession != null)
                 {
                     var currentPosition = musicPlayerService.MediaPlayer.PlaybackSession.Position;
                     _logger?.LogInformation($"Music is still playing at position: {currentPosition}");

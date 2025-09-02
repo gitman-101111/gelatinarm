@@ -32,9 +32,6 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private BitmapImage _coverImage;
 
-        // Observable properties
-        [ObservableProperty] private BaseItemDto _currentItem;
-
         [ObservableProperty] private string _duration;
 
         [ObservableProperty] private string _genres;
@@ -55,13 +52,11 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private BaseItemDto _selectedTrack;
 
-        [ObservableProperty] private string _title;
-
         [ObservableProperty] private string _trackCount;
 
         [ObservableProperty] private ObservableCollection<BaseItemDto> _tracks = new();
 
-        private bool _hasMultipleDiscs;
+        private bool _hasMultipleDiscs = false;
         public bool HasMultipleDiscs => _hasMultipleDiscs;
 
         [ObservableProperty] private string _year;
@@ -137,8 +132,17 @@ namespace Gelatinarm.ViewModels
         private async Task LoadAlbumFromDtoAsync(BaseItemDto dto, CancellationToken cancellationToken)
         {
             Logger?.LogInformation($"AlbumDetailsViewModel: Loading from BaseItemDto: {dto.Name}");
-            CurrentItem = dto;
-            await LoadAlbumDetailsAsync(cancellationToken);
+            
+            // If we have an ID, fetch the full album details to ensure we have all metadata including images
+            if (dto.Id.HasValue)
+            {
+                await LoadAlbumByIdAsync(dto.Id.Value, cancellationToken);
+            }
+            else
+            {
+                CurrentItem = dto;
+                await LoadAlbumDetailsAsync(cancellationToken);
+            }
         }
 
         private async Task LoadAlbumByIdAsync(Guid itemId, CancellationToken cancellationToken)
@@ -153,6 +157,7 @@ namespace Gelatinarm.ViewModels
             var response = await ApiClient.Items[itemId].GetAsync(config =>
             {
                 config.QueryParameters.UserId = UserIdGuid.Value;
+                // Note: The individual item endpoint returns all fields by default, Fields parameter is not supported
             }, cancellationToken).ConfigureAwait(false);
 
             if (response == null)
@@ -170,7 +175,12 @@ namespace Gelatinarm.ViewModels
             {
                 return;
             }
-            await RunOnUIThreadAsync(() => UpdateAlbumUI()); await LoadTracksAsync(cancellationToken);
+            
+            // Update UI on UI thread
+            await RunOnUIThreadAsync(() => UpdateAlbumUI());
+            
+            // Load tracks
+            await LoadTracksAsync(cancellationToken);
 
             Logger?.LogInformation(
                 $"AlbumDetailsViewModel: Loaded album: {CurrentItem.Name} with {Tracks.Count} tracks");
@@ -237,6 +247,7 @@ namespace Gelatinarm.ViewModels
             }
 
             // Load album art
+            Logger?.LogInformation($"Loading album art for: {CurrentItem.Name} (ID: {CurrentItem.Id})");
             LoadPrimaryImage(image => CoverImage = image, "LoadAlbumArt");
 
             // Update favorite button
@@ -424,10 +435,10 @@ namespace Gelatinarm.ViewModels
         {
             if (CurrentItem?.AlbumArtists?.Any() == true)
             {
-                var artistId = CurrentItem.AlbumArtists.First().Id;
-                if (artistId.HasValue)
+                var firstArtist = CurrentItem.AlbumArtists.FirstOrDefault();
+                if (firstArtist?.Id != null)
                 {
-                    NavigationService.Navigate(typeof(ArtistDetailsPage), artistId.Value);
+                    NavigationService.Navigate(typeof(ArtistDetailsPage), firstArtist.Id.Value);
                 }
             }
         }

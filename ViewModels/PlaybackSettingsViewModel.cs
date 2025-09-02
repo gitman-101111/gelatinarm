@@ -30,21 +30,21 @@ namespace Gelatinarm.ViewModels
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
-        private bool _hasUnsavedChanges;
+        private bool _hasUnsavedChanges = false;
         private string _validationError;
 
-        private bool _allowAudioStreamCopy;
+        private bool _allowAudioStreamCopy = false;
 
         // Playback settings
-        private bool _autoPlayNextEpisode;
-        private bool _autoSkipIntros;
-        private int _controlsHideDelay;
+        private bool _autoPlayNextEpisode = true;
+        private bool _autoSkipIntros = false;
+        private int _controlsHideDelay = 3;
         // Quality and format settings
-        private bool _enableDirectPlay;
-        private bool _pauseOnFocusLoss;
-        private string _videoStretchMode;
+        private bool _enableDirectPlay = true;
+        private bool _pauseOnFocusLoss = false;
+        private string _videoStretchMode = "Uniform";
         // Audio enhancement settings
-        private bool _isNightModeEnabled;
+        private bool _isNightModeEnabled = false;
 
         public PlaybackSettingsViewModel(
             ILogger<PlaybackSettingsViewModel> logger,
@@ -88,14 +88,14 @@ namespace Gelatinarm.ViewModels
         {
             ValidationError = null;
             await LoadSettingsAsync(cancellationToken).ConfigureAwait(false);
-            HasUnsavedChanges = false;
+            await RunOnUIThreadAsync(() => HasUnsavedChanges = false);
         }
 
         protected override async Task RefreshDataCoreAsync()
         {
             // Refresh just reloads settings
             await LoadSettingsAsync(CancellationToken.None).ConfigureAwait(false);
-            HasUnsavedChanges = false;
+            await RunOnUIThreadAsync(() => HasUnsavedChanges = false);
         }
 
         protected override Task ClearDataCoreAsync()

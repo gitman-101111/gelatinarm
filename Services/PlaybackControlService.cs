@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Gelatinarm.Models;
 using Jellyfin.Sdk;
@@ -69,14 +70,14 @@ namespace Gelatinarm.Services
         }
 
         // Enhanced HLS resume tracking
-        private bool _isHlsStream;
+        private bool _isHlsStream = false;
         private ResumeState _resumeState = ResumeState.NotStarted;
-        private int _hlsResumeAttempts;
-        private DateTime _hlsResumeStartTime;
+        private volatile int _hlsResumeAttempts = 0;
+        private DateTime _hlsResumeStartTime = DateTime.MinValue;
         private TimeSpan _lastVerifiedPosition = TimeSpan.Zero;
         private DateTime _lastPositionCheckTime = DateTime.MinValue;
-        private int _stuckPositionCount = 0;
-        private int _recoveryAttemptLevel = 0;
+        private volatile int _stuckPositionCount = 0;
+        private volatile int _recoveryAttemptLevel = 0;
         private const int MAX_STUCK_CHECKS = 5; // If position doesn't change for 5 checks, it's stuck
         private const double STUCK_POSITION_TOLERANCE = 0.5; // Position must advance by at least 0.5 seconds
         private DateTime _lastPositionLogTime = DateTime.MinValue;
@@ -134,7 +135,7 @@ namespace Gelatinarm.Services
             // Reset stuck detection tracking
             _lastVerifiedPosition = TimeSpan.Zero;
             _lastPositionCheckTime = DateTime.MinValue;
-            _stuckPositionCount = 0;
+            Interlocked.Exchange(ref _stuckPositionCount, 0);
             _recoveryAttemptLevel = 0;
 
             // Subscribe to media player events using helper
@@ -155,9 +156,15 @@ namespace Gelatinarm.Services
                 int? maxStreamingBitrate = null;
                 Logger.LogInformation("Using adaptive bitrate streaming (no bitrate limit)");
 
+                if (!Guid.TryParse(_authService.UserId, out var userGuid))
+                {
+                    Logger.LogError($"Invalid user ID format: {_authService.UserId}");
+                    throw new InvalidOperationException("Invalid user ID format");
+                }
+
                 var playbackInfoRequest = new PlaybackInfoDto
                 {
-                    UserId = Guid.Parse(_authService.UserId),
+                    UserId = userGuid,
                     MediaSourceId = _playbackParams?.MediaSourceId,
                     AudioStreamIndex = _playbackParams?.AudioStreamIndex,
                     SubtitleStreamIndex = _playbackParams?.SubtitleStreamIndex,
@@ -525,7 +532,7 @@ namespace Gelatinarm.Services
                         Logger.LogInformation($"[DirectPlay] Reached target position {currentPosition:hh\\:mm\\:ss}, verifying playback is advancing...");
                         _lastVerifiedPosition = currentPosition;
                         _lastPositionCheckTime = DateTime.UtcNow;
-                        _stuckPositionCount = 0;
+                        Interlocked.Exchange(ref _stuckPositionCount, 0);
                         return false; // Need to verify position advances
                     }
 
@@ -540,7 +547,7 @@ namespace Gelatinarm.Services
 
                     if (positionChange < STUCK_POSITION_TOLERANCE)
                     {
-                        _stuckPositionCount++;
+                        Interlocked.Increment(ref _stuckPositionCount);
                         Logger.LogWarning($"[DirectPlay-STUCK] Position not advancing at resume point {currentPosition:hh\\:mm\\:ss} (count: {_stuckPositionCount}/{MAX_STUCK_CHECKS})");
 
                         if (_stuckPositionCount >= MAX_STUCK_CHECKS)
@@ -558,7 +565,7 @@ namespace Gelatinarm.Services
                             // Use async delay without blocking
                             _ = System.Threading.Tasks.Task.Run(async () =>
                             {
-                                await System.Threading.Tasks.Task.Delay(100);
+                                await System.Threading.Tasks.Task.Delay(100).ConfigureAwait(false);
                                 _mediaPlayer.Play();
                             });
                         }
@@ -581,7 +588,7 @@ namespace Gelatinarm.Services
                             // Position only advanced due to our recovery seek, not actual playback
                             Logger.LogWarning($"[DirectPlay-STUCK] Position change ({positionChange:F1}s) appears to be from recovery seek, not actual playback");
                             _recoveryAttemptLevel = 0;
-                            _stuckPositionCount++;
+                            Interlocked.Increment(ref _stuckPositionCount);
 
                             if (_stuckPositionCount >= MAX_STUCK_CHECKS)
                             {
@@ -598,7 +605,7 @@ namespace Gelatinarm.Services
                         // Position is truly advancing! Resume successful
                         Logger.LogInformation($"[DirectPlay] Resume successful! Position advancing from {_lastVerifiedPosition:hh\\:mm\\:ss} to {currentPosition:hh\\:mm\\:ss}");
                         _pendingResumePosition = null;
-                        _stuckPositionCount = 0;
+                        Interlocked.Exchange(ref _stuckPositionCount, 0);
                         _recoveryAttemptLevel = 0;
                         return true;
                     }
@@ -698,7 +705,7 @@ namespace Gelatinarm.Services
                 Logger.LogInformation($"[HLS-RESUME] Starting resume to {resumePosition:hh\\:mm\\:ss}");
             }
 
-            _hlsResumeAttempts++;
+            Interlocked.Increment(ref _hlsResumeAttempts);
 
             // Check if we've exceeded max attempts
             if (_hlsResumeAttempts > config.MaxAttempts)
@@ -792,7 +799,7 @@ namespace Gelatinarm.Services
                         Logger.LogInformation($"[HLS-RESUME] Reached target position {currentPosition:mm\\:ss}, verifying playback is advancing...");
                         _lastVerifiedPosition = currentPosition;
                         _lastPositionCheckTime = DateTime.UtcNow;
-                        _stuckPositionCount = 0;
+                        Interlocked.Exchange(ref _stuckPositionCount, 0);
                         return false; // Need to verify position advances
                     }
 
@@ -808,7 +815,7 @@ namespace Gelatinarm.Services
 
                     if (positionChange < STUCK_POSITION_TOLERANCE)
                     {
-                        _stuckPositionCount++;
+                        Interlocked.Increment(ref _stuckPositionCount);
                         Logger.LogWarning($"[HLS-STUCK] Position not advancing at resume point {currentPosition:mm\\:ss} (count: {_stuckPositionCount}/{MAX_STUCK_CHECKS})");
 
                         // Update last check time and position for next comparison
@@ -838,7 +845,7 @@ namespace Gelatinarm.Services
                             // Use async delay without blocking
                             _ = System.Threading.Tasks.Task.Run(async () =>
                             {
-                                await System.Threading.Tasks.Task.Delay(100);
+                                await System.Threading.Tasks.Task.Delay(100).ConfigureAwait(false);
                                 _mediaPlayer.Play();
                             });
                         }
@@ -867,7 +874,7 @@ namespace Gelatinarm.Services
                             // Position only advanced due to our recovery seek, not actual playback
                             Logger.LogWarning($"[HLS-STUCK] Position change ({positionChange:F1}s) appears to be from recovery seek, not actual playback");
                             _recoveryAttemptLevel++; // Move to next recovery level
-                            _stuckPositionCount++;
+                            Interlocked.Increment(ref _stuckPositionCount);
 
                             if (_stuckPositionCount >= MAX_STUCK_CHECKS)
                             {
@@ -895,7 +902,7 @@ namespace Gelatinarm.Services
 
                         _resumeState = ResumeState.Succeeded;
                         _pendingResumePosition = null;
-                        _stuckPositionCount = 0;
+                        Interlocked.Exchange(ref _stuckPositionCount, 0);
                         _recoveryAttemptLevel = 0;
                         return true;
                     }
@@ -1230,23 +1237,66 @@ namespace Gelatinarm.Services
         {
             try
             {
-                var state = sender?.PlaybackState ?? MediaPlaybackState.None;
-                // BufferingProgress often throws InvalidCastException for HLS streams
+                // Early exit if sender is null or disposed
+                if (sender == null)
+                {
+                    Logger.LogDebug("[PLAYBACK-STATE] Sender is null, skipping handler");
+                    return;
+                }
+
+                MediaPlaybackState state = MediaPlaybackState.None;
+                TimeSpan position = TimeSpan.Zero;
                 double bufferProgress = 1.0;
+                bool? canPause = null;
+                bool? canSeek = null;
+
+                // Wrap all COM object property access in try-catch to handle disposed objects
                 try
                 {
-                    bufferProgress = sender?.BufferingProgress ?? 1.0;
+                    state = sender.PlaybackState;
                 }
-                catch (InvalidCastException)
+                catch (Exception ex) when (ex.HResult == unchecked((int)0x80004005) || ex.HResult == unchecked((int)0x800706BA))
                 {
-                    // Expected for HLS streams
+                    // COM object disposed or RPC server unavailable
+                    Logger.LogDebug("[PLAYBACK-STATE] MediaPlaybackSession disposed, skipping handler");
+                    return;
+                }
+
+                try
+                {
+                    position = sender.Position;
+                }
+                catch (Exception)
+                {
+                    // Position unavailable
+                }
+
+                // BufferingProgress often throws InvalidCastException for HLS streams
+                try
+                {
+                    bufferProgress = sender.BufferingProgress;
+                }
+                catch (Exception)
+                {
+                    // Expected for HLS streams or disposed objects
+                }
+
+                // These properties may throw when the session is disposed
+                try
+                {
+                    canPause = sender.CanPause;
+                    canSeek = sender.CanSeek;
+                }
+                catch (Exception)
+                {
+                    // Properties unavailable - session may be disposed
                 }
 
                 Logger.LogInformation($"[PLAYBACK-STATE] State changed to: {state}, " +
-                    $"Position: {sender?.Position.TotalSeconds:F2}s, " +
+                    $"Position: {position.TotalSeconds:F2}s, " +
                     $"BufferingProgress: {bufferProgress:P}, " +
-                    $"CanPause: {sender?.CanPause}, " +
-                    $"CanSeek: {sender?.CanSeek}");
+                    $"CanPause: {canPause?.ToString() ?? "N/A"}, " +
+                    $"CanSeek: {canSeek?.ToString() ?? "N/A"}");
 
                 // Log memory usage periodically
                 if (state == MediaPlaybackState.Playing || state == MediaPlaybackState.Buffering)
@@ -1269,14 +1319,47 @@ namespace Gelatinarm.Services
         {
             try
             {
-                var position = sender?.Position ?? TimeSpan.Zero;
+                // Early exit if sender is null or disposed
+                if (sender == null)
+                {
+                    return;
+                }
+
+                TimeSpan position = TimeSpan.Zero;
+                TimeSpan naturalDuration = TimeSpan.Zero;
+                double? playbackRate = null;
+                bool? isProtected = null;
+
+                // Wrap all COM object property access in try-catch to handle disposed objects
+                try
+                {
+                    position = sender.Position;
+                }
+                catch (Exception ex) when (ex.HResult == unchecked((int)0x80004005) || ex.HResult == unchecked((int)0x800706BA))
+                {
+                    // COM object disposed or RPC server unavailable
+                    return;
+                }
+
                 // Only log position changes every 5 seconds to reduce log spam
                 var now = DateTime.UtcNow;
                 if ((now - _lastPositionLogTime).TotalSeconds >= 5.0)
                 {
-                    Logger.LogDebug($"[POSITION] Current: {position.TotalSeconds:F2}s / {sender?.NaturalDuration.TotalSeconds:F2}s, " +
-                        $"PlaybackRate: {sender?.PlaybackRate}, " +
-                        $"IsProtected: {sender?.IsProtected}");
+                    // Try to get additional properties for logging, but don't fail if unavailable
+                    try
+                    {
+                        naturalDuration = sender.NaturalDuration;
+                        playbackRate = sender.PlaybackRate;
+                        isProtected = sender.IsProtected;
+                    }
+                    catch (Exception)
+                    {
+                        // Properties unavailable - session may be disposed
+                    }
+
+                    Logger.LogDebug($"[POSITION] Current: {position.TotalSeconds:F2}s / {naturalDuration.TotalSeconds:F2}s, " +
+                        $"PlaybackRate: {playbackRate?.ToString() ?? "N/A"}, " +
+                        $"IsProtected: {isProtected?.ToString() ?? "N/A"}");
                     _lastPositionLogTime = now;
                 }
 

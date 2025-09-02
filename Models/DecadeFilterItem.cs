@@ -5,8 +5,8 @@ namespace Gelatinarm.Models
 {
     public class DecadeFilterItem : FilterItem
     {
-        private int _endYear;
-        private int _startYear;
+        private int _endYear = 0;
+        private int _startYear = 0;
 
         public DecadeFilterItem()
         {

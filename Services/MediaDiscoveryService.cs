@@ -73,7 +73,11 @@ namespace Gelatinarm.Services
                             return new List<BaseItemDto>();
                         }
 
-                        var userIdGuid = Guid.Parse(userId);
+                        if (!Guid.TryParse(userId, out var userIdGuid))
+                        {
+                            Logger?.LogError($"Invalid user ID format: {userId}");
+                            return new List<BaseItemDto>();
+                        }
 
                         // Simplified query - single sort for better performance
                         var response = await _apiClient.Items.GetAsync(config =>
@@ -223,7 +227,11 @@ namespace Gelatinarm.Services
                             return new List<BaseItemDto>();
                         }
 
-                        var userIdGuid = Guid.Parse(userId);
+                        if (!Guid.TryParse(userId, out var userIdGuid))
+                        {
+                            Logger?.LogError($"Invalid user ID format: {userId}");
+                            return new List<BaseItemDto>();
+                        }
                         var response = await _apiClient.UserItems.Resume.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
@@ -280,9 +288,15 @@ namespace Gelatinarm.Services
                     return new List<BaseItemDto>();
                 }
 
+                if (!Guid.TryParse(userId, out var userGuid))
+                {
+                    Logger?.LogError($"Invalid user ID format: {userId}");
+                    return new List<BaseItemDto>();
+                }
+
                 var response = await _apiClient.Movies.Recommendations.GetAsync(config =>
                 {
-                    config.QueryParameters.UserId = Guid.Parse(userId);
+                    config.QueryParameters.UserId = userGuid;
                     // Note: Recommendations endpoint doesn't have a Limit parameter
                     config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
                 }, cancellationToken).ConfigureAwait(false);
@@ -342,9 +356,15 @@ namespace Gelatinarm.Services
                     return new List<BaseItemDto>();
                 }
 
+                if (!Guid.TryParse(userId, out var userGuid))
+                {
+                    Logger?.LogError($"Invalid user ID format: {userId}");
+                    return new List<BaseItemDto>();
+                }
+
                 var response = await _apiClient.Shows.NextUp.GetAsync(config =>
                 {
-                    config.QueryParameters.UserId = Guid.Parse(userId);
+                    config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.SeriesId = new Guid(seriesId);
                     config.QueryParameters.Limit = limit;
                     config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
@@ -386,7 +406,11 @@ namespace Gelatinarm.Services
                             return new List<BaseItemDto>();
                         }
 
-                        var userIdGuid = Guid.Parse(userId);
+                        if (!Guid.TryParse(userId, out var userIdGuid))
+                        {
+                            Logger?.LogError($"Invalid user ID format: {userId}");
+                            return new List<BaseItemDto>();
+                        }
                         var response = await _apiClient.Items.Latest.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
@@ -436,7 +460,11 @@ namespace Gelatinarm.Services
                             return new List<BaseItemDto>();
                         }
 
-                        var userIdGuid = Guid.Parse(userId);
+                        if (!Guid.TryParse(userId, out var userIdGuid))
+                        {
+                            Logger?.LogError($"Invalid user ID format: {userId}");
+                            return new List<BaseItemDto>();
+                        }
                         var response = await _apiClient.Items.Latest.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
@@ -521,9 +549,15 @@ namespace Gelatinarm.Services
                     return new SearchHintResult { SearchHints = new List<SearchHint>(), TotalRecordCount = 0 };
                 }
 
+                if (!Guid.TryParse(userId, out var userGuid))
+                {
+                    Logger?.LogError($"Invalid user ID format: {userId}");
+                    return new SearchHintResult { SearchHints = new List<SearchHint>(), TotalRecordCount = 0 };
+                }
+
                 var response = await _apiClient.Search.Hints.GetAsync(config =>
                 {
-                    config.QueryParameters.UserId = Guid.Parse(userId);
+                    config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.SearchTerm = searchTerm;
                     config.QueryParameters.Limit = limit;
                     config.QueryParameters.IncludeArtists = true;
@@ -586,9 +620,15 @@ namespace Gelatinarm.Services
                     return new List<BaseItemDto>();
                 }
 
+                if (!Guid.TryParse(userId, out var userGuid))
+                {
+                    Logger?.LogError($"Invalid user ID format: {userId}");
+                    return new List<BaseItemDto>();
+                }
+
                 var response = await _apiClient.Items[new Guid(itemId)].Similar.GetAsync(config =>
                 {
-                    config.QueryParameters.UserId = Guid.Parse(userId);
+                    config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.Limit = limit;
                     config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
                 }, cancellationToken).ConfigureAwait(false);
@@ -644,9 +684,15 @@ namespace Gelatinarm.Services
                             return new List<BaseItemDto>();
                         }
 
+                        if (!Guid.TryParse(userId, out var userGuid))
+                        {
+                            Logger?.LogError($"Invalid user ID format: {userId}");
+                            return new List<BaseItemDto>();
+                        }
+
                         var response = await _apiClient.Shows.NextUp.GetAsync(config =>
                         {
-                            config.QueryParameters.UserId = Guid.Parse(userId);
+                            config.QueryParameters.UserId = userGuid;
                             config.QueryParameters.Limit = MediaConstants.DEFAULT_QUERY_LIMIT;
                             config.QueryParameters.Fields =
                                 new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
@@ -696,8 +742,15 @@ namespace Gelatinarm.Services
 
                     if (includeItemTypes?.Length > 0)
                     {
-                        config.QueryParameters.IncludeItemTypes =
-                            includeItemTypes.Select(t => Enum.Parse<BaseItemKind>(t)).ToArray();
+                        var parsedTypes = includeItemTypes
+                            .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                            .Where(k => k.HasValue)
+                            .Select(k => k.Value)
+                            .ToArray();
+                        if (parsedTypes.Length > 0)
+                        {
+                            config.QueryParameters.IncludeItemTypes = parsedTypes;
+                        }
                     }
 
                     // Filter by current library if one is selected
@@ -713,8 +766,11 @@ namespace Gelatinarm.Services
                 // Store search results
                 if (_recentSearches.Count >= MAX_SEARCH_HISTORY)
                 {
-                    var oldestKey = _recentSearches.Keys.First();
-                    _recentSearches.Remove(oldestKey);
+                    var oldestKey = _recentSearches.Keys.FirstOrDefault();
+                    if (oldestKey != null)
+                    {
+                        _recentSearches.Remove(oldestKey);
+                    }
                 }
 
                 _recentSearches[searchTerm] = results.ToArray();
@@ -751,8 +807,15 @@ namespace Gelatinarm.Services
 
                     if (includeItemTypes?.Length > 0)
                     {
-                        config.QueryParameters.IncludeItemTypes =
-                            includeItemTypes.Select(t => Enum.Parse<BaseItemKind>(t)).ToArray();
+                        var parsedTypes = includeItemTypes
+                            .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                            .Where(k => k.HasValue)
+                            .Select(k => k.Value)
+                            .ToArray();
+                        if (parsedTypes.Length > 0)
+                        {
+                            config.QueryParameters.IncludeItemTypes = parsedTypes;
+                        }
                     }
 
                     // Filter by current library if one is selected
@@ -790,13 +853,27 @@ namespace Gelatinarm.Services
 
                     if (includeItemTypes?.Length > 0)
                     {
-                        config.QueryParameters.IncludeItemTypes =
-                            includeItemTypes.Select(t => Enum.Parse<BaseItemKind>(t)).ToArray();
+                        var parsedTypes = includeItemTypes
+                            .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                            .Where(k => k.HasValue)
+                            .Select(k => k.Value)
+                            .ToArray();
+                        if (parsedTypes.Length > 0)
+                        {
+                            config.QueryParameters.IncludeItemTypes = parsedTypes;
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(parentId))
                     {
-                        config.QueryParameters.ParentId = Guid.Parse(parentId);
+                        if (Guid.TryParse(parentId, out var parentGuid))
+                    {
+                        config.QueryParameters.ParentId = parentGuid;
+                    }
+                    else
+                    {
+                        Logger?.LogWarning($"Invalid parent ID format: {parentId}");
+                    }
                     }
 
                     config.QueryParameters.Limit = limit;

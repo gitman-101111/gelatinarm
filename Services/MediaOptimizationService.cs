@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
@@ -22,20 +24,21 @@ namespace Gelatinarm.Services
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUnifiedDeviceService _deviceService;
-        private readonly Dictionary<string, MediaSource> _mediaSourceCache = new();
+        private readonly ConcurrentDictionary<string, MediaSource> _mediaSourceCache = new();
         private readonly IMemoryMonitor _memoryMonitor;
         private readonly INetworkMonitor _networkMonitor;
         private readonly IPreferencesService _preferencesService;
-        private readonly Dictionary<string, Task<MediaSource>> _preloadTasks = new();
-        private int _currentBandwidthKbps;
-        private bool _hdrOutputEnabled;
+        private readonly ConcurrentDictionary<string, Task<MediaSource>> _preloadTasks = new();
+        private readonly Task _initializationTask;
+        private int _currentBandwidthKbps = 0;
+        private bool _hdrOutputEnabled = false;
 
         // Enhancement state
 
         // Optimization state
-        private bool _isOptimizing;
-        private bool _nightModeEnabled;
-        private bool _spatialAudioEnabled;
+        private volatile int _isOptimizing = 0; // 0 = not optimizing, 1 = optimizing
+        private bool _nightModeEnabled = false;
+        private bool _spatialAudioEnabled = false;
 
         public MediaOptimizationService(
             ILogger<MediaOptimizationService> logger,
@@ -51,7 +54,8 @@ namespace Gelatinarm.Services
             _memoryMonitor = memoryMonitor;
             _networkMonitor = networkMonitor;
 
-            InitializeAsync();
+            // Start initialization but don't await - will be awaited when needed
+            _initializationTask = InitializeAsync();
         }
 
         public bool IsEnhancementEnabled { get; private set; }
@@ -66,6 +70,8 @@ namespace Gelatinarm.Services
             bool isAudio,
             IPreferencesService preferences = null)
         {
+            await _initializationTask.ConfigureAwait(false);
+            
             var context = CreateErrorContext("CreateAdaptiveMediaSource", ErrorCategory.Media);
             try
             {
@@ -220,7 +226,7 @@ namespace Gelatinarm.Services
             FireAndForget(() => ClearOptimizationsAsync(), "ClearOptimizationsOnMemoryPressure");
         }
 
-        private async void InitializeAsync()
+        private async Task InitializeAsync()
         {
             var context = CreateErrorContext("Initialize", ErrorCategory.Media);
             try
@@ -277,6 +283,8 @@ namespace Gelatinarm.Services
 
         public async Task ApplyVideoEnhancementsAsync(MediaPlayer player, MediaSourceInfo mediaSourceInfo)
         {
+            await _initializationTask.ConfigureAwait(false);
+            
             if (!IsEnhancementEnabled || player == null)
             {
                 return;
@@ -405,15 +413,15 @@ namespace Gelatinarm.Services
 
         public async Task StartOptimizationAsync()
         {
-            if (_isOptimizing)
+            if (Interlocked.CompareExchange(ref _isOptimizing, 1, 0) != 0)
             {
-                return;
+                return; // Already optimizing
             }
 
             var context = CreateErrorContext("StartOptimization", ErrorCategory.Media);
             try
             {
-                _isOptimizing = true;
+                // Already set by CompareExchange above
                 IsOptimizationEnabled = true;
                 _preferencesService.SetValue(PreferenceConstants.IsPlaybackOptimizationEnabled, true);
 
@@ -441,7 +449,7 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("StopOptimization", ErrorCategory.Media);
             try
             {
-                _isOptimizing = false;
+                Interlocked.Exchange(ref _isOptimizing, 0);
                 IsOptimizationEnabled = false;
                 _preferencesService.SetValue(PreferenceConstants.IsPlaybackOptimizationEnabled, false);
 
@@ -510,20 +518,20 @@ namespace Gelatinarm.Services
 
                 var preloadTask =
                     PreloadMediaSourceAsync(item, getPlaybackInfoCallback, createOptimizedMediaSourceCallback);
-                _preloadTasks[itemId] = preloadTask;
+                _preloadTasks.TryAdd(itemId, preloadTask);
 
                 try
                 {
                     var mediaSource = await preloadTask.ConfigureAwait(false);
                     if (mediaSource != null)
                     {
-                        _mediaSourceCache[itemId] = mediaSource;
+                        _mediaSourceCache.TryAdd(itemId, mediaSource);
                         Logger.LogInformation($"Pre-cached media source for: {item.Name}");
                     }
                 }
                 finally
                 {
-                    _preloadTasks.Remove(itemId);
+                    _preloadTasks.TryRemove(itemId, out _);
                 }
             }
             catch (Exception ex)
@@ -590,7 +598,7 @@ namespace Gelatinarm.Services
             try
             {
                 // Cancel pending preload tasks
-                foreach (var task in _preloadTasks.Values)
+                foreach (var task in _preloadTasks.Values.ToList())
                 {
                     // Wait for tasks to complete or be cancelled - errors are expected and can be ignored
                     await task.ContinueWith(t =>
@@ -602,7 +610,7 @@ namespace Gelatinarm.Services
                 _preloadTasks.Clear();
 
                 // Clear media source cache
-                foreach (var mediaSource in _mediaSourceCache.Values)
+                foreach (var mediaSource in _mediaSourceCache.Values.ToList())
                 {
                     mediaSource?.Dispose();
                 }

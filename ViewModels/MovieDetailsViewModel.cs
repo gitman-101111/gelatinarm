@@ -344,17 +344,21 @@ namespace Gelatinarm.ViewModels
                     config.QueryParameters.Fields = new[] { ItemFields.PrimaryImageAspectRatio };
                 });
 
-                SimilarItems.Clear();
-
-                if (response?.Items != null)
+                // Ensure UI updates happen on UI thread
+                await RunOnUIThreadAsync(() =>
                 {
-                    foreach (var item in response.Items)
-                    {
-                        SimilarItems.Add(item);
-                    }
+                    SimilarItems.Clear();
 
-                    HasSimilarItems = SimilarItems.Count > 0;
-                }
+                    if (response?.Items != null)
+                    {
+                        foreach (var item in response.Items)
+                        {
+                            SimilarItems.Add(item);
+                        }
+
+                        HasSimilarItems = SimilarItems.Count > 0;
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -455,7 +459,7 @@ namespace Gelatinarm.ViewModels
                 // Select the first version as default
                 if (AvailableVersions.Any())
                 {
-                    SelectedVersion = AvailableVersions.First();
+                    SelectedVersion = AvailableVersions.FirstOrDefault();
                 }
             }
 
@@ -573,9 +577,15 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // Load the specific version's details
-                var item = await ApiClient.Items[Guid.Parse(version.Id)].GetAsync(config =>
+                if (!Guid.TryParse(version.Id, out var versionGuid) || 
+                    !Guid.TryParse(UserProfileService.CurrentUserId, out var userGuid))
                 {
-                    config.QueryParameters.UserId = Guid.Parse(UserProfileService.CurrentUserId);
+                    Logger?.LogError($"Invalid ID format - Version: {version.Id}, User: {UserProfileService.CurrentUserId}");
+                    return;
+                }
+                var item = await ApiClient.Items[versionGuid].GetAsync(config =>
+                {
+                    config.QueryParameters.UserId = userGuid;
                 });
                 if (item?.MediaStreams == null)
                 {

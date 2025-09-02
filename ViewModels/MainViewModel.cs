@@ -32,13 +32,13 @@ namespace Gelatinarm.ViewModels
         private readonly IMediaDiscoveryService _mediaDiscoveryService;
         private readonly INavigationService _navigationService;
         private readonly IUserProfileService _userProfileService;
-        private bool _hasContinueWatching;
-        private bool _hasLatestMovies;
-        private bool _hasLatestTVShows;
-        private bool _hasLoadedData;
-        private bool _hasNextUp;
-        private bool _hasRecentlyAdded;
-        private bool _hasRecommended;
+        private bool _hasContinueWatching = false;
+        private bool _hasLatestMovies = false;
+        private bool _hasLatestTVShows = false;
+        private bool _hasLoadedData = false;
+        private bool _hasNextUp = false;
+        private bool _hasRecentlyAdded = false;
+        private bool _hasRecommended = false;
         private DateTime _lastDataLoadTime = DateTime.MinValue;
 
         public MainViewModel(IMediaDiscoveryService mediaDiscoveryService,

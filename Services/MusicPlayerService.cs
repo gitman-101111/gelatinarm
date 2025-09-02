@@ -31,13 +31,13 @@ namespace Gelatinarm.Services
         private readonly IUserProfileService _userProfileService;
         private MediaSourceInfo _currentMediaSource;
         private string _currentPlaySessionId;
-        private bool _isInFallbackMode;
+        private bool _isInFallbackMode = false;
 
-        private DateTime _lastPlaybackStartTime;
+        private DateTime _lastPlaybackStartTime = DateTime.MinValue;
         private CancellationTokenSource _playbackCancellationTokenSource;
         private CancellationTokenSource _progressReportCancellationTokenSource;
         private Timer _progressReportTimer;
-        private bool _isSmtcInitialized;
+        private bool _isSmtcInitialized = false;
         private bool _isSubscribedToEvents = false;
 
         public MusicPlayerService(
@@ -1014,7 +1014,7 @@ namespace Gelatinarm.Services
                     });
 
                     // SDK handles authentication via headers
-                    mediaUrl = requestInfo.URI.ToString();
+                    mediaUrl = _apiClient.BuildUri(requestInfo).ToString();
 
                     // Add API key for authentication since MediaSource.CreateFromUri doesn't use SDK headers
                     if (!string.IsNullOrEmpty(accessToken))
@@ -1414,7 +1414,7 @@ namespace Gelatinarm.Services
                         });
 
                         // SDK handles authentication via headers
-                        var mediaUrl = requestInfo.URI.ToString();
+                        var mediaUrl = _apiClient.BuildUri(requestInfo).ToString();
 
                         // Add API key for authentication since MediaSource.CreateFromUri doesn't use SDK headers
                         if (!string.IsNullOrEmpty(accessToken))

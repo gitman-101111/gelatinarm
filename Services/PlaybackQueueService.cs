@@ -34,7 +34,7 @@ namespace Gelatinarm.Services
 
     public class PlaybackQueueService : BaseService, IPlaybackQueueService
     {
-        private int _lastQueueHash;
+        private int _lastQueueHash = 0;
 
         public PlaybackQueueService(ILogger<PlaybackQueueService> logger) : base(logger)
         {
@@ -303,7 +303,7 @@ namespace Gelatinarm.Services
                     {
                         // Re-shuffle and start over
                         CreateShuffledIndices();
-                        return ShuffledIndices[0];
+                        return ShuffledIndices.Count > 0 ? ShuffledIndices[0] : -1;
                     }
 
                     // No more tracks

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -60,30 +61,30 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private string _endsAtTimeText;
 
-        private bool _hasAutoPlayedNext;
+        private bool _hasAutoPlayedNext = false;
 
         // Track/quality change tracking
-        private bool _hasPerformedInitialSeek;
-        private bool _hasReportedPlaybackStart;
-        private int _progressReportCounter;
+        private bool _hasPerformedInitialSeek = false;
+        private bool _hasReportedPlaybackStart = false;
+        private int _progressReportCounter = 0;
         // HLS stream handling
-        private bool _isCurrentStreamHls; // Track if current stream is HLS
+        private bool _isCurrentStreamHls = false; // Track if current stream is HLS
         private TimeSpan _hlsManifestOffset = TimeSpan.Zero; // Track the offset for HLS manifests with large seeks
         private bool _hlsManifestOffsetApplied = false; // Track if we've seeked to position 0 of new manifest
         private TimeSpan _expectedHlsSeekTarget = TimeSpan.Zero; // Track expected position after large HLS seek
         private DateTime _lastSeekTime = DateTime.MinValue; // Track when last seek was initiated
-        private int _pendingSeekCount = 0; // Track number of pending seeks
+        private volatile int _pendingSeekCount = 0; // Track number of pending seeks
         private TimeSpan _actualResumePosition = TimeSpan.Zero; // Track actual resume position for corruption detection
 
         // Track when video playback has started
-        private bool _hasVideoStarted;
+        private bool _hasVideoStarted = false;
 
         // Track cleanup state to prevent race conditions
         private Task _cleanupTask;
         private readonly SemaphoreSlim _initializationSemaphore = new SemaphoreSlim(1, 1);
 
         // Track whether auto-play next episode is enabled
-        private bool _autoPlayNextEpisode;
+        private bool _autoPlayNextEpisode = false;
 
         // Track if we're in the process of resuming to prevent false MediaEnded events
         public bool IsApplyingResume { get; private set; }
@@ -94,11 +95,11 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private bool _isEndsAtTimeVisible;
 
-        private bool _isIntroSkipAvailable;
+        private bool _isIntroSkipAvailable = false;
 
-        private bool _isNextEpisodeAvailable;
+        private bool _isNextEpisodeAvailable = false;
 
-        private bool _isOutroSkipAvailable;
+        private bool _isOutroSkipAvailable = false;
 
         [ObservableProperty] private bool _isPaused;
 
@@ -121,15 +122,15 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private BaseItemDto _nextEpisode;
 
-        private bool _nextEpisodeButtonOverlayVisible;
-        private long _pendingSeekPositionAfterQualitySwitch;
+        private bool _nextEpisodeButtonOverlayVisible = false;
+        private long _pendingSeekPositionAfterQualitySwitch = 0;
         private string _playSessionId;
         private bool _isHlsTrackChange = false; // Track when we're changing tracks on HLS
 
         // State tracking
         private MediaPlaybackParams _playbackParams;
 
-        private TimeSpan _position;
+        private TimeSpan _position = TimeSpan.Zero;
         public TimeSpan Position
         {
             get
@@ -443,17 +444,17 @@ namespace Gelatinarm.ViewModels
                     }
                 }
 
-                // For HLS streams with large seeks, log that server may create new manifest
-                if (_isCurrentStreamHls && skipSeconds >= 60) // Large seek that might trigger new manifest
+                if (_isCurrentStreamHls && skipSeconds >= 60)
                 {
-                    var currentPos = GetCurrentPlaybackPosition();
-                    var targetPos = currentPos - TimeSpan.FromSeconds(skipSeconds);
+                    var rawPosition = _mediaControlService?.MediaPlayer?.PlaybackSession?.Position ?? _position;
+                    var currentPosWithOffset = rawPosition + (_playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
+                    var targetPos = currentPosWithOffset - TimeSpan.FromSeconds(skipSeconds);
                     if (targetPos < TimeSpan.Zero)
                     {
                         targetPos = TimeSpan.Zero;
                     }
 
-                    Logger.LogInformation($"[HLS] Large backward seek: {skipSeconds}s to {targetPos:mm\\:ss} - server may create new manifest");
+                    Logger.LogInformation($"[HLS] Large backward seek: {skipSeconds}s from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} - server may create new manifest");
                 }
 
                 _mediaControlService.SeekBackward(skipSeconds);
@@ -501,18 +502,43 @@ namespace Gelatinarm.ViewModels
                     skipSeconds = seconds;
                 }
 
-                // For HLS streams with large seeks, prepare for manifest recreation
-                if (_isCurrentStreamHls && skipSeconds >= 60) // Large seek that might trigger new manifest
+                if (_isCurrentStreamHls)
                 {
-                    var currentPos = GetCurrentPlaybackPosition();
-                    var targetPos = currentPos + TimeSpan.FromSeconds(skipSeconds);
-
-                    // Store the expected position after seek for HLS manifest tracking
-                    // When Jellyfin creates a new manifest, position 0 will be this target position
-                    _expectedHlsSeekTarget = targetPos;
-                    _lastSeekTime = DateTime.UtcNow;
-                    _pendingSeekCount++;
-                    Logger.LogInformation($"[HLS] Large seek detected: {skipSeconds}s forward to {targetPos:mm\\:ss} (pending seeks: {_pendingSeekCount})");
+                    var rawPosition = _mediaControlService?.MediaPlayer?.PlaybackSession?.Position ?? _position;
+                    var currentPosWithOffset = rawPosition + (_playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
+                    var targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
+                    
+                    // Prevent seeking too close to the end for HLS streams
+                    var metadataDuration = CurrentItem?.RunTimeTicks != null && CurrentItem.RunTimeTicks > 0
+                        ? TimeSpan.FromTicks(CurrentItem.RunTimeTicks.Value)
+                        : TimeSpan.Zero;
+                    
+                    if (metadataDuration > TimeSpan.Zero && targetPos >= metadataDuration - TimeSpan.FromSeconds(30))
+                    {
+                        Logger.LogWarning($"[HLS] Preventing seek to {targetPos:mm\\:ss} - too close to end ({metadataDuration:mm\\:ss}). This could corrupt the HLS manifest.");
+                        
+                        // If we're within 30 seconds of the end, just jump to near the end but not too close
+                        var safeEndPosition = metadataDuration - TimeSpan.FromSeconds(35);
+                        if (currentPosWithOffset < safeEndPosition)
+                        {
+                            var adjustedSkip = (int)(safeEndPosition - currentPosWithOffset).TotalSeconds;
+                            Logger.LogInformation($"[HLS] Adjusted skip to {adjustedSkip}s to avoid end-of-stream issues");
+                            skipSeconds = adjustedSkip;
+                        }
+                        else
+                        {
+                            Logger.LogInformation("[HLS] Already close to end, skipping forward disabled");
+                            return;
+                        }
+                    }
+                    
+                    if (skipSeconds >= 60)
+                    {
+                        _expectedHlsSeekTarget = targetPos;
+                        _lastSeekTime = DateTime.UtcNow;
+                        Interlocked.Increment(ref _pendingSeekCount);
+                        Logger.LogInformation($"[HLS] Large seek detected: {skipSeconds}s forward from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} (pending seeks: {_pendingSeekCount})");
+                    }
                 }
 
                 _mediaControlService.SeekForward(skipSeconds);
@@ -1036,7 +1062,7 @@ namespace Gelatinarm.ViewModels
                 // load all audio tracks from the item's MediaStreams
                 if (AudioTracks.Count <= 1 && CurrentItem?.MediaStreams?.Any(s => s.Type == MediaStream_Type.Audio) == true)
                 {
-                    var itemAudioStreams = CurrentItem.MediaStreams.Where(s => s.Type == MediaStream_Type.Audio).ToList();
+                    var itemAudioStreams = CurrentItem?.MediaStreams?.Where(s => s.Type == MediaStream_Type.Audio).ToList() ?? new List<MediaStream>();
                     if (itemAudioStreams.Count > 1)
                     {
                         Logger.LogInformation($"Found {itemAudioStreams.Count} audio tracks in item MediaStreams, loading all tracks");
@@ -1057,14 +1083,25 @@ namespace Gelatinarm.ViewModels
                                 _ => $"{channels}ch"
                             };
 
-                            var displayCodec = codec.ToLower() switch
+                            string displayCodec;
+                            switch (codec.ToLower())
                             {
-                                "ac3" => "Dolby Digital",
-                                "eac3" => "Dolby Digital+",
-                                "truehd" => "Dolby TrueHD",
-                                "dts" => "DTS",
-                                _ => codec.ToUpper()
-                            };
+                                case "ac3":
+                                    displayCodec = "Dolby Digital";
+                                    break;
+                                case "eac3":
+                                    displayCodec = "Dolby Digital+";
+                                    break;
+                                case "truehd":
+                                    displayCodec = "Dolby TrueHD";
+                                    break;
+                                case "dts":
+                                    displayCodec = "DTS";
+                                    break;
+                                default:
+                                    displayCodec = codec.ToUpper();
+                                    break;
+                            }
 
                             var audioTrack = new AudioTrack
                             {
@@ -1294,8 +1331,14 @@ namespace Gelatinarm.ViewModels
                     if (duration == TimeSpan.Zero || duration < TimeSpan.FromSeconds(1))
                     {
                         // Don't update duration if it's invalid
-                        Logger.LogDebug($"Skipping position update - invalid duration: {duration}");
+                        Logger.LogDebug($"[POSITION-TIMER] Skipping position update - invalid duration: {duration:mm\\:ss}, position: {currentPosition:mm\\:ss}");
                         return;
+                    }
+                    
+                    // Log if we detect HLS corruption (duration becomes unreasonably short)
+                    if (_isCurrentStreamHls && metadataDuration > TimeSpan.FromMinutes(5) && duration < TimeSpan.FromMinutes(1))
+                    {
+                        Logger.LogError($"[HLS-CORRUPTION] Duration corruption detected! Natural: {duration:mm\\:ss}, Metadata: {metadataDuration:mm\\:ss}, Position: {currentPosition:mm\\:ss}");
                     }
 
                     // Check for HLS manifest recreation from backward seek
@@ -1369,8 +1412,11 @@ namespace Gelatinarm.ViewModels
                     // Report progress periodically on background thread (non-blocking)
                     _ = Task.Run(async () => await ReportProgressIfNeeded(), _progressReportCancellationTokenSource?.Token ?? CancellationToken.None);
 
-                    // Check for auto-play next
-                    CheckForAutoPlayNext();
+                    // Check for auto-play next - ensure this runs on UI thread since it updates UI properties
+                    await RunOnUIThreadAsync(() =>
+                    {
+                        CheckForAutoPlayNext();
+                    });
                 }
             }
             catch (Exception ex)
@@ -2211,7 +2257,7 @@ namespace Gelatinarm.ViewModels
                 // Decrement pending seek count
                 if (_pendingSeekCount > 0)
                 {
-                    _pendingSeekCount--;
+                    Interlocked.Decrement(ref _pendingSeekCount);
                 }
 
                 Logger.LogInformation($"SeekCompleted event fired. Position: {position:mm\\:ss}, State: {state}, Pending seeks: {_pendingSeekCount}");
@@ -2489,7 +2535,12 @@ namespace Gelatinarm.ViewModels
 
                 // Show next episode button overlay when near the end (for episodes only)
                 // Since we don't show Skip Credits for episodes, we don't need to check IsOutroSkipAvailable
-                NextEpisodeButtonOverlayVisible = percentComplete >= 95 && NextEpisode != null;
+                var shouldShow = percentComplete >= 95 && NextEpisode != null;
+                if (shouldShow != NextEpisodeButtonOverlayVisible)
+                {
+                    Logger.LogInformation($"[OVERLAY] NextEpisode overlay changing from {NextEpisodeButtonOverlayVisible} to {shouldShow} at {percentComplete:F2}% complete");
+                    NextEpisodeButtonOverlayVisible = shouldShow;
+                }
 
                 // Only auto-play if the preference is enabled
                 if (_autoPlayNextEpisode && percentComplete >= MediaPlayerConstants.AUTO_PLAY_NEXT_THRESHOLD_PERCENT && NextEpisode != null)
@@ -2574,26 +2625,34 @@ namespace Gelatinarm.ViewModels
                 {
                     var session = MediaPlayerElement.MediaPlayer.PlaybackSession;
                     var duration = session.NaturalDuration;
-                    var position = GetCurrentPlaybackPosition();
-
-                    if (duration.TotalSeconds > 0 && position.TotalSeconds >= 0)
+                    
+                    TimeSpan remainingTime;
+                    if (_playbackControlService?.HlsManifestOffset > TimeSpan.Zero)
                     {
-                        var remainingTime = duration - position;
-                        if (remainingTime.TotalSeconds > 0)
-                        {
-                            var endTime = DateTime.Now.Add(remainingTime);
-                            EndsAtTimeText = $"Ends at {endTime:h:mm tt}";
-                            IsEndsAtTimeVisible = true;
-                        }
-                        else
-                        {
-                            IsEndsAtTimeVisible = false;
-                        }
+                        var fullMediaDuration = GetMetadataDuration();
+                        var actualPosition = GetCurrentPlaybackPosition();
+                        remainingTime = fullMediaDuration - actualPosition;
+                    }
+                    else
+                    {
+                        var position = session.Position;
+                        remainingTime = duration - position;
+                    }
+
+                    if (remainingTime.TotalSeconds > 0)
+                    {
+                        var endTime = DateTime.Now.Add(remainingTime);
+                        EndsAtTimeText = $"Ends at {endTime:h:mm tt}";
+                        IsEndsAtTimeVisible = true;
                     }
                     else
                     {
                         IsEndsAtTimeVisible = false;
                     }
+                }
+                else
+                {
+                    IsEndsAtTimeVisible = false;
                 }
             }
             catch (Exception ex)
@@ -2807,9 +2866,8 @@ namespace Gelatinarm.ViewModels
                 return false;
             }
 
-            // Check if we're near the expected resume position
-            var currentPos = GetCurrentPlaybackPosition(session);
-            var diff = Math.Abs((currentPos - _hlsManifestOffset).TotalSeconds);
+            var rawPosition = session?.Position ?? TimeSpan.Zero;
+            var diff = Math.Abs((rawPosition - _hlsManifestOffset).TotalSeconds);
             return diff < 10;
         }
 

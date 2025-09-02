@@ -4,9 +4,9 @@ namespace Gelatinarm.Models
 {
     public class FilterItem : ObservableObject
     {
-        private int _count;
+        private int _count = 0;
 
-        private bool _isSelected;
+        private bool _isSelected = false;
         private string _name;
 
         private string _value;

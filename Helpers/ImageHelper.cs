@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Gelatinarm.Services;
 using Jellyfin.Sdk;
@@ -23,10 +24,24 @@ namespace Gelatinarm.Helpers
         private static ICacheProvider _imageCacheProvider;
         private static ICacheManagerService _cacheManager;
         private static ILogger _logger;
+        private static readonly SemaphoreSlim _initializationSemaphore = new SemaphoreSlim(1, 1);
+        private static volatile bool _isInitialized = false;
 
-        static ImageHelper()
+        private static async Task EnsureInitializedAsync()
         {
-            AsyncHelper.FireAndForget(() => InitializeCacheAsync(), _logger, typeof(ImageHelper));
+            if (_isInitialized) return;
+
+            await _initializationSemaphore.WaitAsync();
+            try
+            {
+                if (_isInitialized) return;
+                await InitializeCacheAsync();
+                _isInitialized = true;
+            }
+            finally
+            {
+                _initializationSemaphore.Release();
+            }
         }
 
         private static async Task InitializeCacheAsync()
@@ -153,6 +168,14 @@ namespace Gelatinarm.Helpers
                     return null;
                 }
 
+                // Check if we have a valid server URL configured
+                var serverUrl = authService.ServerUrl;
+                if (string.IsNullOrEmpty(serverUrl) || serverUrl == "about:blank")
+                {
+                    _logger?.LogWarning("ImageHelper: Server URL not yet configured, cannot build image URL");
+                    return null;
+                }
+
                 // Use SDK to build the URL properly
                 var requestInfo = apiClient.Items[itemId]
                     .Images[imageType]
@@ -168,7 +191,9 @@ namespace Gelatinarm.Helpers
                             config.QueryParameters.Tag = tag;
                     });
 
-                var url = requestInfo.URI.ToString();
+                // Use BuildUri to ensure the correct BaseUrl is used
+                var uri = apiClient.BuildUri(requestInfo);
+                var url = uri.ToString();
 
                 // Add API key for authentication if available since BitmapImage doesn't use SDK headers
                 var accessToken = authService.AccessToken;
@@ -271,6 +296,7 @@ namespace Gelatinarm.Helpers
 
         private static async Task<BitmapImage> GetCachedImageAsync(string cacheKey)
         {
+            await EnsureInitializedAsync();
             if (_imageCacheProvider == null)
             {
                 return null;
@@ -281,12 +307,16 @@ namespace Gelatinarm.Helpers
                 var imageData = await _imageCacheProvider.GetAsync(cacheKey);
                 if (imageData != null)
                 {
-                    using (var stream = new MemoryStream(imageData))
+                    // Create bitmap on UI thread
+                    return await UIHelper.RunOnUIThreadAsync(async () =>
                     {
-                        var bitmap = new BitmapImage();
-                        await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
-                        return bitmap;
-                    }
+                        using (var stream = new MemoryStream(imageData))
+                        {
+                            var bitmap = new BitmapImage();
+                            await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
+                            return bitmap;
+                        }
+                    });
                 }
             }
             catch (Exception ex)
@@ -299,6 +329,7 @@ namespace Gelatinarm.Helpers
 
         private static async Task<BitmapImage> DownloadAndCacheImageAsync(string imageUrl, string cacheKey)
         {
+            await EnsureInitializedAsync();
             try
             {
                 // Get HttpClient from factory to avoid socket exhaustion
@@ -333,13 +364,16 @@ namespace Gelatinarm.Helpers
                     }
                 }
 
-                // Create bitmap from downloaded data
-                using (var stream = new MemoryStream(imageData))
+                // Create bitmap from downloaded data - must be on UI thread
+                return await UIHelper.RunOnUIThreadAsync(async () =>
                 {
-                    var bitmap = new BitmapImage();
-                    await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
-                    return bitmap;
-                }
+                    using (var stream = new MemoryStream(imageData))
+                    {
+                        var bitmap = new BitmapImage();
+                        await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
+                        return bitmap;
+                    }
+                });
             }
             catch (Exception ex)
             {

@@ -33,7 +33,7 @@ namespace Gelatinarm.Services
         };
 
         private readonly CoreDispatcher _dispatcher;
-        private bool _areControlsVisible;
+        private bool _areControlsVisible = false;
         private Dictionary<ControllerButton, MediaAction> _buttonMapping;
         private Gamepad _currentGamepad;
         private MediaPlayer _mediaPlayer;

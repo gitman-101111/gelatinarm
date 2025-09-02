@@ -30,7 +30,7 @@ namespace Gelatinarm.ViewModels
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
-        private bool _hasUnsavedChanges;
+        private bool _hasUnsavedChanges = false;
         private string _validationError;
 
         private NetworkMetrics _currentMetrics;
@@ -39,7 +39,7 @@ namespace Gelatinarm.ViewModels
 
         // Network status properties
         private string _networkStatus;
-        private int _signalStrength;
+        private int _signalStrength = 0;
         private string _transferRate;
 
         public NetworkSettingsViewModel(
@@ -82,14 +82,14 @@ namespace Gelatinarm.ViewModels
         {
             ValidationError = null;
             await LoadSettingsAsync(cancellationToken).ConfigureAwait(false);
-            HasUnsavedChanges = false;
+            await RunOnUIThreadAsync(() => HasUnsavedChanges = false);
         }
 
         protected override async Task RefreshDataCoreAsync()
         {
             // Refresh just reloads settings
             await LoadSettingsAsync(CancellationToken.None).ConfigureAwait(false);
-            HasUnsavedChanges = false;
+            await RunOnUIThreadAsync(() => HasUnsavedChanges = false);
         }
 
         protected override Task ClearDataCoreAsync()

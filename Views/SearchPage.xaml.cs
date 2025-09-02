@@ -36,8 +36,10 @@ namespace Gelatinarm.Views
 
         private string _emptyStateTitle = "No results found";
         private Dictionary<string, List<BaseItemDto>> _groupedResults;
+        private readonly object _groupedResultsLock = new object();
         private string _lastSearchTerm;
         private CancellationTokenSource _searchCancellationTokenSource;
+        private readonly object _cancellationTokenLock = new object();
         private ObservableCollection<BaseItemDto> _searchResults;
 
         public SearchPage() : base(typeof(SearchPage))
@@ -107,7 +109,10 @@ namespace Gelatinarm.Views
                     Logger?.LogError(ex, "Failed to get user ID");
                 }
                 _searchResults = new ObservableCollection<BaseItemDto>();
-                _groupedResults = new Dictionary<string, List<BaseItemDto>>();
+                lock (_groupedResultsLock)
+                {
+                    _groupedResults = new Dictionary<string, List<BaseItemDto>>();
+                }
 
                 _currentFilter = null;
                 UpdateFilterButtons();
@@ -168,9 +173,12 @@ namespace Gelatinarm.Views
         protected override void CancelOngoingOperations()
         {
             // Cancel any ongoing search operations
-            _searchCancellationTokenSource?.Cancel();
-            _searchCancellationTokenSource?.Dispose();
-            _searchCancellationTokenSource = null;
+            lock (_cancellationTokenLock)
+            {
+                _searchCancellationTokenSource?.Cancel();
+                _searchCancellationTokenSource?.Dispose();
+                _searchCancellationTokenSource = null;
+            }
         }
 
         protected override void CleanupResources()
@@ -259,7 +267,7 @@ namespace Gelatinarm.Views
                     if (_searchResults?.Any() == true && GroupedResultsPanel?.Children.Any() == true)
                     {
                         // Try to focus on the first ListView in the results
-                        foreach (var child in GroupedResultsPanel.Children)
+                        foreach (var child in GroupedResultsPanel?.Children ?? Enumerable.Empty<UIElement>())
                         {
                             if (child is ListView listView && listView.Items.Any())
                             {
@@ -307,18 +315,22 @@ namespace Gelatinarm.Views
             try
             {
                 // Cancel any previous search
-                _searchCancellationTokenSource?.Cancel();
-                _searchCancellationTokenSource?.Dispose();
-
-                if (_currentSearchTask != null && !_currentSearchTask.IsCompleted)
+                CancellationToken cancellationToken;
+                lock (_cancellationTokenLock)
                 {
-                    return;
-                }
+                    _searchCancellationTokenSource?.Cancel();
+                    _searchCancellationTokenSource?.Dispose();
 
-                // Create new cancellation token with timeout from constants
-                _searchCancellationTokenSource =
-                    new CancellationTokenSource(TimeSpan.FromSeconds(RetryConstants.SEARCH_TIMEOUT_SECONDS));
-                var cancellationToken = _searchCancellationTokenSource.Token;
+                    if (_currentSearchTask != null && !_currentSearchTask.IsCompleted)
+                    {
+                        return;
+                    }
+
+                    // Create new cancellation token with timeout from constants
+                    _searchCancellationTokenSource =
+                        new CancellationTokenSource(TimeSpan.FromSeconds(RetryConstants.SEARCH_TIMEOUT_SECONDS));
+                    cancellationToken = _searchCancellationTokenSource.Token;
+                }
 
                 _lastSearchTerm = searchTerm;
 
@@ -406,12 +418,15 @@ namespace Gelatinarm.Views
                 await UIHelper.RunOnUIThreadAsync(() =>
                 {
                     _searchResults?.ReplaceAll(items);
-                    _groupedResults?.Clear();
+                    lock (_groupedResultsLock)
+                    {
+                        _groupedResults?.Clear();
+                    }
 
                     if (GroupedResultsPanel != null)
                     {
                         CleanupGroupedResultsPanel();
-                        GroupedResultsPanel.Children.Clear();
+                        GroupedResultsPanel?.Children.Clear();
                     }
 
                     if (items.Any())
@@ -623,7 +638,10 @@ namespace Gelatinarm.Views
                 newGroupedResults[groupName].Add(item);
             }
 
-            _groupedResults = newGroupedResults;
+            lock (_groupedResultsLock)
+            {
+                _groupedResults = newGroupedResults;
+            }
         }
 
         private string GetGroupNameForType(BaseItemDto_Type? type)
@@ -687,7 +705,12 @@ namespace Gelatinarm.Views
                     return;
                 }
 
-                var sortedGroups = _groupedResults.OrderBy(g => GetGroupPriority(g.Key));
+                Dictionary<string, List<BaseItemDto>> groupedResultsCopy;
+                lock (_groupedResultsLock)
+                {
+                    groupedResultsCopy = _groupedResults != null ? new Dictionary<string, List<BaseItemDto>>(_groupedResults) : new Dictionary<string, List<BaseItemDto>>();
+                }
+                var sortedGroups = groupedResultsCopy.OrderBy(g => GetGroupPriority(g.Key));
                 var isFiltered = _currentFilter != null && _currentFilter.Length > 0;
 
                 foreach (var group in sortedGroups)
