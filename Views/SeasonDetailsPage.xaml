@@ -117,6 +117,7 @@
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnInfoButtonClick"
+                        IsTabStop="False"
                         ToolTipService.ToolTip="View Series Info">
                     <Button.Resources>
                         <SolidColorBrush x:Key="ButtonBackground" Color="Transparent"/>

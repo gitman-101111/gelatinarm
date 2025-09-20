@@ -319,11 +319,7 @@ namespace Gelatinarm.Services
 
                 Logger.LogInformation($"Setting media source for: {item.Name}");
 
-                // Clear current source with delay
-                ClearMediaSource();
-                await Task.Delay(100).ConfigureAwait(false);
-
-                // Set new source
+                // Set new source directly without clearing first for smooth transitions
                 MediaPlayer.Source = source;
 
                 // Notify listeners

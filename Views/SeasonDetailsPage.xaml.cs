@@ -186,6 +186,21 @@ namespace Gelatinarm.Views
 
                 // Update XY focus navigation based on which button is visible
                 UpdateEpisodeListFocusNavigation();
+
+                // Set initial focus to primary button when ready
+                await UIHelper.RunOnUIThreadAsync(() =>
+                {
+                    if (ViewModel.IsResumeButtonVisible && ResumeButton != null)
+                    {
+                        ResumeButton.Focus(FocusState.Programmatic);
+                        Logger?.LogDebug("Set initial focus to ResumeButton");
+                    }
+                    else if (ViewModel.IsPlayButtonVisible && PlayButton != null)
+                    {
+                        PlayButton.Focus(FocusState.Programmatic);
+                        Logger?.LogDebug("Set initial focus to PlayButton");
+                    }
+                }, Dispatcher, Logger);
             }
         }
 

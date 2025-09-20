@@ -225,6 +225,43 @@ Install directly from the Microsoft Store - search for "Gelatinarm" or use the l
 4. Build the solution
 5. Deploy to your Xbox in Developer Mode
 
+### Generating Store Release (Unsigned)
+
+**Note**: This method is ONLY needed if you cannot sign the package due to cross-architecture limitations (e.g., building x64 packages on ARM machines). If you can sign normally in Visual Studio, use the standard publishing workflow instead.
+
+#### When to Use This Method
+- Building x64 packages on ARM development machines
+- Cross-architecture builds where signing fails
+- When Visual Studio's built-in Store publishing fails due to signing errors
+
+#### 1. Update Version Number
+- Open `Package.appxmanifest` in Visual Studio
+- Go to the **Packaging** tab
+- Increment the **Version** number (e.g., 1.0.1.0 → 1.0.2.0)
+- Save the file
+
+#### 2. Build Store Upload Package (PowerShell)
+Run the following command from the project root:
+
+```powershell
+cd C:\gelatinarm
+& 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe' `
+    Gelatinarm.csproj `
+    /p:Configuration=Release `
+    /p:Platform=x64 `
+    /p:UapAppxPackageBuildMode=StoreUpload `
+    /p:AppxBundle=Always `
+    /p:AppxPackageSigningEnabled=false `
+    /p:AppxPackageDir=".\AppPackages\"
+```
+
+#### 3. Upload to Store
+- The build creates an `.msixupload` or `.appxupload` file in `.\AppPackages\`
+- Upload this file to Microsoft Partner Center
+- Microsoft will sign the package with their certificate during publication
+
+**Why Unsigned?** The `/p:AppxPackageSigningEnabled=false` parameter bypasses the signing step that fails when building for a different architecture than your development machine. Microsoft Store handles the final signing, so unsigned packages are acceptable for Store submission.
+
 ## Contributing
 
 Contributions are welcome! Please:

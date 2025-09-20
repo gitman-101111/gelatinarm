@@ -162,13 +162,26 @@ namespace Gelatinarm.Services
                     throw new InvalidOperationException("Invalid user ID format");
                 }
 
+                // When subtitle/audio tracks are specified with resume position, some servers ignore StartTimeTicks.
+                // Apply resume client-side in these cases.
+                bool hasSubtitlesWithResume = _playbackParams?.SubtitleStreamIndex.HasValue == true && 
+                                              _playbackParams.SubtitleStreamIndex.Value >= 0 &&
+                                              _playbackParams?.StartPositionTicks > 0;
+                
+                bool hasAudioWithResume = _playbackParams?.AudioStreamIndex.HasValue == true && 
+                                          _playbackParams.AudioStreamIndex.Value >= 0 &&
+                                          _playbackParams?.StartPositionTicks > 0;
+                
+                bool needsClientSideResume = hasSubtitlesWithResume || hasAudioWithResume;
+                
                 var playbackInfoRequest = new PlaybackInfoDto
                 {
                     UserId = userGuid,
                     MediaSourceId = _playbackParams?.MediaSourceId,
                     AudioStreamIndex = _playbackParams?.AudioStreamIndex,
                     SubtitleStreamIndex = _playbackParams?.SubtitleStreamIndex,
-                    StartTimeTicks = _playbackParams?.StartPositionTicks,
+                    // Don't send StartTimeTicks if we have subtitle/audio selection - we'll handle resume client-side
+                    StartTimeTicks = needsClientSideResume ? 0 : _playbackParams?.StartPositionTicks,
                     MaxStreamingBitrate = maxStreamingBitrate,
                     AutoOpenLiveStream = true,
                     DeviceProfile = deviceProfile,
@@ -178,6 +191,14 @@ namespace Gelatinarm.Services
                     AllowAudioStreamCopy = preferences.AllowAudioStreamCopy,
                     AllowVideoStreamCopy = true // Generally want to allow video stream copy when possible
                 };
+                
+                if (needsClientSideResume)
+                {
+                    var reason = hasSubtitlesWithResume ? 
+                        (hasAudioWithResume ? "Subtitle + Audio" : "Subtitle") : 
+                        "Audio";
+                    Logger.LogInformation($"{reason} + Resume detected: Will apply resume position {TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value):mm\\:ss} client-side");
+                }
 
                 Logger.LogInformation($"Requesting playback info with MediaSourceId: {_playbackParams?.MediaSourceId}");
                 Logger.LogInformation($"AudioStreamIndex: {_playbackParams?.AudioStreamIndex}");
@@ -424,10 +445,14 @@ namespace Gelatinarm.Services
                 Logger.LogInformation("[PLAYBACK-START] Setting MediaPlayer.Source");
                 _mediaPlayer.Source = playbackItem;
 
-                Logger.LogInformation("[PLAYBACK-START] Calling MediaPlayer.Play()");
-                _mediaPlayer.Play();
-
-                Logger.LogInformation("[PLAYBACK-START] Play() called successfully");
+                // FIX for audio/video sync: Set AutoPlay to true instead of calling Play() immediately
+                // This allows the MediaPlayer to fully initialize streams before starting playback
+                Logger.LogInformation("[PLAYBACK-START] Setting AutoPlay = true (allows proper stream initialization)");
+                _mediaPlayer.AutoPlay = true;
+                
+                // Note: The MediaPlayer will automatically start playing when ready
+                // This prevents audio/video sync issues that occur when Play() is called too early
+                Logger.LogInformation("[PLAYBACK-START] MediaPlayer will auto-start when ready");
 
                 await Task.CompletedTask;
             }

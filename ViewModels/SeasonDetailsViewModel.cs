@@ -469,7 +469,11 @@ namespace Gelatinarm.ViewModels
 
                     if (Episodes.Any())
                     {
-                        SelectedEpisodeIndex = 0;
+                        await RunOnUIThreadAsync(() =>
+                        {
+                            SelectedEpisodeIndex = 0;
+                        });
+                        
                         var firstEpisode = Episodes.FirstOrDefault();
                         if (firstEpisode != null)
                         {
@@ -967,7 +971,10 @@ namespace Gelatinarm.ViewModels
 
                 if (episodeIndex >= 0)
                 {
-                    SelectedEpisodeIndex = episodeIndex;
+                    await RunOnUIThreadAsync(() =>
+                    {
+                        SelectedEpisodeIndex = episodeIndex;
+                    });
                     await SelectEpisodeAsync(Episodes[episodeIndex], true);
 
                     // Force property change notification to ensure UI updates
@@ -1079,7 +1086,10 @@ namespace Gelatinarm.ViewModels
                     var episode = Episodes[i];
                     if (episode.UserData?.Played != true)
                     {
-                        SelectedEpisodeIndex = i;
+                        await RunOnUIThreadAsync(() =>
+                        {
+                            SelectedEpisodeIndex = i;
+                        });
                         await SelectEpisodeAsync(episode, true);
                         return;
                     }
@@ -1124,7 +1134,10 @@ namespace Gelatinarm.ViewModels
 
                 if (Episodes.Any())
                 {
-                    SelectedEpisodeIndex = 0;
+                    await RunOnUIThreadAsync(() =>
+                    {
+                        SelectedEpisodeIndex = 0;
+                    });
                     var firstEpisode = Episodes.FirstOrDefault();
                     if (firstEpisode != null)
                     {
@@ -1237,7 +1250,10 @@ namespace Gelatinarm.ViewModels
                         // Restore selection after update to prevent focus loss
                         if (currentSelectedIndex >= 0 && currentSelectedIndex < Episodes.Count)
                         {
-                            SelectedEpisodeIndex = currentSelectedIndex;
+                            await RunOnUIThreadAsync(() =>
+                            {
+                                SelectedEpisodeIndex = currentSelectedIndex;
+                            });
                             Logger?.LogInformation($"Restored SelectedEpisodeIndex to {currentSelectedIndex} after episode update");
                         }
                     }
@@ -1378,6 +1394,37 @@ namespace Gelatinarm.ViewModels
 
         private async Task PlayEpisodeAsync(BaseItemDto episode, bool resume = false, bool fromBeginning = false)
         {
+            // Refresh episode UserData to get the latest playback position
+            // This is critical when navigating from Continue Watching which may have stale data
+            BaseItemDto refreshedEpisode = episode;
+            if (resume && episode?.Id != null)
+            {
+                try
+                {
+                    Logger?.LogInformation($"Refreshing episode UserData before playback for: {episode.Name}");
+                    var refreshedItem = await ApiClient.Items[episode.Id.Value].GetAsync(config =>
+                    {
+                        config.QueryParameters.UserId = UserIdGuid.Value;
+                    });
+                    
+                    if (refreshedItem != null)
+                    {
+                        refreshedEpisode = refreshedItem;
+                        var oldPosition = episode.UserData?.PlaybackPositionTicks ?? 0;
+                        var newPosition = refreshedItem.UserData?.PlaybackPositionTicks ?? 0;
+                        if (oldPosition != newPosition)
+                        {
+                            Logger?.LogInformation($"Resume position updated from {TimeSpan.FromTicks(oldPosition):mm\\:ss} to {TimeSpan.FromTicks(newPosition):mm\\:ss}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger?.LogWarning(ex, "Failed to refresh episode data, using cached version");
+                    // Continue with the original episode data if refresh fails
+                }
+            }
+            
             // Build episode queue for continuous playback
             List<BaseItemDto> episodeQueue = null;
             var startIndex = 0;
@@ -1385,9 +1432,16 @@ namespace Gelatinarm.ViewModels
             var queueContext = CreateErrorContext("BuildEpisodeQueue");
             try
             {
-                var (queue, index) = await _episodeQueueService.BuildEpisodeQueueAsync(episode);
+                // Use refreshed episode for queue building
+                var (queue, index) = await _episodeQueueService.BuildEpisodeQueueAsync(refreshedEpisode);
                 startIndex = index;
                 episodeQueue = queue;
+                
+                // Replace the episode in the queue with the refreshed version
+                if (episodeQueue != null && index >= 0 && index < episodeQueue.Count)
+                {
+                    episodeQueue[index] = refreshedEpisode;
+                }
             }
             catch (Exception ex)
             {
@@ -1419,15 +1473,15 @@ namespace Gelatinarm.ViewModels
 
             // If we're in series overview mode and playing an episode, use the episode itself
             // so we can navigate back to its season
-            if (CurrentSeason == null && episode.SeasonId.HasValue)
+            if (CurrentSeason == null && refreshedEpisode.SeasonId.HasValue)
             {
-                navigationParameter = episode;
+                navigationParameter = refreshedEpisode;
             }
 
             var playbackParams = new MediaPlaybackParams
             {
-                ItemId = episode.Id.Value.ToString(),
-                StartPositionTicks = resume ? episode.UserData?.PlaybackPositionTicks : fromBeginning ? 0 : null,
+                ItemId = refreshedEpisode.Id.Value.ToString(),
+                StartPositionTicks = resume ? refreshedEpisode.UserData?.PlaybackPositionTicks : fromBeginning ? 0 : null,
                 QueueItems = episodeQueue,
                 StartIndex = startIndex,
                 NavigationSourcePage = typeof(SeasonDetailsPage),
@@ -1492,7 +1546,10 @@ namespace Gelatinarm.ViewModels
                             .FindIndex(ep => ep.Id == firstUnwatchedEpisode.Id);
                         if (episodeIndex >= 0)
                         {
-                            SelectedEpisodeIndex = episodeIndex;
+                            await RunOnUIThreadAsync(() =>
+                            {
+                                SelectedEpisodeIndex = episodeIndex;
+                            });
                         }
 
                         Logger?.LogInformation(

@@ -355,19 +355,24 @@ namespace Gelatinarm.Views
                 if (session.OriginatingPage != null)
                 {
                     Logger.LogInformation($"Returning to {session.OriginatingPage.Name} with saved state");
+                    
+                    // Use the current episode from the session for navigation to ensure correct info display
+                    object navigationParameter = session.OriginatingPageState;
+                    
+                    // If we've been watching episodes and the originating page is SeasonDetailsPage,
+                    // navigate with the current episode so it displays correctly
+                    if (session.CurrentItem != null && 
+                        session.CurrentItem.Type == BaseItemDto_Type.Episode &&
+                        session.OriginatingPage == typeof(SeasonDetailsPage))
+                    {
+                        Logger.LogInformation($"Using current episode '{session.CurrentItem.Name}' for navigation back to SeasonDetailsPage");
+                        navigationParameter = session.CurrentItem;
+                    }
+                    
                     _navigationStateService.ClearPlaybackSession();
 
-                    // Check if we can go back to the existing page instance
-                    if (NavigationService.CanGoBack &&
-                        Frame?.BackStack?.Count > 0 &&
-                        Frame.BackStack.LastOrDefault()?.SourcePageType == session.OriginatingPage)
-                    {
-                        NavigationService.GoBack();
-                    }
-                    else
-                    {
-                        NavigationService.Navigate(session.OriginatingPage, session.OriginatingPageState);
-                    }
+                    // Always navigate forward with the updated parameter to ensure correct state
+                    NavigationService.Navigate(session.OriginatingPage, navigationParameter);
 
                     return;
                 }

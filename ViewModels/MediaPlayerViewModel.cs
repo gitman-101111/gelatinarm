@@ -2462,6 +2462,13 @@ namespace Gelatinarm.ViewModels
         {
             try
             {
+                // Don't report progress during seeks to prevent incorrect positions
+                if (IsApplyingResume || _pendingSeekCount > 0)
+                {
+                    Logger.LogDebug($"Skipping progress report - seek in progress (IsApplyingResume: {IsApplyingResume}, PendingSeeks: {_pendingSeekCount})");
+                    return;
+                }
+                
                 if (_hasReportedPlaybackStart && !string.IsNullOrEmpty(_playSessionId) && !IsPaused)
                 {
                     if (_mediaPlaybackService is IMediaSessionService sessionService)
