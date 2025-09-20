@@ -13,10 +13,6 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 
 **Note:** This app requires a Jellyfin media server to connect to. Gelatinarm is the client application that provides an Xbox-optimized interface for your Jellyfin content.
 
-## Disclaimer
-
-The majority of this codebase was written by Claude (Anthropic's AI assistant) through iterative development sessions. While the initial framework and concept were human-created, Claude contributed most of the implementation, features, bug fixes, and optimizations.
-
 ## Features
 
 ### 🎮 Xbox-Optimized Experience
@@ -228,22 +224,6 @@ Install directly from the Microsoft Store - search for "Gelatinarm" or use the l
 3. Set configuration to Release and platform to x64
 4. Build the solution
 5. Deploy to your Xbox in Developer Mode
-
-## Troubleshooting
-
-### Video won't play
-- Check if the codec is supported (see tables above)
-- Ensure your Jellyfin server has transcoding properly configured
-- Try lowering the streaming bitrate in settings
-
-### Music stops when switching apps
-- Ensure background audio is enabled in Xbox settings
-- Check that no other media app is taking audio focus
-
-### Can't find server
-- Ensure Xbox and server are on the same network
-- Try entering the server address manually
-- Check firewall settings on your server
 
 ## Contributing
 
