@@ -32,33 +32,61 @@ Gelatinarm follows the Model-View-ViewModel (MVVM) pattern with a service layer:
 - **Views**: XAML files defining UI layout
   - All pages inherit from `BasePage` which provides lifecycle management and services
   - Detail pages inherit from `DetailsPage` for common media functionality
-- **ViewModels**: C# classes with INotifyPropertyChanged
-  - Inherit from `BaseViewModel` for common functionality
+- **ViewModels**: Coordinate between Services and Views
+  - Inherit from `BaseViewModel` (which extends ObservableObject)
   - Automatically initialized by BasePage when `ViewModelType` is specified
-- **Data Binding**: x:Bind for compile-time binding
+  - Handle UI state, filtering, and command execution
+- **Data Binding**: Mix of x:Bind (compile-time) and Binding (runtime)
 - **Commands**: ICommand implementation for user actions
 
 ### 2. Dependency Injection
-- **Container**: Built in App.xaml.cs
-- **Lifetime Management**: 
-  - Singleton: Shared services (Navigation, Authentication)
-  - Transient: ViewModels, page-specific services
-- **Constructor Injection**: Services injected via constructors
+- **Container**: Built in App.xaml.cs using Microsoft.Extensions.DependencyInjection
+- **Service Registration Order**:
+  1. Logging configuration
+  2. Core services (PreferencesService, UnifiedDeviceService)
+  3. HTTP client and Jellyfin SDK setup
+  4. Authentication and user services
+  5. Media services
+  6. ViewModels
+- **Lifetime Management**:
+  - **Singleton**: Stateful services that maintain data across app lifetime
+    - INavigationService, IAuthenticationService, IUserProfileService
+    - IMediaPlaybackService, IMediaControlService, IErrorHandlingService
+    - MainViewModel (persists home screen data)
+  - **Transient**: Stateless services and most ViewModels
+    - All detail page ViewModels (MovieDetailsViewModel, etc.)
+    - Settings ViewModels
+    - IMediaControllerService, IDialogService
+- **Constructor Injection**: All dependencies resolved via constructors
+- **Service Resolution**: Use GetService<T>() or GetRequiredService<T>() from BasePage
 
 ### 3. Service Layer Pattern
-- **Interfaces**: Define contracts in ServiceInterfaces.cs
+- **Interfaces**: Define contracts (mostly in ServiceInterfaces.cs)
 - **Implementations**: Concrete classes in Services folder
-- **Separation of Concerns**: Each service has single responsibility
+- **Multiple Responsibilities**: Some services like MediaPlaybackService handle many related operations
+- **Data Access**: Services handle all API calls
+- **Caching Layer**: CacheManagerService provides in-memory cache
+- **Abstraction**: ViewModels don't directly call APIs
 
-### 4. Repository Pattern
-- **Data Access**: Services abstract data source
-- **Caching Layer**: In-memory cache before server calls
-- **Consistent Interface**: Same methods regardless of source
-
-### 5. Observer Pattern
+### 4. Observer Pattern
 - **Events**: Services raise events for state changes
 - **INotifyPropertyChanged**: ViewModels notify Views
-- **Weak References**: Prevent memory leaks
+- **Disposal Pattern**: ViewModels and services implement IDisposable for cleanup
+
+### 5. Media Playback Architecture
+- **MediaPlaybackService**: High-level orchestration and session management
+  - Handles playback initiation and navigation
+  - Manages playback sessions and queue
+  - Routes video to MediaPlayerPage, audio to MusicPlayerService
+- **MediaControlService**: Low-level MediaPlayer control
+  - Direct control of Windows.Media.Playback.MediaPlayer
+  - Handles play, pause, seek operations
+  - Manages playback state events
+- **PlaybackControlService**: Resume position and HLS handling
+  - Applies resume positions with retry logic
+  - Handles HLS manifest offset detection
+  - Manages playback progress reporting
+- **Separation of Concerns**: Clear distinction between orchestration and control
 
 ### 6. Error Handling Pattern
 - **ErrorHandlingService**: Centralized error processing
@@ -66,32 +94,59 @@ Gelatinarm follows the Model-View-ViewModel (MVVM) pattern with a service layer:
 - **Category-based handling**: Different strategies for different error types
 - **User-friendly messages**: Automatic conversion of technical errors
 
+## Application Startup Flow
+
+### Initialization Sequence (App.xaml.cs)
+1. **App Constructor**: Suspension handlers and ConfigureServices()
+2. **ConfigureServices**: Register all dependencies with DI container
+   - Logging, HTTP client, Jellyfin SDK
+   - Services registered as Singleton or Transient
+3. **OnLaunched**: Application activation
+   - InitializeCoreServices() - Get service references
+   - Wire up MusicPlayerService to MediaPlaybackService
+   - Create/reuse RootContainer with navigation frame
+4. **Navigation Decision**:
+   - Check authentication state
+   - Navigate to appropriate initial page
+5. **Service Initialization**: Services initialize on first use
+
+### Service Initialization Approach
+- **Graceful Degradation**: App continues even if service initialization fails
+- **Core Services**: Retrieved in InitializeCoreServices() but failures don't stop app
+  - AuthenticationService, NavigationService, ErrorHandlingService
+- **Runtime Resolution**: Most services resolved when needed via GetService<T>()
+- **Failure Logging**: Failed services logged but app continues
+
 ## Key Architectural Decisions
 
-### Single Page Instance
-- Pages use `NavigationCacheMode="Enabled"`
-- State preserved during navigation
-- Reduces memory allocation
+### Page Caching Strategy
+- **Enabled caching**: SeasonDetailsPage, LibraryPage (frequently revisited)
+- **Disabled caching**: PersonDetailsPage, AlbumDetailsPage (fresh data each visit)
+- State preserved only for cached pages
+- Trade-off between memory usage and performance
 
-### Service Locator Anti-pattern Avoidance
-- All dependencies injected
-- No static service references
-- Testable architecture
+### Dependency Injection Strategy
+- Most dependencies injected via constructors
+- Limited service locator usage (ImageHelper static cache)
+- Testable architecture for most components
 
 ### Async/Await Throughout
 - All I/O operations async
-- ConfigureAwait(false) in services
-- UI thread protection
+- ConfigureAwait(false) used in service methods
+- UI thread protection via UIHelper.RunOnUIThreadAsync
 
 ### Error Handling Strategy
 ```
-View (User Message) ← ViewModel (Handle) ← Service (Throw) ← Network (Error)
+View (User Message) ← ViewModel (Process) ← Service (Return Default) ← Network (Error)
 ```
+- Services use ErrorHandler.HandleErrorAsync and return default values
+- ViewModels process results and update UI state
+- Views display user-friendly messages via DialogService
 
 ### Memory Management
-- Explicit disposal of resources
-- Weak event handlers
-- Cache size limits
+- Explicit disposal of resources (IDisposable pattern)
+- Event handler cleanup in Dispose methods
+- Cache size limits (100MB default for CacheManagerService)
 
 ## Component Responsibilities
 
@@ -211,29 +266,62 @@ The project suppresses certain compiler warnings that are either benign or unavo
 
 ### UI Virtualization
 - GridView and ListView virtualize by default
-- Large collections use incremental loading
-- Images load on-demand
+- LibraryViewModel supports LoadMoreItems command for paging
+- Images load on-demand via CachedImage control
+- Mix of x:Bind and Binding based on requirements
+- Set `x:DataType` on DataTemplates for better performance
 
 ### Data Caching
-- Memory cache with expiration
-- Size-based eviction
-- Separate caches by data type
+- **CacheManagerService**: LRU cache with configurable size limits (100MB default)
+- **FileCacheProvider**: Disk-based image caching
+- **GenreCacheService**: Specialized genre data caching
+- **Cache Expiration Times**:
+  - Main view cache: 5 minutes (MAIN_VIEW_CACHE_EXPIRATION_MINUTES)
+  - Media discovery: 2 minutes (MEDIA_DISCOVERY_CACHE_MINUTES)
+  - Default varies by data type
+- Memory-based caching with automatic cleanup
 
 ### Network Optimization
-- Retry with exponential backoff
-- Request batching where possible
-- Image size optimization
+- Retry with exponential backoff (3 attempts by default)
+- HTTP request timeout: 10 seconds (RetryConstants.HTTP_REQUEST_TIMEOUT_SECONDS)
+- Search timeout: 4 seconds for quick feedback
+- Initial retry delay: 1000ms with exponential backoff
+- Maximum retry delay: 30 seconds
+- Image loading: Progressive with retry on failure
 
-### Memory Management
-- Dispose pattern for resources
-- Weak references for events
-- Regular cache cleanup
+### Memory Management (Xbox One: 3GB limit)
+- **Monitor Usage**: SystemMonitorService tracks memory
+- **Image Optimization**:
+  - Images requested with quality=90
+  - FileCacheProvider for disk-based caching
+  - CacheManagerService: 100MB default limit
+- **Collection Management**:
+  - ObservableCollection.ReplaceAll() for bulk updates
+  - GridView/ListView use virtualization by default
+  - Dispose media players when not in use
+- **Page State**:
+  - NavigationCacheMode.Enabled for frequently visited pages
+  - Clear navigation stack on logout
 
 ### Input Handling
 - Event-based gamepad input (no polling)
 - MediaControllerService handles all media playback input
 - XY focus navigation disabled during playback to prevent analog stick sounds
 - Control visibility state determines input behavior
+- Debounce search input (500ms delay)
+
+### Startup Optimization
+- Lazy load services where possible
+- Defer non-critical initialization
+- Preload essential data in App.xaml.cs
+- Use SplashScreen extended for long operations
+
+### Media Playback Performance
+- **Adaptive Bitrate**: MediaOptimizationService selects quality
+- **Buffer Management**: 30 second buffer for smooth playback
+- **Codec Priority**: H.264 > H.265 > VP9
+- **Audio**: AAC preferred, fallback to MP3
+- **Transcode Triggers**: Unsupported codec or bandwidth limits
 
 ## Testing Approach
 
@@ -270,9 +358,9 @@ The application uses a centralized ErrorHandlingService for consistent error pro
 4. **ErrorSeverity**: Indicates severity (Info, Warning, Error, Critical)
 
 #### Integration Points
-- **BaseService**: All services inherit error handling via `ExecuteWithErrorHandlingAsync` and `ExecuteWithErrorHandling`
-- **BaseViewModel**: All ViewModels inherit error handling capabilities
-- **BaseControl**: All controls inherit standardized error handling
+- **BaseService**: All services inherit error handling via `HandleErrorAsync` and `HandleErrorWithDefaultAsync`
+- **BaseViewModel**: All ViewModels inherit error handling capabilities via `ErrorHandler` property and `LoadDataCoreAsync` pattern
+- **BaseControl**: All controls inherit standardized error handling via `HandleError` and `HandleErrorAsync`
 
 #### Error Flow
 ```
@@ -288,54 +376,65 @@ Exception Occurs → ErrorContext Created → ErrorHandlingService Processes →
 
 Both synchronous and asynchronous error handling are supported:
 
-**Asynchronous Operations:**
+**In Services (inheriting from BaseService):**
 ```csharp
-// Simple usage - auto-creates ErrorContext
-await ExecuteWithErrorHandlingAsync(async () => 
+// Using try/catch with ErrorHandler
+public async Task<T> GetDataAsync<T>()
 {
-    await SomeAsyncOperation();
-}, showUserMessage: true);
+    var context = CreateErrorContext("GetData", ErrorCategory.Network);
+    try
+    {
+        return await _apiClient.GetAsync<T>();
+    }
+    catch (Exception ex)
+    {
+        return await ErrorHandler.HandleErrorAsync<T>(ex, context, defaultValue, showUserMessage: false);
+    }
+}
 
-// With return value and custom category
-var result = await ExecuteWithErrorHandlingAsync(
-    async () => await GetDataAsync(),
-    CreateErrorContext("GetData", ErrorCategory.Network),
-    defaultValue: new List<Item>()
-);
+// Using RetryAsync for automatic retry with exponential backoff
+public async Task<UserDto> LoadUserProfileAsync(CancellationToken cancellationToken)
+{
+    return await RetryAsync(
+        async () => await _apiClient.Users.Me.GetAsync(null, cancellationToken),
+        cancellationToken: cancellationToken
+    ).ConfigureAwait(false);
+}
 ```
 
-**Synchronous Operations:**
+**In ViewModels (inheriting from BaseViewModel):**
 ```csharp
-// Simple usage - auto-creates ErrorContext
-ExecuteWithErrorHandling(() => 
+// Override LoadDataCoreAsync - errors handled automatically by BaseViewModel
+protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
 {
-    SomeSyncOperation();
-});
+    var data = await _service.GetDataAsync(cancellationToken);
+    await RunOnUIThreadAsync(() => Items.ReplaceAll(data));
+}
 
-// With return value, default, and category
-var result = ExecuteWithErrorHandling(
-    () => GetSyncData(),
-    defaultValue: "default",
-    category: ErrorCategory.System
-);
+// Or use try/catch with ErrorHandler directly
+private async Task CustomOperationAsync()
+{
+    var context = CreateErrorContext("CustomOperation", ErrorCategory.User);
+    try
+    {
+        await _service.DoSomethingAsync();
+    }
+    catch (Exception ex)
+    {
+        await ErrorHandler.HandleErrorAsync(ex, context, showUserMessage: true);
+    }
+}
 ```
-
-#### Simplified Overloads
-
-The error handling methods provide simplified overloads that automatically create ErrorContext:
-- Method name is captured automatically via CallerMemberName
-- ErrorCategory defaults to System but can be specified
-- Custom ErrorContext can still be provided for complex scenarios
 
 #### Best Practices
-1. Use the simplified overloads for most cases - avoid creating ErrorContext variables
-2. Always use ErrorCategory to classify errors appropriately  
-3. Let ErrorHandlingService generate user messages
-4. Use showUserMessage parameter wisely (true for user-initiated actions)
-5. Don't catch exceptions just to log them - use the service
-6. Maintain error context through the call stack
-7. NEVER show technical error messages directly to users
-8. Use synchronous ExecuteWithErrorHandling for synchronous operations instead of try-catch
+1. Services should use try/catch with `ErrorHandler.HandleErrorAsync<T>` and return default values
+2. ViewModels can override `LoadDataCoreAsync` for automatic error handling
+3. Always use ErrorCategory to classify errors appropriately
+4. Let ErrorHandlingService generate user messages
+5. Use showUserMessage parameter wisely (true for user-initiated actions)
+6. Don't catch exceptions just to log them - use the service
+7. Maintain error context through the call stack
+8. NEVER show technical error messages directly to users
 
 ## UI Thread Execution
 

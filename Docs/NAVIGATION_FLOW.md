@@ -12,8 +12,8 @@
                       ▼                       ▼
          ┌────────────────────────┐  ┌─────────────────┐
          │ ServerSelectionPage    │  │    MainPage     │
-         │ - Add server URL       │  │ - Home screen   │
-         │ - Discover servers     │  │ - Quick access  │
+         │ - Enter server URL     │  │ - Home screen   │
+         │ - Connect to server    │  │ - Quick access  │
          └───────────┬────────────┘  └────────┬────────┘
                      │                         │
                      ▼                         │
@@ -39,8 +39,8 @@
                     │                                       │
                     │  ┌─────────────────────────────────┐ │
                     │  │     Command Bar Actions         │ │
-                    │  │ [Search] [Favorites] [Library]  │ │
-                    │  │ [Settings] [Now Playing]        │ │
+                    │  │ [Refresh] [Search] [Library]    │ │
+                    │  │ [Favorites] [Settings]          │ │
                     │  └────┬──────┬─────────┬───────────┘ │
                     │       │      │         │             │
                     │       ▼      ▼         ▼             │
@@ -86,21 +86,24 @@
 
 ### Content Navigation
 ```
-Any Media Item
+Any Media Item (via NavigateToItemDetails)
     ├── Movie → MovieDetailsPage → MediaPlayerPage
-    ├── Episode → MediaPlayerPage (direct)
+    ├── Episode → SeasonDetailsPage (shows episode in season context)
     ├── Series → SeasonDetailsPage → Episode → MediaPlayerPage
-    ├── Album → AlbumDetailsPage → Track → MediaPlayerPage
+    ├── Season → SeasonDetailsPage → Episode → MediaPlayerPage
+    ├── Audio (Song) → MusicPlayerService.PlayItem() (no navigation)
+    ├── Album → AlbumDetailsPage → Track → MusicPlayer
     ├── Artist → ArtistDetailsPage → Album → Track
     ├── Person → PersonDetailsPage → Their Media → Details
-    └── Collection → CollectionDetailsPage → Media Item → Details
+    └── BoxSet → CollectionDetailsPage → Media Item → Details
 ```
 
 ### Back Navigation Rules
-1. **MediaPlayerPage** → Returns to originating page
+1. **MediaPlayerPage** → Returns to originating page (back stack cleaned to prevent buildup)
 2. **Detail Pages** → Can navigate to other detail pages (maintains history)
-3. **MainPage** → Cannot go back (root page)
-4. **Login Flow** → Clears back stack after successful login
+3. **Episode-to-Episode** → Special handling to prevent MediaPlayerPage stack buildup
+4. **Circular Navigation** → History cleared when detected to prevent loops
+5. **Stack Depth Limit** → History cleared when exceeds MAX_BACK_STACK_DEPTH * 2
 
 ### Special Navigation Cases
 
@@ -129,18 +132,18 @@ SettingsPage (single page with sections)
 
 ## Navigation State Management
 
-### Preserved on Navigation
-- Scroll position in lists
-- Current playback position
-- Filter/sort selections
-- Search history
+### Preserved on Navigation (for cached pages)
+- Page state for NavigationCacheMode.Enabled pages
+- Current playback position (managed by services)
+- Filter/sort selections (stored in ViewModels)
 
 ### Reset on Navigation
 - Loading states
 - Error messages
 - Temporary UI states
+- Pages with NavigationCacheMode.Disabled get fresh instances
 
 ### Special States
-- **PlaybackSession**: Maintained across navigation during playback
-- **LibrarySelection**: Remembered for return navigation
-- **Authentication**: Cleared on logout, forces return to login
+- **PlaybackSession**: Maintained by MediaPlaybackService across navigation
+- **Navigation Stack**: Cleaned when MediaPlayerPage accumulates
+- **Authentication**: On logout, navigates to ServerSelectionPage

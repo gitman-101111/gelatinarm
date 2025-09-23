@@ -76,7 +76,7 @@ Open `Gelatinarm.sln` in Visual Studio 2022
 
 ### Code Organization
 - One class per file
-- Interface definitions in ServiceInterfaces.cs
+- Interfaces defined with their implementations or in ServiceInterfaces.cs for shared interfaces
 - Constants in appropriate Constants file
 - Helpers for reusable logic
 
@@ -92,13 +92,24 @@ return await SomeOperation().ConfigureAwait(false);
 ### Error Handling
 Use the unified error handling pattern:
 ```csharp
-// In Services/ViewModels/Controls
+// In Services
 var context = CreateErrorContext("OperationName", ErrorCategory.Network);
-await ExecuteWithErrorHandlingAsync(
-    async () => await PerformOperationAsync(),
-    context,
-    showUserMessage: true
-);
+try
+{
+    return await PerformOperationAsync();
+}
+catch (Exception ex)
+{
+    return await ErrorHandler.HandleErrorAsync<T>(ex, context, defaultValue, showUserMessage: true);
+}
+
+// In ViewModels - override LoadDataCoreAsync for automatic error handling
+protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
+{
+    // Errors are automatically handled by BaseViewModel
+    var data = await _service.GetDataAsync(cancellationToken);
+    await RunOnUIThreadAsync(() => Items.ReplaceAll(data));
+}
 ```
 
 ## Troubleshooting
@@ -107,21 +118,39 @@ await ExecuteWithErrorHandlingAsync(
 - Clean solution and rebuild
 - Check NuGet package restoration
 - Verify Windows SDK version
+- Ensure UWP workload is installed in Visual Studio
+
+### Service Initialization Failures
+Common warning: "Failed to get [Service] - continuing without it"
+- Non-critical services can fail without stopping the app
+- Check App.xaml.cs InitializeCoreServices for initialization order
+- Critical services that fail will prevent app startup
 
 ### Runtime Crashes
-- Check debug output window
-- Look for initialization errors
-- Verify service registration
+- Check debug output window for initialization errors
+- Verify all required services are registered in ConfigureServices
+- Check for null reference exceptions in ViewModels
+- Ensure ViewModels are registered as Transient or Singleton appropriately
 
 ### Xbox Deployment Issues
 - Ensure Developer Mode is active
-- Check network connectivity
-- Verify Visual Studio pairing
+- Check network connectivity between PC and Xbox
+- Verify Visual Studio pairing (may need to re-pair)
+- Check Xbox IP address hasn't changed
+- Ensure both devices are on same network
 
 ### Authentication Problems
-- Check server URL format (https://...)
-- Verify server is accessible
-- Check token expiration handling
+- Check server URL format (include protocol: https://...)
+- Verify server is accessible from Xbox/PC
+- Token stored in Windows Credential Vault - may need to clear
+- Check AuthenticationService logs for specific errors
+- Verify Jellyfin server version compatibility
+
+### Navigation Issues
+- Pages must inherit from BasePage for proper initialization
+- Check NavigationService.NavigateToItemDetails for unsupported media types
+- Verify navigation parameter passing in InitializePageAsync
+- Check for navigation loops in back stack
 
 ## Key Files to Understand First
 1. `App.xaml.cs` - Application setup

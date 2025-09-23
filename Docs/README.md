@@ -1,10 +1,42 @@
 # Gelatinarm Documentation
 
-Welcome to the Gelatinarm project documentation. This documentation provides comprehensive information about the Xbox Jellyfin client application.
+Welcome to the Gelatinarm project documentation. Gelatinarm is a native Jellyfin client for Xbox, built using Universal Windows Platform (UWP) and optimized for gamepad navigation.
 
-## Start Here
+## Getting Started for New Contributors
 
-**First-time setup?** → Read **[DEV_SETUP.md](DEV_SETUP.md)** for environment setup and build instructions
+### Prerequisites
+Before contributing, ensure you have:
+- Windows 10/11 with Visual Studio 2022
+- .NET SDK with UWP workload
+- Basic knowledge of C# and XAML
+- (Optional) Xbox in Developer Mode for testing
+
+### Quick Start Guide
+
+1. **Clone and Build**
+   ```bash
+   git clone [repository-url]
+   cd gelatinarm
+   ```
+   Open `Gelatinarm.sln` in Visual Studio 2022
+
+2. **Understand the Architecture**
+   - Review the [ARCHITECTURE.md](ARCHITECTURE.md) for MVVM pattern and design decisions
+   - Check [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for file structure
+
+3. **Make Your First Contribution**
+   - Pick an issue labeled "good first issue" if available
+   - Follow patterns in [CODING_PATTERNS.md](CODING_PATTERNS.md)
+   - Reference [COMMON_TASKS.md](COMMON_TASKS.md) for implementation examples
+   - Use commit guidelines from [CODING_PATTERNS.md#commit-and-pull-request-guidelines](CODING_PATTERNS.md#commit-and-pull-request-guidelines)
+
+4. **Test Your Changes**
+   - Build and run locally on Windows
+   - Test with Xbox controller if available
+   - Deploy to Xbox for final testing
+
+### Development Setup
+For detailed environment configuration → **[DEV_SETUP.md](DEV_SETUP.md)**
 
 ## Documentation Structure
 
@@ -13,11 +45,12 @@ Welcome to the Gelatinarm project documentation. This documentation provides com
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Architecture patterns, design decisions, and coding standards
 - **[NAVIGATION_FLOW.md](NAVIGATION_FLOW.md)** - Visual navigation maps and flow diagrams
 - **[CONTROLLER_ARCHITECTURE.md](CONTROLLER_ARCHITECTURE.md)** - Xbox controller input system documentation
-- **[CODING_PATTERNS.md](CODING_PATTERNS.md)** - Established coding patterns after consolidation
+- **[CODING_PATTERNS.md](CODING_PATTERNS.md)** - Established coding patterns and conventions
 
 ### Developer Guides
 - **[DEV_SETUP.md](DEV_SETUP.md)** - Development environment setup and build instructions
 - **[COMMON_TASKS.md](COMMON_TASKS.md)** - Implementation examples and patterns
+- **[TESTING.md](TESTING.md)** - Manual testing procedures and checklists
 
 ## Quick Links
 

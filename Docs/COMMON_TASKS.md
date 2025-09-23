@@ -5,46 +5,66 @@
 ## Adding a New Page
 
 ### 1. Create the View (XAML)
-Create `/Views/NewFeaturePage.xaml`:
+Example from `/Views/FavoritesPage.xaml`:
 ```xml
 <views:BasePage
-    x:Class="OurNamespace.Views.NewFeaturePage"
+    x:Class="OurNamespace.Views.FavoritesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:OurNamespace.Views">
-    
+
     <Grid>
-        <!-- Your UI here -->
+        <!-- Loading overlay -->
+        <controls:LoadingOverlay x:Name="LoadingOverlay" />
+
+        <!-- Main content -->
+        <GridView x:Name="FavoritesGrid"
+                  ItemsSource="{x:Bind ViewModel.FavoriteItems}"
+                  SelectionMode="None"
+                  IsItemClickEnabled="True"
+                  ItemClick="OnItemClick">
+            <!-- Item template here -->
+        </GridView>
     </Grid>
 </views:BasePage>
 ```
 
 ### 2. Create the Code-Behind
-Create `/Views/NewFeaturePage.xaml.cs`:
+Example from `/Views/FavoritesPage.xaml.cs`:
 ```csharp
 namespace OurNamespace.Views
 {
-    public sealed partial class NewFeaturePage : BasePage
+    public sealed partial class FavoritesPage : BasePage
     {
         // Specify ViewModel type for automatic initialization
-        protected override Type ViewModelType => typeof(NewFeatureViewModel);
-        
+        protected override Type ViewModelType => typeof(FavoritesViewModel);
+
         // Typed property for easy access
-        public NewFeatureViewModel ViewModel => (NewFeatureViewModel)base.ViewModel;
-        
-        public NewFeaturePage() : base(typeof(NewFeaturePage))
+        public FavoritesViewModel ViewModel => (FavoritesViewModel)base.ViewModel;
+
+        public FavoritesPage() : base(typeof(FavoritesPage))
         {
             this.InitializeComponent();
         }
-        
-        // Override lifecycle methods as needed
+
+        // From SettingsPage - lifecycle override
         protected override async Task InitializePageAsync(object parameter)
         {
-            // Set initial focus for controller
-            SetInitialFocus(MyMainControl);
-            
-            // Initialize with navigation parameter
-            await ViewModel.InitializeAsync(parameter);
+            // Set initial focus for controller navigation
+            SetInitialFocus(ServerSettingsSection);
+
+            // Load settings data
+            await ViewModel.LoadSettingsAsync();
+            await base.InitializePageAsync(parameter);
+        }
+
+        // Item click handler
+        private void OnItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is BaseItemDto item)
+            {
+                NavigationService.NavigateToItemDetails(item);
+            }
         }
     }
 }
@@ -139,14 +159,15 @@ public class NewService : BaseService, INewService
     public async Task<Result> PerformOperationAsync()
     {
         var context = CreateErrorContext("PerformOperation", ErrorCategory.System);
-        return await ExecuteWithErrorHandlingAsync(
-            async () =>
-            {
-                // Implementation
-                return new Result();
-            },
-            context
-        );
+        try
+        {
+            // Implementation
+            return new Result();
+        }
+        catch (Exception ex)
+        {
+            return await ErrorHandler.HandleErrorAsync<Result>(ex, context, null);
+        }
     }
 }
 ```
@@ -233,13 +254,10 @@ protected override async Task InitializePageAsync(object parameter)
 ### Refresh Pattern (BaseViewModel Pattern)
 ```csharp
 // In ViewModel inheriting from BaseViewModel
-protected override async Task<LoadResult> LoadDataCoreAsync(
-    bool forceRefresh, 
-    CancellationToken cancellationToken)
+protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
 {
     var data = await _service.GetDataAsync(cancellationToken);
-    Items.ReplaceAll(data);
-    return LoadResult.Success(data);
+    await RunOnUIThreadAsync(() => Items.ReplaceAll(data));
 }
 
 // Usage
@@ -256,42 +274,60 @@ Both synchronous and asynchronous error handling are supported with simplified o
 
 ##### In Services (inheriting from BaseService)
 ```csharp
-// Simple usage - auto-creates ErrorContext
-public async Task<T> GetDataAsync<T>()
+// From UserProfileService.cs
+public async Task<bool> LoadUserProfileAsync(CancellationToken cancellationToken)
 {
-    return await ExecuteWithErrorHandlingAsync(
-        async () => await _apiClient.GetAsync<T>(),
-        CreateErrorContext("GetData", ErrorCategory.Network),
-        showUserMessage: true
-    );
+    var context = CreateErrorContext("LoadUserProfile", ErrorCategory.User);
+    try
+    {
+        _currentUser = await RetryAsync(
+            async () => await _apiClient.Users.Me.GetAsync(null, cancellationToken)
+                              .ConfigureAwait(false),
+            Logger,
+            cancellationToken: cancellationToken
+        ).ConfigureAwait(false);
+
+        if (_currentUser != null)
+        {
+            Logger.LogInformation($"User profile loaded: {_currentUser.Name}");
+            return true;
+        }
+        return false;
+    }
+    catch (Exception ex)
+    {
+        return await ErrorHandler.HandleErrorAsync(ex, context, false, false);
+    }
 }
 
-// Using simplified overload (no ErrorContext needed)
+// Using HandleErrorWithDefaultAsync
 public async Task<T> GetDataAsync<T>()
 {
-    var context = CreateErrorContext("GetData", ErrorCategory.Network);
-    return await ExecuteWithErrorHandlingAsync(
-        async () => await _apiClient.GetAsync<T>(),
-        context,
-        default(T),
-        showUserMessage: true
-    );
+    try
+    {
+        return await _apiClient.GetAsync<T>();
+    }
+    catch (Exception ex)
+    {
+        return await HandleErrorWithDefaultAsync(ex, "GetData", default(T), ErrorCategory.Network, true);
+    }
 }
 ```
 
 ##### In ViewModels (inheriting from BaseViewModel)
 ```csharp
-// Simple usage for void operations
+// Standard pattern with ErrorHandler
 private async Task LoadDataAsync()
 {
-    await ExecuteWithErrorHandlingAsync(
-        async () =>
-        {
-            Data = await _service.GetDataAsync();
-        },
-        CreateErrorContext("LoadData", ErrorCategory.User),
-        showUserMessage: true
-    );
+    var context = CreateErrorContext("LoadData", ErrorCategory.User);
+    try
+    {
+        Data = await _service.GetDataAsync();
+    }
+    catch (Exception ex)
+    {
+        await ErrorHandler.HandleErrorAsync(ex, context, showUserMessage: true);
+    }
 }
 ```
 
@@ -299,14 +335,14 @@ private async Task LoadDataAsync()
 ```csharp
 private async void OnButtonClick(object sender, RoutedEventArgs e)
 {
-    await ExecuteWithErrorHandlingAsync(
-        async () =>
-        {
-            await PerformActionAsync();
-        },
-        "ButtonClick",
-        showUserMessage: true
-    );
+    try
+    {
+        await PerformActionAsync();
+    }
+    catch (Exception ex)
+    {
+        await HandleErrorAsync(ex, "ButtonClick", showUserMessage: true);
+    }
 }
 ```
 
@@ -314,52 +350,41 @@ private async void OnButtonClick(object sender, RoutedEventArgs e)
 
 ##### In Services (inheriting from BaseService)
 ```csharp
-// Simple usage - auto-creates ErrorContext
-public string GetCachedValue(string key)
+// Fire-and-forget error handling (synchronous context)
+public void ProcessCachedData(string key)
 {
-    return ExecuteWithErrorHandling(
-        () => _cache.Get(key),
-        defaultValue: string.Empty
-    );
-}
-
-// With custom category
-public int CalculateValue(int input)
-{
-    return ExecuteWithErrorHandling(
-        () => PerformComplexCalculation(input),
-        defaultValue: 0,
-        category: ErrorCategory.Validation
-    );
-}
-
-// With custom ErrorContext
-public bool ValidateData(object data)
-{
-    var context = CreateErrorContext("ValidateData", ErrorCategory.Validation);
-    return ExecuteWithErrorHandling(
-        () => PerformValidation(data),
-        context,
-        defaultValue: false,
-        showUserMessage: true
-    );
+    try
+    {
+        var data = _cache.Get(key);
+        ProcessData(data);
+    }
+    catch (Exception ex)
+    {
+        // Fire-and-forget the error handling
+        _ = HandleErrorAsync(ex, "ProcessCachedData", ErrorCategory.System);
+    }
 }
 ```
 
 ##### In ViewModels (inheriting from BaseViewModel)
 ```csharp
-// Simple property setter with error handling
+// Fire-and-forget error handling for UI events
 private void UpdateDisplayName(string value)
 {
-    ExecuteWithErrorHandling(() =>
+    try
     {
         // Validation logic
         if (string.IsNullOrWhiteSpace(value))
             throw new ArgumentException("Display name cannot be empty");
-        
+
         DisplayName = value;
         SavePreferences();
-    }, category: ErrorCategory.Validation, showUserMessage: true);
+    }
+    catch (Exception ex)
+    {
+        var context = CreateErrorContext("UpdateDisplayName", ErrorCategory.Validation);
+        _ = ErrorHandler.HandleErrorAsync(ex, context, showUserMessage: true);
+    }
 }
 
 // With return value
@@ -388,15 +413,17 @@ public async Task<T> GetDataAsync<T>()
     }
 }
 
-// ✅ CORRECT - Use ExecuteWithErrorHandlingAsync
+// ✅ CORRECT - Use HandleErrorWithDefaultAsync
 public async Task<T> GetDataAsync<T>()
 {
-    var context = CreateErrorContext("GetData", ErrorCategory.Network);
-    return await ExecuteWithErrorHandlingAsync(
-        async () => await _apiClient.GetAsync<T>(),
-        context,
-        showUserMessage: true
-    );
+    try
+    {
+        return await _apiClient.GetAsync<T>();
+    }
+    catch (Exception ex)
+    {
+        return await HandleErrorWithDefaultAsync(ex, "GetData", default(T), ErrorCategory.Network, true);
+    }
 }
 
 // ❌ WRONG - Don't do this for sync operations
@@ -413,13 +440,18 @@ public string ProcessData(string input)
     }
 }
 
-// ✅ CORRECT - Use ExecuteWithErrorHandling
+// ✅ CORRECT - Use try/catch with fire-and-forget error handling
 public string ProcessData(string input)
 {
-    return ExecuteWithErrorHandling(
-        () => Transform(input),
-        defaultValue: string.Empty
-    );
+    try
+    {
+        return Transform(input);
+    }
+    catch (Exception ex)
+    {
+        _ = HandleErrorAsync(ex, "ProcessData", ErrorCategory.System);
+        return string.Empty;
+    }
 }
 ```
 
@@ -583,14 +615,63 @@ private async Task<T> GetCachedDataAsync<T>(string key, Func<Task<T>> factory)
 }
 ```
 
+## XAML Binding Patterns
+
+### x:Bind vs Binding
+Always prefer x:Bind for performance (compile-time binding):
+
+```xml
+<!-- From SettingsPage.xaml - OneWay for display -->
+<Run Text="{x:Bind TypedViewModel.ServerSettings.ConnectionTimeout, Mode=OneWay}" />
+
+<!-- TwoWay for user input -->
+<Slider Value="{x:Bind TypedViewModel.TextSize, Mode=TwoWay}"
+        Minimum="12"
+        Maximum="24" />
+
+<!-- With FallbackValue -->
+<Run Text="{x:Bind TypedViewModel.TextSize, Mode=OneWay, FallbackValue=14}" />
+
+<!-- Boolean with converter -->
+<Grid Visibility="{x:Bind IsLoading, Mode=OneWay,
+      Converter={StaticResource BooleanToVisibilityConverter}}" />
+```
+
+### Common Converters Used
+```xml
+<!-- From Controls/LoadingOverlay.xaml -->
+<TextBlock Text="{x:Bind LoadingText, Mode=OneWay}"
+           Visibility="{x:Bind LoadingText, Mode=OneWay,
+                       Converter={StaticResource NullableToVisibilityConverter}}" />
+
+<!-- From views - ItemClick handling -->
+<GridView ItemsSource="{x:Bind ViewModel.Items}"
+          SelectionMode="None"
+          IsItemClickEnabled="True"
+          ItemClick="OnItemClick" />
+```
+
 ## Xbox Controller Support
 
 ### Custom Focus Navigation
 When you need to override the default XY focus navigation:
 ```xml
-<Button x:Name="Button1" 
+<Button x:Name="Button1"
         XYFocusDown="{x:Bind Button2}"
         XYFocusRight="{x:Bind Button3}" />
+```
+
+### Focus Capture Pattern
+From LoadingOverlay.xaml - blocking navigation during loading:
+```xml
+<!-- Invisible button to capture focus and block navigation -->
+<Button x:Name="FocusCapture"
+        Opacity="0"
+        IsTabStop="True"
+        UseSystemFocusVisuals="False"
+        HorizontalAlignment="Stretch"
+        VerticalAlignment="Stretch"
+        KeyDown="FocusCapture_KeyDown" />
 ```
 
 Note: Controller button mappings and smart navigation features are handled automatically by the framework. See [CONTROLLER_ARCHITECTURE.md](CONTROLLER_ARCHITECTURE.md) for details.

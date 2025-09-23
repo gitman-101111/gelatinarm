@@ -3,6 +3,16 @@
 ## Overview
 Gelatinarm is a Jellyfin client application built for Xbox using Universal Windows Platform (UWP). The application allows users to browse and play media content from their Jellyfin servers on Xbox consoles.
 
+## Quick Reference
+- **Architecture Pattern**: MVVM with Services
+- **Target Platform**: Xbox One, Xbox Series S/X (UWP)
+- **Min Memory**: 3GB (Xbox One constraint)
+- **Primary Language**: C# with XAML
+- **Key Dependencies**: Jellyfin SDK, Windows.Media.Playback
+- **Navigation**: NavigationService (singleton)
+- **Error Handling**: ErrorHandlingService (centralized)
+- **Controller Input**: UnifiedDeviceService + MediaControllerService
+
 ## Table of Contents
 1. [Project Structure](#project-structure)
 2. [File Directory Reference](#file-directory-reference)
@@ -47,7 +57,7 @@ Page (UWP Framework)
 - **Built-in services as properties**: Logger, NavigationService, ErrorHandlingService, PreferencesService, UserProfileService
 - **Standard lifecycle management**: OnNavigatedTo/From, OnPageLoaded/Unloaded
 - **Controller input support**: Automatic setup via ControllerInputHelper
-- **Error handling integration**: ExecuteAsync with built-in error handling
+- **Error handling integration**: Error handling via ErrorHandler property and CreateErrorContext method
 - **Navigation helpers**: NavigateToItemDetails, GetSavedNavigationParameter
 
 ## File Directory Reference
@@ -227,10 +237,10 @@ App Launch
 ```
 
 ### Navigation Rules
-1. **Back Button**: Always available except on MainPage
+1. **Back Button**: Available on all pages
 2. **Deep Links**: Detail pages can navigate to other detail pages
 3. **Player Return**: MediaPlayerPage returns to the originating page
-4. **Login Flow**: Clears navigation history after successful login
+4. **Navigation Stack**: Cleaned when MediaPlayerPage accumulates or circular navigation detected
 
 ## Server Communication
 
@@ -293,7 +303,7 @@ View ← ViewModel ← Service ← Response Data ←
 - **Retry Logic**: Automatic retry with exponential backoff
 - **Error Categories**: User, Network, System, Media, Authentication, Validation, Configuration
 - **User Feedback**: Context-aware messages via DialogService
-- **Base Class Integration**: ExecuteWithErrorHandlingAsync in BaseService/BaseViewModel/BaseControl
+- **Base Class Integration**: Error handling methods in BaseService (HandleErrorAsync, HandleErrorWithDefaultAsync), BaseViewModel (LoadDataCoreAsync pattern), and BaseControl (HandleError, HandleErrorAsync)
 
 ## Controller Architecture
 
@@ -334,11 +344,12 @@ The application provides comprehensive Xbox controller support through a layered
 |--------|--------|
 | A | Play/Pause |
 | B | Navigate Back |
-| X | Show Stats |
-| Y | Show/Hide Controls |
-| D-pad Left/Right | Seek |
-| Triggers | Skip 10 minutes |
-| Shoulders | Change audio track |
+| Y | Show Stats |
+| D-pad Up/Down | Show/Hide Controls |
+| D-pad Left | Skip Back 10 seconds |
+| D-pad Right | Skip Forward 30 seconds |
+| Left Trigger | Skip Back 10 minutes |
+| Right Trigger | Skip Forward 10 minutes |
 
 ### Best Practices
 
@@ -415,7 +426,7 @@ public sealed partial class NewPage : BasePage
 5. **Async Operations**: Use ConfigureAwait(false) in services
 6. **Data Loading**: Override LoadDataCoreAsync in ViewModels
 7. **User Data**: Use UserDataService for favorites/watched
-8. **Settings**: Inherit from BaseSettingsViewModel
+8. **Settings**: Settings ViewModels inherit from BaseViewModel and use PreferencesService
 
 ### Performance Guidelines
 - Minimize memory allocations

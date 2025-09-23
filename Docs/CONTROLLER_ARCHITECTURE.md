@@ -96,15 +96,23 @@ void SetButtonMapping(Dictionary<ControllerButton, MediaAction> mapping)
 enum MediaAction
 {
     PlayPause,
-    NavigateBack,
-    ShowStats,
-    ShowInfo,
-    Rewind,
+    Stop,
+    Next,
+    Previous,
     FastForward,
-    PreviousAudioTrack,
+    Rewind,
+    VolumeUp,
+    VolumeDown,
+    Mute,
+    SkipIntro,
+    SkipOutro,
+    ShowInfo,
+    ShowStats,
+    ToggleSubtitles,
+    NextSubtitleTrack,
     NextAudioTrack,
-    ShowMenu,
-    ToggleSubtitles
+    PreviousAudioTrack,
+    NavigateBack
 }
 ```
 

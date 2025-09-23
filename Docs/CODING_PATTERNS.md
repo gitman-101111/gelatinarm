@@ -1,6 +1,6 @@
 # Gelatinarm Coding Patterns
 
-This document describes the established coding patterns in the Gelatinarm codebase after the consolidation effort. These patterns ensure consistency, reduce duplication, and improve maintainability.
+This document describes the established coding patterns in the Gelatinarm codebase. These patterns ensure consistency, reduce duplication, and improve maintainability.
 
 ## Table of Contents
 1. [Error Handling Pattern](#error-handling-pattern)
@@ -11,7 +11,8 @@ This document describes the established coding patterns in the Gelatinarm codeba
 6. [Page Lifecycle Pattern](#page-lifecycle-pattern)
 7. [Service Architecture Pattern](#service-architecture-pattern)
 8. [Controller Input Pattern](#controller-input-pattern)
-9. [Temporary Workarounds](#temporary-workarounds)
+9. [Commit and Pull Request Guidelines](#commit-and-pull-request-guidelines)
+10. [Temporary Workarounds](#temporary-workarounds)
 
 ## Error Handling Pattern
 
@@ -22,33 +23,59 @@ All error handling is centralized through the `ErrorHandlingService` to provide 
 
 #### In Services (inheriting from BaseService)
 ```csharp
-public async Task<Result> DoSomethingAsync()
+// Method 1: Using try/catch with ErrorHandler.HandleErrorAsync
+public async Task<UserDto> GetUserAsync(string userId)
 {
-    var context = CreateErrorContext("DoSomething", ErrorCategory.Network);
-    return await ExecuteWithErrorHandlingAsync(
-        async () => 
-        {
-            // Your actual implementation
-            return await _apiClient.GetDataAsync();
-        },
-        context,
-        showUserMessage: true
-    );
+    var context = CreateErrorContext("GetUser", ErrorCategory.User);
+    try
+    {
+        return await _apiClient.Users[userId].GetAsync();
+    }
+    catch (Exception ex)
+    {
+        // ErrorHandler.HandleErrorAsync logs error and returns default value
+        return await ErrorHandler.HandleErrorAsync<UserDto>(ex, context, null, showUserMessage: false);
+    }
+}
+
+// Method 2: Using RetryAsync with automatic retry and error handling
+public async Task<UserDto> LoadUserProfileAsync(CancellationToken cancellationToken)
+{
+    // RetryAsync automatically handles retries with exponential backoff
+    return await RetryAsync(
+        async () => await _apiClient.Users.Me.GetAsync(null, cancellationToken),
+        cancellationToken: cancellationToken
+    ).ConfigureAwait(false);
 }
 ```
 
 #### In ViewModels (inheriting from BaseViewModel)
 ```csharp
+// Standard pattern using ErrorHandler directly
 private async Task LoadDataAsync()
 {
-    await ExecuteWithErrorHandlingAsync(
-        async () => 
+    var context = CreateErrorContext("LoadData", ErrorCategory.User);
+    try
+    {
+        var data = await _service.GetDataAsync();
+        await RunOnUIThreadAsync(() =>
         {
-            var data = await _service.GetDataAsync();
             Items.ReplaceAll(data);
-        },
-        CreateErrorContext("LoadData", ErrorCategory.Network)
-    );
+        });
+    }
+    catch (Exception ex)
+    {
+        // ErrorHandler is a protected property from BaseViewModel
+        await ErrorHandler.HandleErrorAsync(ex, context, showUserMessage: true);
+    }
+}
+
+// Using the built-in LoadDataCoreAsync pattern
+protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
+{
+    // BaseViewModel automatically handles errors when you override this method
+    var data = await _service.GetDataAsync(cancellationToken);
+    await RunOnUIThreadAsync(() => Items.ReplaceAll(data));
 }
 ```
 
@@ -199,35 +226,33 @@ Standardized data loading with built-in caching, refresh support, and state mana
 ```csharp
 public class LibraryViewModel : BaseViewModel
 {
-    protected override async Task<LoadResult> LoadDataCoreAsync(
-        bool forceRefresh, 
-        CancellationToken cancellationToken)
+    protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
     {
-        // Check cache unless forcing refresh
-        if (!forceRefresh && _cachedData != null)
-        {
-            return LoadResult.Success(_cachedData);
-        }
-        
         // Load fresh data
         var items = await _mediaService.GetLibraryItemsAsync(cancellationToken);
-        _cachedData = items;
-        
-        // Update UI
-        Items.ReplaceAll(items);
-        
-        return LoadResult.Success(items);
+
+        // Update UI on UI thread
+        await RunOnUIThreadAsync(() =>
+        {
+            Items.Clear();
+            foreach (var item in items)
+            {
+                Items.Add(item);
+            }
+        });
     }
 }
 ```
 
 #### Refresh Pattern
 ```csharp
-protected override async Task RefreshDataCoreAsync(CancellationToken cancellationToken)
+protected override async Task RefreshDataCoreAsync()
 {
     // Custom refresh logic if different from load
-    // Otherwise just call load with forceRefresh
-    await LoadDataCoreAsync(true, cancellationToken);
+    // Otherwise just reload all data
+    _loadDataCts?.Cancel();
+    _loadDataCts = new CancellationTokenSource();
+    await LoadDataCoreAsync(_loadDataCts.Token);
 }
 ```
 
@@ -256,55 +281,42 @@ private async void OnRefreshRequested()
 ## Settings Management Pattern
 
 ### Overview
-Settings ViewModels inherit from `BaseSettingsViewModel` for consistent load/save operations and validation.
+Settings ViewModels inherit from `BaseViewModel` and use PreferencesService for consistent load/save operations.
 
 ### Implementation
 
 ```csharp
-public class PlaybackSettingsViewModel : BaseSettingsViewModel
+public class ServerSettingsViewModel : BaseViewModel
 {
-    private int _defaultQuality;
-    
-    public int DefaultQuality
+    private readonly IPreferencesService _preferencesService;
+    private string _serverUrl;
+
+    public string ServerUrl
     {
-        get => _defaultQuality;
-        set 
-        { 
-            if (SetProperty(ref _defaultQuality, value))
-            {
-                HasUnsavedChanges = true;
-            }
-        }
+        get => _serverUrl;
+        set => SetProperty(ref _serverUrl, value);
     }
-    
-    protected override async Task LoadSettingsAsync()
+
+    protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
     {
-        DefaultQuality = await PreferencesService.GetAsync<int>(
-            PreferenceConstants.DEFAULT_QUALITY, 
-            1080);
+        ServerUrl = await _preferencesService.GetAsync<string>(
+            PreferenceConstants.JELLYFIN_SERVER_URL,
+            string.Empty);
     }
-    
-    protected override async Task SaveSettingsAsync()
+
+    public async Task SaveSettingsAsync()
     {
-        await PreferencesService.SetAsync(
-            PreferenceConstants.DEFAULT_QUALITY, 
-            DefaultQuality);
-        
-        HasUnsavedChanges = false;
-    }
-    
-    protected override bool ValidateSettings()
-    {
-        return DefaultQuality > 0 && DefaultQuality <= 4320;
+        await _preferencesService.SetAsync(
+            PreferenceConstants.JELLYFIN_SERVER_URL,
+            ServerUrl);
     }
 }
 ```
 
 ### Features
-- Automatic loading on navigation
-- Change tracking via `HasUnsavedChanges`
-- Built-in validation support
-- Consistent save/cancel operations
+- Settings loaded through LoadDataCoreAsync pattern
+- Direct access to PreferencesService
+- Manual save operations when needed
 
 ## Page Lifecycle Pattern
 
@@ -380,9 +392,11 @@ public abstract class BaseService
 {
     protected ILogger Logger { get; }
     protected IErrorHandlingService ErrorHandler { get; }
-    
+
     // Common error handling methods
-    protected Task<T> ExecuteWithErrorHandlingAsync<T>(...);
+    protected async Task HandleErrorAsync(Exception ex, string operation, ErrorCategory category = ErrorCategory.System);
+    protected async Task<T> HandleErrorWithDefaultAsync<T>(Exception ex, string operation, T defaultValue = default);
+    protected async Task<T> RetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3);
 }
 ```
 
@@ -520,10 +534,111 @@ public sealed partial class MediaPlayerPage : BasePage
 
 ### Features
 - Automatic XY focus navigation
-- System back button handling  
+- System back button handling
 - Virtual keyboard management
 - Media playback control mapping
 - Focus state preservation
+
+## Commit and Pull Request Guidelines
+
+### Branch Naming
+Use descriptive branch names that indicate the type of change:
+```
+feature/add-subtitle-selection
+fix/playback-resume-issue
+refactor/service-layer
+docs/update-api-reference
+```
+
+### Commit Message Format
+Follow the conventional commit format for consistency:
+```
+<type>: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Commit Types
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code refactoring (no functional changes)
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, missing semicolons, etc.)
+- `perf`: Performance improvements
+- `test`: Test additions or changes
+- `chore`: Maintenance tasks, dependency updates
+
+#### Examples
+```
+feat: Add subtitle track selection in media player
+
+- Added SubtitleService for track management
+- Updated MediaPlayerPage with subtitle menu
+- Integrated with existing playback controls
+
+fix: Resolve playback resume position on HLS streams
+
+Resume position was being ignored for HLS content.
+Applied workaround to detect manifest offset and adjust
+seek position accordingly.
+
+docs: Update API reference for MediaPlaybackService
+```
+
+### Pull Request Process
+
+#### Before Creating a PR
+1. **Test thoroughly**
+   - Build and run on Windows
+   - Test with Xbox controller
+   - Deploy to Xbox if possible
+   - Verify memory usage stays within limits (3GB on Xbox One)
+
+2. **Code quality checks**
+   - Code compiles without warnings
+   - Follows patterns documented in this guide
+   - Includes proper error handling
+   - No hardcoded values that should be configurable
+
+3. **Update documentation** if needed
+   - Update relevant .md files for new features
+   - Add XML comments for new public APIs
+   - Document any workarounds with clear comments
+
+#### PR Description Template
+```markdown
+## Description
+Brief description of what this PR does
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactoring
+- [ ] Documentation
+
+## Testing
+How to test these changes:
+1. Step one
+2. Step two
+3. Expected result
+
+## Checklist
+- [ ] Code follows project patterns
+- [ ] Tested on Windows
+- [ ] Tested with controller
+- [ ] Documentation updated if needed
+- [ ] Memory efficient for Xbox
+```
+
+### Code Review Considerations
+- **Functionality**: Does it work as intended?
+- **Patterns**: Does it follow existing patterns documented here?
+- **Performance**: Is it optimized for Xbox hardware constraints?
+- **Error Handling**: Are errors handled properly using the centralized service?
+- **Controller Support**: Does it work with gamepad navigation?
+- **Memory Usage**: Does it respect Xbox memory limits?
 
 ## Temporary Workarounds
 
@@ -568,16 +683,16 @@ The tiered resume approach ensures that if the server begins honoring StartTimeT
 
 ## Summary
 
-These patterns were established during the consolidation effort to:
+These patterns provide:
 
-1. **Reduce code duplication** by ~40%
-2. **Improve consistency** across the codebase
-3. **Simplify maintenance** through centralization
-4. **Enhance testability** with clear separation
-5. **Standardize error handling** and user feedback
-6. **Provide better controller support** automatically
+1. **Reduced code duplication**
+2. **Improved consistency** across the codebase
+3. **Simplified maintenance** through centralization
+4. **Enhanced testability** with clear separation
+5. **Standardized error handling** and user feedback
+6. **Automatic controller support**
 
-When implementing new features, always:
+When implementing new features:
 - Check if a pattern exists for your use case
 - Inherit from appropriate base classes
 - Use centralized services
