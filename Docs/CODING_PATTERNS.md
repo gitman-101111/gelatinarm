@@ -645,10 +645,21 @@ How to test these changes:
 ### HLS Resume Workaround
 
 #### Overview
-The application includes workarounds for HLS (HTTP Live Streaming) resume functionality due to current Jellyfin server behavior where the server uses `-noaccurate_seek` for HLS streams, causing resume positions to snap to the nearest keyframe instead of the exact requested position.
+The application includes workarounds for HLS (HTTP Live Streaming) resume functionality due to current Jellyfin server behavior where the server doesn't honor StartTimeTicks for HLS streams. The system implements a robust tiered resume strategy with adaptive retry logic and tolerance thresholds to compensate for these limitations.
 
-#### Workaround Locations
-All HLS-specific workarounds are marked with `HLS WORKAROUND` comments for easy identification and removal:
+#### Tiered Resume Approach
+1. **Tier 1**: Server-side resume via StartTimeTicks in PlaybackInfo request
+2. **Tier 2**: Client-side seek if server starts at position 0
+3. **Tier 3**: Manifest offset tracking for dynamic HLS manifests
+
+#### Adaptive Configuration
+- **Retry Delays**: 5 seconds for HLS (allows transcoding time), 1 second for direct play
+- **Position Tolerance**: 10 seconds for HLS (accounts for segment boundaries), 5 seconds for direct play
+- **Max Attempts**: 8 for HLS, 5 for direct play
+- **Verification**: Ensures playback is advancing before accepting position
+
+#### Implementation Locations
+All HLS-specific implementations are marked with `HLS WORKAROUND` comments for easy identification:
 
 **PlaybackControlService.cs:**
 - Line 468-473: Enhanced resume logic routing to `ApplyHlsResumePosition()`

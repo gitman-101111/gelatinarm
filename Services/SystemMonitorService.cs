@@ -605,7 +605,7 @@ namespace Gelatinarm.Services
                     {
                         shouldTestBandwidth = DateTime.UtcNow - _lastBandwidthTest > _bandwidthTestInterval;
                     }
-                    
+
                     if (shouldTestBandwidth)
                     {
                         measuredBandwidth = await MeasureBandwidthAsync().ConfigureAwait(false);

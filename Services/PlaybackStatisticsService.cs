@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
+using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
 using Windows.ApplicationModel.Core;
 using Windows.Media.Playback;
@@ -19,6 +21,7 @@ namespace Gelatinarm.Services
         private PlaybackStats _currentStats;
         private MediaPlayer _mediaPlayer;
         private DispatcherTimer _updateTimer;
+        private MediaSourceInfo _currentMediaSource;
 
         public PlaybackStatisticsService(ILogger<PlaybackStatisticsService> logger) : base(logger)
         {
@@ -98,6 +101,15 @@ namespace Gelatinarm.Services
             Logger.LogInformation($"Statistics visibility toggled to: {IsVisible}");
         }
 
+        public void SetMediaSourceInfo(MediaSourceInfo mediaSource)
+        {
+            _currentMediaSource = mediaSource;
+            if (mediaSource != null)
+            {
+                Logger.LogInformation($"MediaSourceInfo set - DirectPlay: {mediaSource.SupportsDirectPlay}, DirectStream: {mediaSource.SupportsDirectStream}, Transcoding: {mediaSource.SupportsTranscoding}");
+            }
+        }
+
         public void Dispose()
         {
             // Ensure timer is stopped properly on UI thread
@@ -140,19 +152,15 @@ namespace Gelatinarm.Services
                 var session = _mediaPlayer.PlaybackSession;
                 var stats = new PlaybackStats
                 {
-                    LastUpdated = DateTime.Now,                 // Populate new detailed fields
-                    Player = "MPV Video Player",
+                    LastUpdated = DateTime.Now,
+                    Player = "MediaPlayerElement",
                     PlayMethod = GetPlayMethod(),
-                    Protocol = "https",
+                    Protocol = GetProtocol(),
                     StreamType = session.NaturalVideoHeight > 0 ? "Video" : "Audio",
                     Container = GetContainerFormat(),
-                    Size = null, // Not available from MediaPlayer - will be hidden
-                    Bitrate = null, // Not available from MediaPlayer - will be hidden
                     VideoCodec = GetVideoCodecInfo(),
-                    VideoBitrate = null, // Not available from MediaPlayer - will be hidden
                     VideoRangeType = GetVideoRangeType(),
                     AudioCodec = GetAudioCodecInfo(),
-                    AudioBitrate = null, // Not available from MediaPlayer - will be hidden
                     AudioChannels = GetAudioChannels(),
                     AudioSampleRate = GetAudioSampleRate()
                 };
@@ -170,10 +178,17 @@ namespace Gelatinarm.Services
                         stats.VideoInfo += $"\nCodec: {videoCodec}";
                     }
 
-                    // Add frame rate if available
-                    if (_mediaPlayer.PlaybackSession != null && session.PlaybackRate != 1.0)
+                    // Add actual frame rate from media stream
+                    var frameRate = GetFrameRate();
+                    if (!string.IsNullOrEmpty(frameRate))
                     {
-                        stats.VideoInfo += $"\nPlayback Rate: {session.PlaybackRate:F1}x";
+                        stats.VideoInfo += $"\nFrame Rate: {frameRate}";
+                    }
+
+                    // Add playback speed if not normal
+                    if (session.PlaybackRate != 1.0)
+                    {
+                        stats.VideoInfo += $"\nPlayback Speed: {session.PlaybackRate:F1}x";
                     }
                 }
                 else
@@ -236,28 +251,12 @@ namespace Gelatinarm.Services
 
                 stats.NetworkInfo = $"State: {playbackState}";
 
-                // Bitrate Information (if available from media source)
-                if (_mediaPlayer.Source is MediaPlaybackItem playbackItem)
+                // Bitrate Information from MediaSourceInfo
+                if (_currentMediaSource?.Bitrate != null)
                 {
-                    try
-                    {
-                        // Try to get bitrate from source properties
-                        if (playbackItem.Source?.CustomProperties?.ContainsKey("Bitrate") == true)
-                        {
-                            var bitrate = playbackItem.Source.CustomProperties["Bitrate"] as string;
-                            if (!string.IsNullOrEmpty(bitrate))
-                            {
-                                stats.BitrateInfo = $"Bitrate: {bitrate}";
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore errors getting bitrate
-                    }
+                    var bitrateMbps = _currentMediaSource.Bitrate.Value / 1_000_000.0;
+                    stats.BitrateInfo = $"Bitrate: {bitrateMbps:F1} Mbps";
                 }
-
-                stats.SubtitleInfo = "Subtitles: N/A";
 
                 _currentStats = stats;
                 StatsUpdated?.Invoke(this, stats);
@@ -341,50 +340,225 @@ namespace Gelatinarm.Services
 
         private string GetVideoCodecInfo()
         {
-            // Video codec info would need to be passed from MediaSourceInfo
-            return "HEVC";
+            if (_currentMediaSource?.MediaStreams == null)
+            {
+                return null;
+            }
+
+            // Find the video stream
+            var videoStream = _currentMediaSource.MediaStreams
+                .FirstOrDefault(s => s.Type == MediaStream_Type.Video);
+
+            return videoStream?.Codec?.ToUpper();
         }
 
         private string GetContainerFormat()
         {
-            // Container format would need to be passed from MediaSourceInfo
-            return "mkv";
+            return _currentMediaSource?.Container?.ToUpper();
         }
 
         private string GetVideoRangeType()
         {
-            // HDR info would need to be passed from MediaSourceInfo
+            if (_currentMediaSource?.MediaStreams == null)
+            {
+                return null;
+            }
+
+            // Find the video stream
+            var videoStream = _currentMediaSource.MediaStreams
+                .FirstOrDefault(s => s.Type == MediaStream_Type.Video);
+
+            // Check for HDR metadata in video stream
+            if (videoStream?.VideoRangeType != null)
+            {
+                // Convert enum to string representation
+                return videoStream.VideoRangeType.ToString();
+            }
+
+            // Check color transfer characteristic for HDR detection
+            if (videoStream?.ColorTransfer != null)
+            {
+                var transfer = videoStream.ColorTransfer.ToLower();
+                if (transfer.Contains("smpte2084") || transfer.Contains("st2084"))
+                    return "HDR10";
+                if (transfer.Contains("arib-std-b67") || transfer.Contains("hlg"))
+                    return "HLG";
+            }
+
+            // Check for Dolby Vision
+            if (videoStream?.CodecTag != null && videoStream.CodecTag.Contains("dovi"))
+            {
+                return "Dolby Vision";
+            }
+
             return "SDR";
         }
 
         private string GetAudioCodecInfo()
         {
-            // Audio codec info would need to be passed from MediaSourceInfo
-            return "AC3";
+            if (_currentMediaSource?.MediaStreams == null)
+            {
+                return null;
+            }
+
+            // Find the default or first audio stream
+            var audioStream = _currentMediaSource.MediaStreams
+                .FirstOrDefault(s => s.Type == MediaStream_Type.Audio && (s.IsDefault == true || s.Index == _currentMediaSource.DefaultAudioStreamIndex))
+                ?? _currentMediaSource.MediaStreams.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+
+            return audioStream?.Codec?.ToUpper();
         }
 
         private string GetAudioChannels()
         {
-            // Audio channel info would need to be passed from MediaSourceInfo
-            return "6";
+            if (_currentMediaSource?.MediaStreams == null)
+            {
+                return null;
+            }
+
+            // Find the default or first audio stream
+            var audioStream = _currentMediaSource.MediaStreams
+                .FirstOrDefault(s => s.Type == MediaStream_Type.Audio && (s.IsDefault == true || s.Index == _currentMediaSource.DefaultAudioStreamIndex))
+                ?? _currentMediaSource.MediaStreams.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+
+            if (audioStream?.Channels != null)
+            {
+                // Format channel count with description
+                return audioStream.Channels switch
+                {
+                    1 => "1 (Mono)",
+                    2 => "2 (Stereo)",
+                    6 => "6 (5.1)",
+                    8 => "8 (7.1)",
+                    _ => audioStream.Channels.ToString()
+                };
+            }
+
+            // Check channel layout if available
+            if (!string.IsNullOrEmpty(audioStream?.ChannelLayout))
+            {
+                return audioStream.ChannelLayout;
+            }
+
+            return null;
         }
 
         private string GetAudioSampleRate()
         {
-            // Sample rate would need to be passed from MediaSourceInfo
-            return "48000 Hz";
+            if (_currentMediaSource?.MediaStreams == null)
+            {
+                return null;
+            }
+
+            // Find the default or first audio stream
+            var audioStream = _currentMediaSource.MediaStreams
+                .FirstOrDefault(s => s.Type == MediaStream_Type.Audio && (s.IsDefault == true || s.Index == _currentMediaSource.DefaultAudioStreamIndex))
+                ?? _currentMediaSource.MediaStreams.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+
+            if (audioStream?.SampleRate != null)
+            {
+                return $"{audioStream.SampleRate} Hz";
+            }
+
+            return null;
         }
 
         private string GetPlayMethod()
         {
-            // This would need MediaSourceInfo to determine
-            return "Direct playing";
+            if (_currentMediaSource == null)
+            {
+                return "Unknown";
+            }
+
+            // Check for Direct Play first
+            if (_currentMediaSource.SupportsDirectPlay == true)
+            {
+                return "Direct playing";
+            }
+
+            // Check for Direct Stream
+            if (_currentMediaSource.SupportsDirectStream == true)
+            {
+                return "Direct streaming";
+            }
+
+            // If transcoding, check if it's actually just remuxing
+            if (_currentMediaSource.SupportsTranscoding == true)
+            {
+                // Check if the transcoding URL indicates remuxing (both video and audio are being copied)
+                // When remuxing, the URL typically won't have video/audio transcoding parameters
+                // or will have indicators that streams are being copied
+                if (!string.IsNullOrEmpty(_currentMediaSource.TranscodingUrl))
+                {
+                    var url = _currentMediaSource.TranscodingUrl.ToLower();
+
+                    // Check for common transcoding parameters that indicate actual transcoding
+                    bool hasVideoTranscode = url.Contains("videocodec=") && !url.Contains("videocodec=copy");
+                    bool hasAudioTranscode = url.Contains("audiocodec=") && !url.Contains("audiocodec=copy");
+
+                    // Also check TranscodeReasons - if it's only for container or protocol reasons, it's remuxing
+                    bool isOnlyContainerReason = url.Contains("transcodereasons=containernotsupported") ||
+                                                  url.Contains("transcodereasons=directplayerror");
+
+                    // If neither video nor audio is being transcoded, or only container reasons, it's remuxing
+                    if ((!hasVideoTranscode && !hasAudioTranscode) || isOnlyContainerReason)
+                    {
+                        return "Remuxing";
+                    }
+                }
+
+                return "Transcoding";
+            }
+
+            return "Unknown";
         }
 
         private string GetProtocol()
         {
-            // This would need the stream URL to determine
-            return "https";
+            // Determine protocol based on transcoding URL or direct play
+            if (!string.IsNullOrEmpty(_currentMediaSource?.TranscodingUrl))
+            {
+                if (_currentMediaSource.TranscodingUrl.Contains(".m3u8"))
+                {
+                    return "HLS";
+                }
+                else if (_currentMediaSource.TranscodingUrl.Contains(".mpd"))
+                {
+                    return "DASH";
+                }
+                return "HTTP";
+            }
+
+            // Direct play typically uses HTTPS
+            if (_currentMediaSource?.SupportsDirectPlay == true)
+            {
+                return "HTTPS";
+            }
+
+            return null;
+        }
+
+        private string GetFrameRate()
+        {
+            if (_currentMediaSource?.MediaStreams == null)
+            {
+                return null;
+            }
+
+            // Find the video stream
+            var videoStream = _currentMediaSource.MediaStreams
+                .FirstOrDefault(s => s.Type == MediaStream_Type.Video);
+
+            if (videoStream?.RealFrameRate != null)
+            {
+                return $"{videoStream.RealFrameRate:F2} fps";
+            }
+            else if (videoStream?.AverageFrameRate != null)
+            {
+                return $"{videoStream.AverageFrameRate:F2} fps";
+            }
+
+            return null;
         }
     }
 }

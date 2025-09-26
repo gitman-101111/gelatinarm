@@ -82,10 +82,12 @@ Gelatinarm follows the Model-View-ViewModel (MVVM) pattern with a service layer:
   - Direct control of Windows.Media.Playback.MediaPlayer
   - Handles play, pause, seek operations
   - Manages playback state events
-- **PlaybackControlService**: Resume position and HLS handling
-  - Applies resume positions with retry logic
-  - Handles HLS manifest offset detection
+- **PlaybackControlService**: Resume position and HLS workaround handling
+  - Applies tiered resume strategy to work around HLS server limitations
+  - Handles HLS manifest offset detection and segment boundary tolerance
   - Manages playback progress reporting
+  - Adaptive retry delays: 5s for HLS (transcoding time), 1s for direct play
+  - Position tolerance: 10s for HLS (keyframe alignment), 5s for direct play
 - **Separation of Concerns**: Clear distinction between orchestration and control
 
 ### 6. Error Handling Pattern
@@ -319,9 +321,54 @@ The project suppresses certain compiler warnings that are either benign or unavo
 ### Media Playback Performance
 - **Adaptive Bitrate**: MediaOptimizationService selects quality
 - **Buffer Management**: 30 second buffer for smooth playback
-- **Codec Priority**: H.264 > H.265 > VP9
-- **Audio**: AAC preferred, fallback to MP3
-- **Transcode Triggers**: Unsupported codec or bandwidth limits
+- **Codec Priority**: Direct Play > Direct Stream > Transcode
+- **Video Codecs**: H.264, H.265/HEVC, VP9, VP8, AV1 (Series S/X), MPEG-2, VC-1
+- **Audio**: AAC, MP3, FLAC, AC3/EAC3, DTS passthrough
+- **HDR Support**:
+  - Xbox One S/X: HDR10, HDR10+, HLG
+  - Xbox Series S/X: HDR10, HDR10+, HLG, Dolby Vision Profile 8.1
+- **Transcode Triggers**: Unsupported codec, bandwidth limits, or incompatible profile
+
+### Playback Statistics System
+
+The PlaybackStatisticsService provides real-time metrics during media playback, displaying accurate information from multiple data sources:
+
+#### Progress Reporting
+- **Interval**: Reports playback progress to Jellyfin server every 5 seconds (configurable via POSITION_REPORT_INTERVAL_TICKS)
+- **Timeout Handling**: 10-second timeout for HTTP requests with proper completion tracking
+- **Overlap Prevention**: Ensures new progress reports don't start while previous ones are pending
+- **Network Resilience**: Handles slow networks gracefully by waiting for timed-out requests to complete
+
+#### Data Sources
+- **MediaSourceInfo** (from Jellyfin server):
+  - Play Method (Direct Play/Direct Stream/Transcode)
+  - Container format (MKV, MP4, etc.)
+  - Video/Audio codec information
+  - Bitrate (displayed in Mbps)
+  - Media streams metadata
+
+- **MediaPlayer.PlaybackSession** (Windows Media Player):
+  - Resolution (NaturalVideoWidth/Height)
+  - Current position and duration
+  - Playback state (Playing/Paused/Buffering)
+  - Buffer and download progress percentages
+  - Playback speed (if not 1.0x)
+
+- **MediaStreams** (within MediaSourceInfo):
+  - Video codec and profile
+  - HDR type (HDR10, Dolby Vision, SDR)
+  - Frame rate (real or average fps)
+  - Audio codec, channels, and sample rate
+  - Color transfer characteristics
+
+#### Statistics Displayed
+- **Video Info**: Resolution, codec, frame rate, playback speed
+- **Audio Info**: Codec, channels (with description like "6 (5.1)"), sample rate
+- **Playback Info**: Player type, play method, protocol (HLS/DASH/HTTP), position
+- **Network Info**: Current playback state, bitrate
+- **Buffer Info**: Buffer percentage, download progress (when available)
+
+All statistics are pulled from real data sources with no hardcoded values. Stats update 4 times per second (250ms interval).
 
 ## Testing Approach
 

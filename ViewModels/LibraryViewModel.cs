@@ -52,7 +52,7 @@ namespace Gelatinarm.ViewModels
 
         private CancellationTokenSource _loadLibrariesCts;
         private readonly object _loadLibrariesCtsLock = new object();
-        
+
         private CancellationTokenSource _loadMoreCts = new();
         private readonly object _loadMoreCtsLock = new object();
 

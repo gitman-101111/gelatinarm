@@ -38,7 +38,7 @@ namespace Gelatinarm.Services
 
                 TranscodingProfiles = GetTranscodingProfiles().ToList(),
                 DirectPlayProfiles = GetDirectPlayProfiles(isXboxSeries).ToList(),
-                CodecProfiles = GetCodecProfiles().ToList(),
+                CodecProfiles = GetCodecProfiles(isXboxSeries).ToList(),
                 SubtitleProfiles = GetSubtitleProfiles().ToList()
             };
 
@@ -121,12 +121,14 @@ namespace Gelatinarm.Services
                     AudioCodec = "aac,mp3,ac3,eac3,flac,opus", // 27 chars - server validates max 40
                     Context = TranscodingProfile_Context.Streaming,
                     Protocol = TranscodingProfile_Protocol.Hls,
-                    // MaxAudioChannels removed to support Atmos/DTS:X/7.1+ audio
+                    // Don't set MaxAudioChannels - let server decide based on DirectPlayProfiles
+                    // This allows passthrough of multichannel audio when possible
                     MinSegments = 5,  // Ensure at least 5 segments are ready before playback
-                    SegmentLength = 10, // 10-second segments to prevent end-of-stream corruption
+                    SegmentLength = 5, // 5-second segments for better seeking precision
                     BreakOnNonKeyFrames = false, // Keep segments on keyframes for stability
                     CopyTimestamps = false,
-                    EnableSubtitlesInManifest = false
+                    EnableSubtitlesInManifest = false,
+                    EnableMpegtsM2TsMode = false
                 },
                 new TranscodingProfile
                 {
@@ -155,9 +157,9 @@ namespace Gelatinarm.Services
             };
         }
 
-        private CodecProfile[] GetCodecProfiles()
+        private CodecProfile[] GetCodecProfiles(bool isXboxSeries)
         {
-            return new[]
+            var profiles = new List<CodecProfile>
             {
                 new CodecProfile
                 {
@@ -213,7 +215,7 @@ namespace Gelatinarm.Services
                         {
                             Condition = ProfileCondition_Condition.EqualsAny,
                             Property = ProfileCondition_Property.VideoProfile,
-                            Value = "main,main10",
+                            Value = "main,main10,dvhe.08", // Added Dolby Vision Profile 8.1
                             IsRequired = false
                         }
                     }.ToList()
@@ -230,22 +232,6 @@ namespace Gelatinarm.Services
                             Condition = ProfileCondition_Condition.EqualsAny,
                             Property = ProfileCondition_Property.VideoRangeType,
                             Value = GetSupportedVideoRangeTypes(),
-                            IsRequired = false
-                        }
-                    }.ToList()
-                },
-                // Dolby Vision support (Xbox Series only)
-                new CodecProfile
-                {
-                    Type = CodecProfile_Type.Video,
-                    Codec = "hevc",
-                    Conditions = new[]
-                    {
-                        new ProfileCondition
-                        {
-                            Condition = ProfileCondition_Condition.EqualsAny,
-                            Property = ProfileCondition_Property.VideoRangeType,
-                            Value = "DOVI",
                             IsRequired = false
                         }
                     }.ToList()
@@ -304,6 +290,50 @@ namespace Gelatinarm.Services
                     }.ToList()
                 }
             };
+
+            // Only add Dolby Vision Profile 8.1 support for Xbox Series consoles
+            // Xbox One S/X do NOT support Dolby Vision
+            if (isXboxSeries && _deviceService?.SupportsDolbyVision == true)
+            {
+                profiles.Insert(2, new CodecProfile
+                {
+                    Type = CodecProfile_Type.Video,
+                    Codec = "hevc",
+                    Conditions = new[]
+                    {
+                        new ProfileCondition
+                        {
+                            Condition = ProfileCondition_Condition.EqualsAny,
+                            Property = ProfileCondition_Property.VideoProfile,
+                            Value = "dvhe.08,dvhe.08.06", // Profile 8.1 with BL compatibility
+                            IsRequired = false
+                        },
+                        new ProfileCondition
+                        {
+                            Condition = ProfileCondition_Condition.EqualsAny,
+                            Property = ProfileCondition_Property.VideoRangeType,
+                            Value = "DOVI,DOVIWithHDR10,DOVIWithHLG", // Support DV with HDR10/HLG base layer
+                            IsRequired = false
+                        },
+                        new ProfileCondition
+                        {
+                            Condition = ProfileCondition_Condition.LessThanEqual,
+                            Property = ProfileCondition_Property.VideoBitDepth,
+                            Value = "10", // DV Profile 8.1 requires 10-bit
+                            IsRequired = false
+                        },
+                        new ProfileCondition
+                        {
+                            Condition = ProfileCondition_Condition.LessThanEqual,
+                            Property = ProfileCondition_Property.VideoLevel,
+                            Value = "153", // Level 5.1 for 4K@60fps
+                            IsRequired = false
+                        }
+                    }.ToList()
+                });
+            }
+
+            return profiles.ToArray();
         }
 
         private SubtitleProfile[] GetSubtitleProfiles()

@@ -355,20 +355,20 @@ namespace Gelatinarm.Views
                 if (session.OriginatingPage != null)
                 {
                     Logger.LogInformation($"Returning to {session.OriginatingPage.Name} with saved state");
-                    
+
                     // Use the current episode from the session for navigation to ensure correct info display
                     object navigationParameter = session.OriginatingPageState;
-                    
+
                     // If we've been watching episodes and the originating page is SeasonDetailsPage,
                     // navigate with the current episode so it displays correctly
-                    if (session.CurrentItem != null && 
+                    if (session.CurrentItem != null &&
                         session.CurrentItem.Type == BaseItemDto_Type.Episode &&
                         session.OriginatingPage == typeof(SeasonDetailsPage))
                     {
                         Logger.LogInformation($"Using current episode '{session.CurrentItem.Name}' for navigation back to SeasonDetailsPage");
                         navigationParameter = session.CurrentItem;
                     }
-                    
+
                     _navigationStateService.ClearPlaybackSession();
 
                     // Always navigate forward with the updated parameter to ensure correct state
@@ -500,13 +500,9 @@ namespace Gelatinarm.Views
                 $"NaturalDuration: {naturalDuration:mm\\:ss}, " +
                 $"MetadataDuration: {metadataDuration:mm\\:ss}");
 
-            // Ignore MediaEnded if we're in the process of applying a resume position
-            // This can happen with HLS streams where seeking near the end triggers a false MediaEnded
-            if (ViewModel?.IsApplyingResume == true)
-            {
-                Logger.LogWarning("Ignoring MediaEnded event during resume operation");
-                return;
-            }
+            // Ignore MediaEnded if we haven't performed the initial resume seek yet
+            // This can happen with HLS streams where seeking triggers a false MediaEnded
+            // The percentage check below will also catch most false MediaEnded events
 
             // Additional safeguard: Check if we're actually near the end using metadata duration
             if (metadataDuration > TimeSpan.Zero)

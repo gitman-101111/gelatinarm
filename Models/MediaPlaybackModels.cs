@@ -77,7 +77,6 @@ namespace Gelatinarm.Models
         public string NetworkInfo { get; set; }
         public string PlaybackInfo { get; set; }
         public string BitrateInfo { get; set; }
-        public string SubtitleInfo { get; set; }
         public DateTime LastUpdated { get; set; }
 
         // Additional detailed stats
@@ -86,13 +85,9 @@ namespace Gelatinarm.Models
         public string Protocol { get; set; }
         public string StreamType { get; set; }
         public string Container { get; set; }
-        public string Size { get; set; }
-        public string Bitrate { get; set; }
         public string VideoCodec { get; set; }
-        public string VideoBitrate { get; set; }
         public string VideoRangeType { get; set; }
         public string AudioCodec { get; set; }
-        public string AudioBitrate { get; set; }
         public string AudioChannels { get; set; }
         public string AudioSampleRate { get; set; }
         public string Resolution { get; set; }

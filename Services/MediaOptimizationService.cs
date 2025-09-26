@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -71,7 +70,7 @@ namespace Gelatinarm.Services
             IPreferencesService preferences = null)
         {
             await _initializationTask.ConfigureAwait(false);
-            
+
             var context = CreateErrorContext("CreateAdaptiveMediaSource", ErrorCategory.Media);
             try
             {
@@ -284,7 +283,7 @@ namespace Gelatinarm.Services
         public async Task ApplyVideoEnhancementsAsync(MediaPlayer player, MediaSourceInfo mediaSourceInfo)
         {
             await _initializationTask.ConfigureAwait(false);
-            
+
             if (!IsEnhancementEnabled || player == null)
             {
                 return;

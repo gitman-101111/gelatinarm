@@ -70,6 +70,12 @@ namespace Gelatinarm.Views
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
+            // Set focus to landing button immediately on navigation
+            if (FocusLandingButton != null)
+            {
+                FocusLandingButton.Focus(FocusState.Programmatic);
+            }
+
             // Check if we need a fresh ViewModel (navigating to a different show)
             var needNewViewModel = false;
 
@@ -142,7 +148,7 @@ namespace Gelatinarm.Views
                 ScrollEpisodeIntoView();
                 await ScrollSeasonIntoViewOnLoad();
 
-                // Focus on Play/Resume button after content loads
+                // Now move focus to the primary button after everything is loaded
                 MoveToContentArea();
             }
         }
@@ -178,7 +184,7 @@ namespace Gelatinarm.Views
             if (ViewModel != null)
             {
                 // Wait a bit for the UI to be fully loaded
-                await Task.Delay(500);
+                await Task.Delay(100);
 
                 // Initial scroll to selected items
                 ScrollEpisodeIntoView();
@@ -187,20 +193,20 @@ namespace Gelatinarm.Views
                 // Update XY focus navigation based on which button is visible
                 UpdateEpisodeListFocusNavigation();
 
-                // Set initial focus to primary button when ready
-                await UIHelper.RunOnUIThreadAsync(() =>
+                // Set up focus navigation for the landing button
+                if (FocusLandingButton != null)
                 {
                     if (ViewModel.IsResumeButtonVisible && ResumeButton != null)
                     {
-                        ResumeButton.Focus(FocusState.Programmatic);
-                        Logger?.LogDebug("Set initial focus to ResumeButton");
+                        FocusLandingButton.XYFocusDown = ResumeButton;
+                        FocusLandingButton.XYFocusRight = ResumeButton;
                     }
                     else if (ViewModel.IsPlayButtonVisible && PlayButton != null)
                     {
-                        PlayButton.Focus(FocusState.Programmatic);
-                        Logger?.LogDebug("Set initial focus to PlayButton");
+                        FocusLandingButton.XYFocusDown = PlayButton;
+                        FocusLandingButton.XYFocusRight = PlayButton;
                     }
-                }, Dispatcher, Logger);
+                }
             }
         }
 
@@ -369,6 +375,22 @@ namespace Gelatinarm.Views
             }
 
             Loaded -= OnPageLoaded;
+        }
+
+        /// <summary>
+        ///     Override to move focus to primary button after page loads
+        /// </summary>
+        protected override void OnMoveToContentArea()
+        {
+            // Move to the actual primary button
+            if (ViewModel?.IsResumeButtonVisible == true && ResumeButton != null)
+            {
+                ResumeButton.Focus(FocusState.Programmatic);
+            }
+            else if (ViewModel?.IsPlayButtonVisible == true && PlayButton != null)
+            {
+                PlayButton.Focus(FocusState.Programmatic);
+            }
         }
 
         /// <summary>

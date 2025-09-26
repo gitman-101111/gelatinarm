@@ -234,7 +234,7 @@ namespace Gelatinarm.Converters.Image
                             url = apiClient.BuildUri(requestInfo).ToString();
                         }
                     }
-                    
+
                     // If no tag or tag failed, try to get backdrop without tag
                     // The server should still return the backdrop if it exists
                     if (string.IsNullOrEmpty(url) && item.Id != null)

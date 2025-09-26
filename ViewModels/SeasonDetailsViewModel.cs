@@ -185,7 +185,8 @@ namespace Gelatinarm.ViewModels
 
             // Reset initial load flag
             IsInitialLoadComplete = false;
-            SelectedEpisode = null; SeriesName = string.Empty;
+            SelectedEpisode = null;
+            SeriesName = string.Empty;
             EpisodeTitle = string.Empty;
             EpisodeNumber = string.Empty;
             EpisodeOverview = string.Empty;
@@ -280,10 +281,38 @@ namespace Gelatinarm.ViewModels
                         Logger?.LogInformation(
                             $"SeasonDetailsViewModel.InitializeAsync - Received MediaPlaybackParams, extracting NavigationSourceParameter");
 
+                        // Store the last played item ID to restore selection after loading
+                        Guid? lastPlayedItemId = null;
+                        if (!string.IsNullOrEmpty(playbackParams.ItemId) && Guid.TryParse(playbackParams.ItemId, out var itemGuid))
+                        {
+                            lastPlayedItemId = itemGuid;
+                            Logger?.LogInformation($"Will restore selection to last played episode: {lastPlayedItemId}");
+                        }
+
                         // Use the NavigationSourceParameter which contains the original season/series data
                         if (playbackParams.NavigationSourceParameter != null)
                         {
+                            // First initialize with the season/series data
                             await InitializeAsync(playbackParams.NavigationSourceParameter);
+
+                            // Then restore the selection to the last played episode
+                            if (lastPlayedItemId.HasValue && Episodes != null)
+                            {
+                                var episodeIndex = Episodes.ToList().FindIndex(e => e.Id == lastPlayedItemId.Value);
+                                if (episodeIndex >= 0)
+                                {
+                                    Logger?.LogInformation($"Restoring selection to episode at index {episodeIndex}");
+                                    await RunOnUIThreadAsync(() =>
+                                    {
+                                        SelectedEpisodeIndex = episodeIndex;
+                                    });
+                                    await SelectEpisodeAsync(Episodes[episodeIndex]);
+                                }
+                                else
+                                {
+                                    Logger?.LogWarning($"Could not find episode {lastPlayedItemId} in current episode list");
+                                }
+                            }
                         }
                         else
                         {
@@ -469,15 +498,14 @@ namespace Gelatinarm.ViewModels
 
                     if (Episodes.Any())
                     {
-                        await RunOnUIThreadAsync(() =>
-                        {
-                            SelectedEpisodeIndex = 0;
-                        });
-                        
                         var firstEpisode = Episodes.FirstOrDefault();
                         if (firstEpisode != null)
                         {
-                            await SelectEpisodeAsync(firstEpisode);
+                            await RunOnUIThreadAsync(async () =>
+                            {
+                                SelectedEpisodeIndex = 0;
+                                await SelectEpisodeAsync(firstEpisode);
+                            });
                             Logger?.LogInformation($"Selected first episode: {firstEpisode.Name}");
                         }
                     }
@@ -542,7 +570,7 @@ namespace Gelatinarm.ViewModels
                 if (seasonsResult?.Items != null)
                 {
                     var orderedSeasons = seasonsResult.Items.OrderBy(s => s.IndexNumber ?? int.MaxValue).ToList();
-                    
+
                     // Ensure UI updates happen on UI thread
                     await RunOnUIThreadAsync(() =>
                     {
@@ -649,8 +677,8 @@ namespace Gelatinarm.ViewModels
             }
 
             Logger?.LogInformation($"SelectEpisodeAsync called for episode: {episode.Name}");
-            SelectedEpisode = episode;
 
+            SelectedEpisode = episode;
             EpisodeTitle = episode.Name;
             EpisodeNumber = $"Episode {episode.IndexNumber}";
             EpisodeOverview = episode.Overview ?? "No overview available.";
@@ -974,11 +1002,11 @@ namespace Gelatinarm.ViewModels
                     await RunOnUIThreadAsync(() =>
                     {
                         SelectedEpisodeIndex = episodeIndex;
+                        // Force property change notification to ensure UI updates
+                        OnPropertyChanged(nameof(SelectedEpisodeIndex));
                     });
                     await SelectEpisodeAsync(Episodes[episodeIndex], true);
 
-                    // Force property change notification to ensure UI updates
-                    OnPropertyChanged(nameof(SelectedEpisodeIndex));
                     Logger?.LogInformation($"SelectSpecificEpisodeAsync - Set SelectedEpisodeIndex to: {episodeIndex}");
 
                     // Signal that initial episode selection is complete
@@ -1406,7 +1434,7 @@ namespace Gelatinarm.ViewModels
                     {
                         config.QueryParameters.UserId = UserIdGuid.Value;
                     });
-                    
+
                     if (refreshedItem != null)
                     {
                         refreshedEpisode = refreshedItem;
@@ -1424,7 +1452,7 @@ namespace Gelatinarm.ViewModels
                     // Continue with the original episode data if refresh fails
                 }
             }
-            
+
             // Build episode queue for continuous playback
             List<BaseItemDto> episodeQueue = null;
             var startIndex = 0;
@@ -1436,7 +1464,7 @@ namespace Gelatinarm.ViewModels
                 var (queue, index) = await _episodeQueueService.BuildEpisodeQueueAsync(refreshedEpisode);
                 startIndex = index;
                 episodeQueue = queue;
-                
+
                 // Replace the episode in the queue with the refreshed version
                 if (episodeQueue != null && index >= 0 && index < episodeQueue.Count)
                 {

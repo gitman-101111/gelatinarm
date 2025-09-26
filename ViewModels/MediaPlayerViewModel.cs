@@ -86,8 +86,7 @@ namespace Gelatinarm.ViewModels
         // Track whether auto-play next episode is enabled
         private bool _autoPlayNextEpisode = false;
 
-        // Track if we're in the process of resuming to prevent false MediaEnded events
-        public bool IsApplyingResume { get; private set; }
+        // Track if we've performed the initial seek for resume
 
         [ObservableProperty] private bool _isAudioVisualizationActive;
 
@@ -303,8 +302,7 @@ namespace Gelatinarm.ViewModels
                 BufferInfo = string.Empty,
                 NetworkInfo = string.Empty,
                 PlaybackInfo = string.Empty,
-                BitrateInfo = string.Empty,
-                SubtitleInfo = string.Empty
+                BitrateInfo = string.Empty
             };
         }
 
@@ -507,16 +505,16 @@ namespace Gelatinarm.ViewModels
                     var rawPosition = _mediaControlService?.MediaPlayer?.PlaybackSession?.Position ?? _position;
                     var currentPosWithOffset = rawPosition + (_playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
                     var targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
-                    
+
                     // Prevent seeking too close to the end for HLS streams
                     var metadataDuration = CurrentItem?.RunTimeTicks != null && CurrentItem.RunTimeTicks > 0
                         ? TimeSpan.FromTicks(CurrentItem.RunTimeTicks.Value)
                         : TimeSpan.Zero;
-                    
+
                     if (metadataDuration > TimeSpan.Zero && targetPos >= metadataDuration - TimeSpan.FromSeconds(30))
                     {
                         Logger.LogWarning($"[HLS] Preventing seek to {targetPos:mm\\:ss} - too close to end ({metadataDuration:mm\\:ss}). This could corrupt the HLS manifest.");
-                        
+
                         // If we're within 30 seconds of the end, just jump to near the end but not too close
                         var safeEndPosition = metadataDuration - TimeSpan.FromSeconds(35);
                         if (currentPosWithOffset < safeEndPosition)
@@ -531,7 +529,7 @@ namespace Gelatinarm.ViewModels
                             return;
                         }
                     }
-                    
+
                     if (skipSeconds >= 60)
                     {
                         _expectedHlsSeekTarget = targetPos;
@@ -1139,6 +1137,13 @@ namespace Gelatinarm.ViewModels
                     throw new InvalidOperationException("Failed to create media source");
                 }
 
+                // Pass the selected media source info to the statistics service
+                var currentMediaSource = _playbackControlService.GetCurrentMediaSource();
+                if (currentMediaSource != null)
+                {
+                    _playbackStatisticsService.SetMediaSourceInfo(currentMediaSource);
+                }
+
                 await _playbackControlService.StartPlaybackAsync(mediaSource, _playbackParams.StartPositionTicks);
 
                 // Report playback start position
@@ -1334,7 +1339,7 @@ namespace Gelatinarm.ViewModels
                         Logger.LogDebug($"[POSITION-TIMER] Skipping position update - invalid duration: {duration:mm\\:ss}, position: {currentPosition:mm\\:ss}");
                         return;
                     }
-                    
+
                     // Log if we detect HLS corruption (duration becomes unreasonably short)
                     if (_isCurrentStreamHls && metadataDuration > TimeSpan.FromMinutes(5) && duration < TimeSpan.FromMinutes(1))
                     {
@@ -1753,59 +1758,34 @@ namespace Gelatinarm.ViewModels
                             {
                                 Logger.LogInformation("Video playback started - checking for resume position");
 
-                                // Track if we need to restore audio/video after HLS resume
-                                var hlsResumeInProgress = false;
-                                var originalVolume = 1.0;
-                                var originalOpacity = 1.0;
+                                // Mark that we've started the resume process to prevent duplicate attempts
+                                _hasPerformedInitialSeek = true;
 
-                                // For HLS streams WITH RESUME, wait longer to avoid triggering server restart
+                                // For HLS streams WITH RESUME, wait briefly to let server establish the stream
                                 // The enhanced HLS resume logic will handle retries if needed
                                 if (_isCurrentStreamHls && _playbackParams?.StartPositionTicks > 0 && !_hasPerformedInitialSeek)
                                 {
-                                    Logger.LogInformation("[HLS-RESUME] Waiting 3 seconds for HLS manifest to stabilize before applying resume");
+                                    Logger.LogInformation("[HLS-RESUME] Waiting 1 second for HLS manifest to stabilize before applying resume");
 
-                                    // Mute audio and hide video to prevent spoilers during resume
-                                    originalVolume = MediaPlayerElement?.MediaPlayer?.Volume ?? 1.0;
-                                    originalOpacity = MediaPlayerElement?.Opacity ?? 1.0;
-                                    hlsResumeInProgress = true;
-
-                                    if (MediaPlayerElement?.MediaPlayer != null)
-                                    {
-                                        MediaPlayerElement.MediaPlayer.Volume = 0;
-                                    }
-
-                                    if (MediaPlayerElement != null)
-                                    {
-                                        MediaPlayerElement.Opacity = 0;
-                                    }
-
-                                    await Task.Delay(3000); // Longer wait to let server fully establish the stream
+                                    await Task.Delay(1000); // Brief wait to let server establish the stream
 
                                     // Check if we're still playing and haven't been interrupted
                                     if (MediaPlayerElement?.MediaPlayer?.PlaybackSession?.PlaybackState != MediaPlaybackState.Playing)
                                     {
                                         Logger.LogWarning("[HLS-RESUME] Playback state changed during wait, skipping resume");
-
-                                        // Restore audio and video even if we're not resuming
-                                        if (MediaPlayerElement?.MediaPlayer != null)
-                                        {
-                                            MediaPlayerElement.MediaPlayer.Volume = originalVolume;
-                                        }
-                                        if (MediaPlayerElement != null)
-                                        {
-                                            MediaPlayerElement.Opacity = originalOpacity;
-                                        }
-
                                         return;
                                     }
-
-                                    // Keep audio muted and video hidden until after seek completes
-                                    // They'll be restored after the seek below
                                 }
 
                                 // Apply resume position now that playback has started
                                 // Enhanced resume logic with retry support for both HLS and DirectPlay
                                 var resumeResult = await TryApplyResumePositionAsync();
+
+                                // If resume succeeded immediately, log it
+                                if (resumeResult)
+                                {
+                                    Logger.LogInformation("Applied resume position on playback start");
+                                }
 
                                 // May need multiple attempts for both HLS and DirectPlay streams
                                 if (!resumeResult && _playbackControlService != null && _playbackParams?.StartPositionTicks > 0)
@@ -1850,6 +1830,10 @@ namespace Gelatinarm.ViewModels
                                         var streamType = _isCurrentStreamHls ? "HLS" : "DirectPlay";
                                         Logger.LogInformation($"[{streamType}] Successfully resumed after {retryCount} retries");
 
+                                        // Resume succeeded
+
+                                        // Resume successful - no opacity/mute restoration needed
+
                                         // Check if we ended up at a different position than requested (common with HLS -noaccurate_seek)
                                         var actualPosition = MediaPlayerElement?.MediaPlayer?.PlaybackSession?.Position ?? TimeSpan.Zero;
                                         var targetPosition = TimeSpan.FromTicks(_playbackParams?.StartPositionTicks ?? 0);
@@ -1865,6 +1849,10 @@ namespace Gelatinarm.ViewModels
                                     {
                                         var streamType = _isCurrentStreamHls ? "HLS" : "DirectPlay";
                                         Logger.LogWarning($"[{streamType}] Failed to resume after all retries");
+
+                                        // Resume failed - already marked as attempted earlier
+
+                                        // Resume failed - no opacity/mute restoration needed
 
                                         // Show error to user when resume fails
                                         if (ErrorHandler != null)
@@ -1913,39 +1901,12 @@ namespace Gelatinarm.ViewModels
                                     Logger.LogInformation("Applied resume position on playback start");
                                 }
 
-                                // If HLS resume was in progress, restore audio/video
-                                if (hlsResumeInProgress)
+                                // Resume completed - no opacity/mute restoration needed
+                                if (_isCurrentStreamHls && _playbackParams?.StartPositionTicks > 0 && resumeResult)
                                 {
-                                    // Wait briefly for playback to stabilize
-                                    await Task.Delay(500);
-
-                                    if (MediaPlayerElement?.MediaPlayer != null)
-                                    {
-                                        MediaPlayerElement.MediaPlayer.Volume = originalVolume;
-                                    }
-                                    if (MediaPlayerElement != null)
-                                    {
-                                        MediaPlayerElement.Opacity = originalOpacity;
-                                    }
-                                }
-                                else if (_isCurrentStreamHls && _playbackParams?.StartPositionTicks > 0)
-                                {
-                                    // For HLS, if no client-side resume was applied, it means server should handle it
+                                    // For HLS, if resume was applied, log success
                                     var resumeTime = TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value);
-                                    Logger.LogInformation($"HLS stream - server should handle resume to {resumeTime:hh\\:mm\\:ss} via StartTimeTicks");
-
-                                    // Restore audio/video if we were hiding them
-                                    if (hlsResumeInProgress)
-                                    {
-                                        if (MediaPlayerElement?.MediaPlayer != null)
-                                        {
-                                            MediaPlayerElement.MediaPlayer.Volume = originalVolume;
-                                        }
-                                        if (MediaPlayerElement != null)
-                                        {
-                                            MediaPlayerElement.Opacity = originalOpacity;
-                                        }
-                                    }
+                                    Logger.LogInformation($"HLS stream - resume to {resumeTime:hh\\:mm\\:ss} completed");
                                 }
                             }
                         }
@@ -2209,14 +2170,16 @@ namespace Gelatinarm.ViewModels
                     resumeApplied = true;
 
                     // For HLS streams, when PlaybackControlService detects stuck buffering and seeks to position 0,
-                    // we need to set up manifest offset tracking
-                    if (_isCurrentStreamHls && _playbackParams?.StartPositionTicks > 0)
+                    // it will set HlsManifestOffset. We only need to set up our local tracking if that happened.
+                    if (_isCurrentStreamHls && _playbackControlService.HlsManifestOffset > TimeSpan.Zero)
                     {
-                        var resumePos = TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value);
-                        Logger.LogInformation($"[HLS-RESUME] Setting up manifest offset tracking for position {resumePos:mm\\:ss}");
-                        PrepareHlsResume(resumePos);
+                        var resumePos = _playbackControlService.HlsManifestOffset;
+                        Logger.LogInformation($"[HLS-RESUME] PlaybackControlService applied manifest offset workaround at {resumePos:mm\\:ss}");
 
-                        // Since PlaybackControlService already seeked to position 0, mark it as applied
+                        // Don't double-apply the offset - PlaybackControlService already set it
+                        // Just mark our local tracking as complete
+                        _hlsManifestOffset = TimeSpan.Zero; // Clear local offset since PlaybackControlService is handling it
+                        _hlsManifestOffsetApplied = false;
                         CompleteHlsResumeFix();
                     }
                 }
@@ -2228,8 +2191,6 @@ namespace Gelatinarm.ViewModels
             if (resumeApplied)
             {
                 _hasPerformedInitialSeek = true;
-                IsApplyingResume = true;
-                Logger.LogInformation($"Resume position applied");
                 return true;
             }
 
@@ -2387,16 +2348,8 @@ namespace Gelatinarm.ViewModels
                 }
 
 
-                // Clear the resume flag now that seeking is actually done
-                if (IsApplyingResume)
-                {
-                    Logger.LogInformation($"Resume seek completed");
-                    IsApplyingResume = false;
-                }
-                else
-                {
-                    Logger.LogInformation($"SeekCompleted for user-initiated seek");
-                }
+                // Simply log that seek completed
+                Logger.LogInformation($"SeekCompleted");
             });
             }
             catch (Exception ex)
@@ -2463,12 +2416,12 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // Don't report progress during seeks to prevent incorrect positions
-                if (IsApplyingResume || _pendingSeekCount > 0)
+                if (_pendingSeekCount > 0)
                 {
-                    Logger.LogDebug($"Skipping progress report - seek in progress (IsApplyingResume: {IsApplyingResume}, PendingSeeks: {_pendingSeekCount})");
+                    Logger.LogDebug($"Skipping progress report - seek in progress (PendingSeeks: {_pendingSeekCount})");
                     return;
                 }
-                
+
                 if (_hasReportedPlaybackStart && !string.IsNullOrEmpty(_playSessionId) && !IsPaused)
                 {
                     if (_mediaPlaybackService is IMediaSessionService sessionService)
@@ -2632,7 +2585,7 @@ namespace Gelatinarm.ViewModels
                 {
                     var session = MediaPlayerElement.MediaPlayer.PlaybackSession;
                     var duration = session.NaturalDuration;
-                    
+
                     TimeSpan remainingTime;
                     if (_playbackControlService?.HlsManifestOffset > TimeSpan.Zero)
                     {
@@ -2956,9 +2909,30 @@ namespace Gelatinarm.ViewModels
             _progressReportCancellationTokenSource?.Cancel();
             _progressReportCancellationTokenSource?.Dispose();
 
-            _positionTimer?.Stop();
-            _controlVisibilityTimer?.Stop();
-            _statsUpdateTimer?.Stop();
+            // Stop and unsubscribe from timer events to prevent post-disposal firing
+            if (_positionTimer != null)
+            {
+                _positionTimer.Stop();
+                _positionTimer.Tick -= OnPositionTimerTick;
+            }
+
+            if (_controlVisibilityTimer != null)
+            {
+                _controlVisibilityTimer.Stop();
+                _controlVisibilityTimer.Tick -= OnControlVisibilityTimerTick;
+            }
+
+            if (_statsUpdateTimer != null)
+            {
+                _statsUpdateTimer.Stop();
+                _statsUpdateTimer.Tick -= OnStatsUpdateTimerTick;
+            }
+
+            if (_bufferingTimeoutTimer != null)
+            {
+                _bufferingTimeoutTimer.Stop();
+                _bufferingTimeoutTimer.Tick -= OnBufferingTimeoutTimerTick;
+            }
 
             // Unsubscribe from events
 

@@ -58,14 +58,14 @@ namespace Gelatinarm.Services
             {
                 MaxAttempts = 8,  // HLS needs more time for server to transcode
                 DelayMs = 5000,   // Increased to 5s to give server time to restart transcode and generate segments
-                ToleranceSeconds = 3.0
+                ToleranceSeconds = 10.0  // Accounts for segment boundaries + keyframe alignment
             };
 
             public static RetryConfig ForDirectPlay => new RetryConfig
             {
                 MaxAttempts = 5,
                 DelayMs = 1000,
-                ToleranceSeconds = 2.0
+                ToleranceSeconds = 5.0  // Increased to handle keyframe alignment and network buffering
             };
         }
 
@@ -164,38 +164,53 @@ namespace Gelatinarm.Services
 
                 // When subtitle/audio tracks are specified with resume position, some servers ignore StartTimeTicks.
                 // Apply resume client-side in these cases.
-                bool hasSubtitlesWithResume = _playbackParams?.SubtitleStreamIndex.HasValue == true && 
+                bool hasSubtitlesWithResume = _playbackParams?.SubtitleStreamIndex.HasValue == true &&
                                               _playbackParams.SubtitleStreamIndex.Value >= 0 &&
                                               _playbackParams?.StartPositionTicks > 0;
-                
-                bool hasAudioWithResume = _playbackParams?.AudioStreamIndex.HasValue == true && 
+
+                bool hasAudioWithResume = _playbackParams?.AudioStreamIndex.HasValue == true &&
                                           _playbackParams.AudioStreamIndex.Value >= 0 &&
                                           _playbackParams?.StartPositionTicks > 0;
-                
+
                 bool needsClientSideResume = hasSubtitlesWithResume || hasAudioWithResume;
-                
+
+                // Check if the item has 2-channel or less audio
+                // If so, always allow audio stream copy to prevent unnecessary transcoding
+                bool shouldAllowAudioStreamCopy = preferences.AllowAudioStreamCopy;
+
+                if (item?.MediaStreams != null)
+                {
+                    var audioStream = item.MediaStreams.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+                    if (audioStream != null && audioStream.Channels.HasValue && audioStream.Channels.Value <= 2)
+                    {
+                        // Always allow stream copy for stereo or mono audio
+                        shouldAllowAudioStreamCopy = true;
+                        Logger.LogInformation($"Detected {audioStream.Channels.Value} channel audio - forcing AllowAudioStreamCopy=true");
+                    }
+                }
+
                 var playbackInfoRequest = new PlaybackInfoDto
                 {
                     UserId = userGuid,
                     MediaSourceId = _playbackParams?.MediaSourceId,
                     AudioStreamIndex = _playbackParams?.AudioStreamIndex,
                     SubtitleStreamIndex = _playbackParams?.SubtitleStreamIndex,
-                    // Don't send StartTimeTicks if we have subtitle/audio selection - we'll handle resume client-side
-                    StartTimeTicks = needsClientSideResume ? 0 : _playbackParams?.StartPositionTicks,
+                    // Always send StartTimeTicks - server may use it even for HLS
+                    StartTimeTicks = _playbackParams?.StartPositionTicks,
                     MaxStreamingBitrate = maxStreamingBitrate,
                     AutoOpenLiveStream = true,
                     DeviceProfile = deviceProfile,
                     EnableDirectPlay = preferences.EnableDirectPlay,
                     EnableDirectStream = true, // Always allow direct stream
                     EnableTranscoding = true, // Always allow transcoding as fallback
-                    AllowAudioStreamCopy = preferences.AllowAudioStreamCopy,
+                    AllowAudioStreamCopy = shouldAllowAudioStreamCopy,
                     AllowVideoStreamCopy = true // Generally want to allow video stream copy when possible
                 };
-                
+
                 if (needsClientSideResume)
                 {
-                    var reason = hasSubtitlesWithResume ? 
-                        (hasAudioWithResume ? "Subtitle + Audio" : "Subtitle") : 
+                    var reason = hasSubtitlesWithResume ?
+                        (hasAudioWithResume ? "Subtitle + Audio" : "Subtitle") :
                         "Audio";
                     Logger.LogInformation($"{reason} + Resume detected: Will apply resume position {TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value):mm\\:ss} client-side");
                 }
@@ -269,7 +284,34 @@ namespace Gelatinarm.Services
                 // Log the MediaSource details
                 Logger.LogInformation($"MediaSource TranscodingUrl: {_currentMediaSource.TranscodingUrl}");
                 Logger.LogInformation($"MediaSource DirectStreamUrl: {GetDirectStreamUrl(_currentMediaSource)}");
+                Logger.LogInformation($"MediaSource SupportsDirectPlay: {_currentMediaSource.SupportsDirectPlay}");
+                Logger.LogInformation($"MediaSource SupportsDirectStream: {_currentMediaSource.SupportsDirectStream}");
                 Logger.LogInformation($"MediaSource SupportsTranscoding: {_currentMediaSource.SupportsTranscoding}");
+
+                // Check if Direct Play is available
+                if (_currentMediaSource.SupportsDirectPlay == true)
+                {
+                    // Direct Play available - use direct HTTP streaming
+                    Logger.LogInformation("Direct Play is available - using direct HTTP streaming");
+
+                    // Temporarily clear the TranscodingUrl to force GetStreamUrl to build a direct play URL
+                    var originalTranscodingUrl = _currentMediaSource.TranscodingUrl;
+                    _currentMediaSource.TranscodingUrl = null;
+
+                    // Use the SDK-built stream URL for direct play
+                    var directPlayUrl = GetStreamUrl(_currentMediaSource, playbackInfo.PlaySessionId);
+
+                    // Restore the TranscodingUrl in case it's needed later
+                    _currentMediaSource.TranscodingUrl = originalTranscodingUrl;
+
+                    Logger.LogInformation($"Direct Play URL: {directPlayUrl}");
+
+                    // Mark that we're not using HLS for this stream
+                    _isHlsStream = false;
+
+                    // Create regular media source for direct play (not adaptive)
+                    return MediaSource.CreateFromUri(new Uri(directPlayUrl));
+                }
 
                 var streamUrl = GetStreamUrl(_currentMediaSource, playbackInfo.PlaySessionId);
                 Logger.LogInformation("Stream URL: {StreamUrl}", streamUrl);
@@ -300,6 +342,20 @@ namespace Gelatinarm.Services
                         var playSessionEnd = streamUrl.IndexOf("&", playSessionStart);
                         if (playSessionEnd == -1) playSessionEnd = streamUrl.Length;
                         var playSessionId = streamUrl.Substring(playSessionStart, playSessionEnd - playSessionStart);
+                    }
+
+                    // Check if StartTimeTicks was sent and log it
+                    if (streamUrl.Contains("StartTimeTicks="))
+                    {
+                        var startTicksStart = streamUrl.IndexOf("StartTimeTicks=") + 15;
+                        var startTicksEnd = streamUrl.IndexOf("&", startTicksStart);
+                        if (startTicksEnd == -1) startTicksEnd = streamUrl.Length;
+                        var startTicks = streamUrl.Substring(startTicksStart, startTicksEnd - startTicksStart);
+                        Logger.LogInformation($"[HLS-MANIFEST] StartTimeTicks in URL: {startTicks}");
+                    }
+                    else
+                    {
+                        Logger.LogInformation("[HLS-MANIFEST] No StartTimeTicks in URL - server may provide manifest starting at 0");
                     }
 
                     // Log transcoding reasons if present in URL
@@ -449,7 +505,7 @@ namespace Gelatinarm.Services
                 // This allows the MediaPlayer to fully initialize streams before starting playback
                 Logger.LogInformation("[PLAYBACK-START] Setting AutoPlay = true (allows proper stream initialization)");
                 _mediaPlayer.AutoPlay = true;
-                
+
                 // Note: The MediaPlayer will automatically start playing when ready
                 // This prevents audio/video sync issues that occur when Play() is called too early
                 Logger.LogInformation("[PLAYBACK-START] MediaPlayer will auto-start when ready");
@@ -544,9 +600,9 @@ namespace Gelatinarm.Services
                     return false; // Will be retried
                 }
 
-                // Check if we're already at the target position (within 2 seconds)
+                // Check if we're already at the target position (within 3 seconds tolerance for drift)
                 var positionDiff = Math.Abs((currentPosition - resumePosition).TotalSeconds);
-                if (positionDiff <= 2.0)
+                if (positionDiff <= 3.0)
                 {
                     // For DirectPlay, also verify playback is actually advancing before marking complete
                     // This prevents marking as complete when stuck buffering at the resume position
@@ -941,29 +997,54 @@ namespace Gelatinarm.Services
                     Logger.LogWarning($"[HLS-RESUME] Adjusted position from {resumePosition:mm\\:ss} to {adjustedPosition:mm\\:ss}");
                 }
 
-                // For HLS, ensure we're not seeking during active buffering
-                if (currentState == MediaPlaybackState.Buffering && _hlsResumeAttempts > 1)
+                // Only perform the seek on the first attempt, then verify on subsequent attempts
+                if (_hlsResumeAttempts == 1)
                 {
-                    Logger.LogInformation("[HLS-RESUME] Waiting for buffering to complete before seek");
-                    return false;
-                }
+                    // For HLS, ensure we're not seeking during active buffering
+                    if (currentState == MediaPlaybackState.Buffering)
+                    {
+                        Logger.LogInformation("[HLS-RESUME] Waiting for buffering to complete before seek");
+                        Interlocked.Decrement(ref _hlsResumeAttempts); // Don't count this as an attempt
+                        return false;
+                    }
 
-                // Apply the seek
-                Logger.LogInformation($"[HLS-RESUME] Seeking from {currentPosition:mm\\:ss} to {adjustedPosition:mm\\:ss}");
-                playbackSession.Position = adjustedPosition;
+                    // Apply the seek (only on first attempt)
+                    Logger.LogInformation($"[HLS-RESUME] Seeking from {currentPosition:mm\\:ss} to {adjustedPosition:mm\\:ss}");
+                    playbackSession.Position = adjustedPosition;
 
-                // Note: Server may perform inaccurate seek due to keyframe alignment
-                // For HLS, we'll verify on next attempt
-                if (_hlsResumeAttempts < config.MaxAttempts)
-                {
                     Logger.LogInformation("[HLS-RESUME] Seek initiated, will verify on next check");
                     return false; // Will be verified on next call
                 }
 
-                _resumeState = ResumeState.Succeeded;
-                _pendingResumePosition = null;
-                Logger.LogInformation($"[HLS-RESUME] Resume completed after {_hlsResumeAttempts} attempts");
-                return true;
+                // On subsequent attempts, verify the seek was successful
+                Logger.LogInformation($"[HLS-RESUME] Verifying position (attempt {_hlsResumeAttempts}), current: {currentPosition:mm\\:ss}, target: {adjustedPosition:mm\\:ss}");
+
+                // Check if we're at or past the resume position (within tolerance)
+                // After a successful seek, we should be at or slightly past the target
+                var timeSinceTarget = (currentPosition - adjustedPosition).TotalSeconds;
+
+                // Calculate how much time has elapsed since we started the resume process
+                // Each retry has a 5 second delay, plus time for processing
+                var expectedElapsedTime = (_hlsResumeAttempts - 1) * 5.0 + 10.0; // Add 10s buffer for processing
+
+                // Success conditions:
+                // 1. We're within 10 seconds before the target (seek may have undershot)
+                // 2. OR we're past the target by any reasonable amount
+                //    (since playback continues during verification, being past the target is expected)
+                if (timeSinceTarget >= -10.0)
+                {
+                    // We're at or past the target - resume successful!
+                    // Don't worry about being "too far" past - that just means playback continued normally
+                    Logger.LogInformation($"[HLS-RESUME] Resume successful! Position {currentPosition:mm\\:ss} is at/past target {adjustedPosition:mm\\:ss} (diff: {timeSinceTarget:F1}s)");
+                    _resumeState = ResumeState.Succeeded;
+                    _pendingResumePosition = null;
+                    return true;
+                }
+
+                // If we're still before the target by more than 10 seconds, the seek may have failed
+                Logger.LogWarning($"[HLS-RESUME] Position {currentPosition:mm\\:ss} is still {-timeSinceTarget:F1}s before target {adjustedPosition:mm\\:ss}. Seek may have failed.");
+                // Continue retrying
+                return false;
             }
             catch (Exception ex)
             {
@@ -1049,19 +1130,9 @@ namespace Gelatinarm.Services
             }
         }
 
-        public async Task<List<SkipSegment>> GetSkipSegmentsAsync(string itemId)
+        public MediaSourceInfo GetCurrentMediaSource()
         {
-            try
-            {
-                // Skip segments API not available in current SDK
-                var segments = new List<SkipSegment>();
-                return await Task.FromResult(segments);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Failed to get skip segments for item {ItemId}", itemId);
-                return new List<SkipSegment>();
-            }
+            return _currentMediaSource;
         }
 
         protected override void UnsubscribeEvents()

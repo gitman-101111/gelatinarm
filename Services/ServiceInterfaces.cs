@@ -574,9 +574,9 @@ namespace Gelatinarm.Services
         Task ChangeAudioTrackAsync(AudioTrack audioTrack);
 
         /// <summary>
-        ///     Get skip segments (intro/outro) for an item
+        ///     Get the currently selected media source info
         /// </summary>
-        Task<List<SkipSegment>> GetSkipSegmentsAsync(string itemId);
+        MediaSourceInfo GetCurrentMediaSource();
 
         /// <summary>
         ///     Restart playback with current position (for stream switching)
@@ -770,6 +770,11 @@ namespace Gelatinarm.Services
         ///     Stop updating statistics
         /// </summary>
         void StopUpdating();
+
+        /// <summary>
+        ///     Set the current media source info for accurate playback method display
+        /// </summary>
+        void SetMediaSourceInfo(MediaSourceInfo mediaSource);
 
         /// <summary>
         ///     Toggle stats visibility

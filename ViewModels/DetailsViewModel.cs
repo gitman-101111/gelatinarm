@@ -227,9 +227,9 @@ namespace Gelatinarm.ViewModels
                 try
                 {
                     Logger?.LogInformation($"LoadPrimaryImage: Starting for {CurrentItem.Name} (ID: {CurrentItem.Id})");
-                    
+
                     string imageTag = null;
-                    
+
                     // Try to get image tag from ImageTags
                     if (CurrentItem.ImageTags?.AdditionalData?.ContainsKey("Primary") == true)
                     {
@@ -244,7 +244,7 @@ namespace Gelatinarm.ViewModels
                     // Build image URL - even without a tag, the server should provide the image if it exists
                     var imageUrl = ImageHelper.BuildImageUrl(CurrentItem.Id.Value, "Primary", 400, null, imageTag);
                     Logger?.LogInformation($"LoadPrimaryImage: Built URL: {imageUrl}");
-                    
+
                     if (!string.IsNullOrEmpty(imageUrl))
                     {
                         var bitmap = new BitmapImage(new Uri(imageUrl));
