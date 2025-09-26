@@ -867,13 +867,13 @@ namespace Gelatinarm.Services
                     if (!string.IsNullOrEmpty(parentId))
                     {
                         if (Guid.TryParse(parentId, out var parentGuid))
-                    {
-                        config.QueryParameters.ParentId = parentGuid;
-                    }
-                    else
-                    {
-                        Logger?.LogWarning($"Invalid parent ID format: {parentId}");
-                    }
+                        {
+                            config.QueryParameters.ParentId = parentGuid;
+                        }
+                        else
+                        {
+                            Logger?.LogWarning($"Invalid parent ID format: {parentId}");
+                        }
                     }
 
                     config.QueryParameters.Limit = limit;

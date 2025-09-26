@@ -14,14 +14,14 @@ The Gelatinarm Xbox application uses a comprehensive controller input system des
 The UnifiedDeviceService is the core platform abstraction layer that:
 - Detects Xbox environment and hardware capabilities
 - Manages gamepad connections and state
-- Provides device-specific feature detection (HDR, codecs, etc.)
+- Provides platform-specific feature detection
 - Handles system-level events (back button, controller connect/disconnect)
 
 #### Key Responsibilities
 - **Environment Detection**
   - Identifies Xbox vs non-Xbox platforms
   - Detects Xbox Series X/S vs Xbox One consoles
-  - Determines hardware capabilities (HDR10, Dolby Vision, etc.)
+  - Determines hardware generation for feature availability
   
 - **Controller Management**
   - Monitors gamepad connections via `Gamepad.GamepadAdded/Removed` events

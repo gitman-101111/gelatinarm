@@ -22,6 +22,17 @@
     </Page.Resources>
 
     <Grid>
+        <!-- Invisible Focus Landing Button - must be first to get initial focus -->
+        <Button x:Name="FocusLandingButton"
+                Width="1"
+                Height="1"
+                Opacity="0"
+                IsTabStop="True"
+                TabIndex="0"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
+                Canvas.ZIndex="999" />
+
         <!-- Backdrop Image - Full Screen Background -->
         <Image x:Name="BackdropImage"
                Source="{x:Bind ViewModel.BackdropImage, Mode=OneWay}"
@@ -117,7 +128,7 @@
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnInfoButtonClick"
-                        IsTabStop="False"
+                        TabIndex="99"
                         ToolTipService.ToolTip="View Series Info">
                     <Button.Resources>
                         <SolidColorBrush x:Key="ButtonBackground" Color="Transparent"/>
@@ -163,7 +174,8 @@
                                 <!-- Action Buttons -->
                                 <StackPanel Orientation="Horizontal"
                                             Margin="{StaticResource HeaderMargin}">
-                                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                                    <Button x:Name="SeriesPlayButton"
+                                            Style="{StaticResource PrimaryButtonStyle}"
                                             Command="{x:Bind ViewModel.PlayCommand}"
                                             MinWidth="140">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"

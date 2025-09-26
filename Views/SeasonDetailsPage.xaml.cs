@@ -70,6 +70,12 @@ namespace Gelatinarm.Views
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
+            // Set focus to landing button immediately on navigation
+            if (FocusLandingButton != null)
+            {
+                FocusLandingButton.Focus(FocusState.Programmatic);
+            }
+
             // Check if we need a fresh ViewModel (navigating to a different show)
             var needNewViewModel = false;
 
@@ -142,7 +148,7 @@ namespace Gelatinarm.Views
                 ScrollEpisodeIntoView();
                 await ScrollSeasonIntoViewOnLoad();
 
-                // Focus on Play/Resume button after content loads
+                // Now move focus to the primary button after everything is loaded
                 MoveToContentArea();
             }
         }
@@ -178,7 +184,7 @@ namespace Gelatinarm.Views
             if (ViewModel != null)
             {
                 // Wait a bit for the UI to be fully loaded
-                await Task.Delay(500);
+                await Task.Delay(100);
 
                 // Initial scroll to selected items
                 ScrollEpisodeIntoView();
@@ -187,20 +193,37 @@ namespace Gelatinarm.Views
                 // Update XY focus navigation based on which button is visible
                 UpdateEpisodeListFocusNavigation();
 
-                // Set initial focus to primary button when ready
-                await UIHelper.RunOnUIThreadAsync(() =>
+                // Set up focus navigation for the landing button
+                if (FocusLandingButton != null)
                 {
-                    if (ViewModel.IsResumeButtonVisible && ResumeButton != null)
+                    // For Series Overview, point to the Series Play button AND move focus immediately
+                    if (ViewModel.SelectedSeasonIndex == -1)
                     {
-                        ResumeButton.Focus(FocusState.Programmatic);
-                        Logger?.LogDebug("Set initial focus to ResumeButton");
+                        var seriesPlayButton = this.FindName("SeriesPlayButton") as Windows.UI.Xaml.Controls.Button;
+                        if (seriesPlayButton != null)
+                        {
+                            FocusLandingButton.XYFocusDown = seriesPlayButton;
+                            FocusLandingButton.XYFocusRight = seriesPlayButton;
+                            FocusLandingButton.XYFocusUp = seriesPlayButton;
+                            FocusLandingButton.XYFocusLeft = seriesPlayButton;
+
+                            // Immediately move focus to the Series Play button
+                            await Task.Delay(100); // Small delay to ensure button is ready
+                            seriesPlayButton.Focus(FocusState.Programmatic);
+                            Logger?.LogInformation("OnPageLoaded: Moved focus to Series Play button for Series Overview");
+                        }
+                    }
+                    else if (ViewModel.IsResumeButtonVisible && ResumeButton != null)
+                    {
+                        FocusLandingButton.XYFocusDown = ResumeButton;
+                        FocusLandingButton.XYFocusRight = ResumeButton;
                     }
                     else if (ViewModel.IsPlayButtonVisible && PlayButton != null)
                     {
-                        PlayButton.Focus(FocusState.Programmatic);
-                        Logger?.LogDebug("Set initial focus to PlayButton");
+                        FocusLandingButton.XYFocusDown = PlayButton;
+                        FocusLandingButton.XYFocusRight = PlayButton;
                     }
-                }, Dispatcher, Logger);
+                }
             }
         }
 
@@ -261,6 +284,12 @@ namespace Gelatinarm.Views
             else if (e.PropertyName == nameof(ViewModel.SelectedSeasonIndex))
             {
                 ScrollSeasonIntoView();
+
+                // If we're on Season Info (-1), ensure proper focus navigation
+                if (ViewModel.SelectedSeasonIndex == -1)
+                {
+                    UpdateFocusNavigationForSeasonInfo();
+                }
             }
             else if (e.PropertyName == nameof(ViewModel.IsSeriesPosterVisible))
             {
@@ -358,6 +387,20 @@ namespace Gelatinarm.Views
         }
 
 
+        private void UpdateFocusNavigationForSeasonInfo()
+        {
+            // When on Season Info, ensure we can navigate properly
+            if (SeasonTabs != null && InfoButton != null)
+            {
+                // Set focus navigation from Season Info position
+                InfoButton.XYFocusLeft = SeasonTabs;
+                if (ViewModel?.Seasons?.Count > 0)
+                {
+                    InfoButton.XYFocusDown = SeasonTabs;
+                }
+            }
+        }
+
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
@@ -369,6 +412,34 @@ namespace Gelatinarm.Views
             }
 
             Loaded -= OnPageLoaded;
+        }
+
+        /// <summary>
+        ///     Override to move focus to primary button after page loads
+        /// </summary>
+        protected override void OnMoveToContentArea()
+        {
+            // If on Series Overview (Season Info tab), focus on the Series Play button
+            if (ViewModel?.SelectedSeasonIndex == -1)
+            {
+                var seriesPlayButton = this.FindName("SeriesPlayButton") as Windows.UI.Xaml.Controls.Button;
+                if (seriesPlayButton != null && seriesPlayButton.Visibility == Windows.UI.Xaml.Visibility.Visible)
+                {
+                    seriesPlayButton.Focus(FocusState.Programmatic);
+                    Logger?.LogInformation("Moved focus to Series Play button on Series Overview");
+                    return;
+                }
+            }
+
+            // For regular season tabs, move to the actual primary button
+            if (ViewModel?.IsResumeButtonVisible == true && ResumeButton != null)
+            {
+                ResumeButton.Focus(FocusState.Programmatic);
+            }
+            else if (ViewModel?.IsPlayButtonVisible == true && PlayButton != null)
+            {
+                PlayButton.Focus(FocusState.Programmatic);
+            }
         }
 
         /// <summary>

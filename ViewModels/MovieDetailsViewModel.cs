@@ -577,7 +577,7 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // Load the specific version's details
-                if (!Guid.TryParse(version.Id, out var versionGuid) || 
+                if (!Guid.TryParse(version.Id, out var versionGuid) ||
                     !Guid.TryParse(UserProfileService.CurrentUserId, out var userGuid))
                 {
                     Logger?.LogError($"Invalid ID format - Version: {version.Id}, User: {UserProfileService.CurrentUserId}");

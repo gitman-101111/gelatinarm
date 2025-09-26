@@ -24,7 +24,7 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 - **Movies & TV Shows** - Stream your entire video library
 - **Direct Play** - Play compatible formats without transcoding
 - **Hardware acceleration** - Optimized decoding for smooth playback
-- **HDR support** - HDR10, HDR10+, HLG, and Dolby Vision support on compatible displays/Xbox models
+- **HDR support** - HDR10 (all Xbox models), HDR10+, HLG, and Dolby Vision Profile 8.1 (Xbox Series S/X only)
 - **Auto-Play Next Episode** - Seamlessly continue to the next episode
 - **Episode Shuffle Mode** - Random episode playback for your favorite shows
 - **Multiple Audio & Subtitle Tracks** - Switch between languages and subtitles on the fly
@@ -47,7 +47,7 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 ### 🎯 Smart Features
 - **Unwatched indicators** - See what's new at a glance
 - **Progress tracking** - Visual progress bars for partially watched content
-- **Skip intro/outro/credits** - Auto-skip or manual buttons (configurable)
+- **Skip intro/outro/credits** - Auto-skip or manual buttons (configurable) *Requires intro detection plugin on server
 - **Quick Connect** - Easy pairing with your Jellyfin server using a simple code
 - **Memory optimization** - Smart caching and resource management
 - **SSL certificate support** - Optional self-signed certificate acceptance
@@ -71,8 +71,17 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 | **Motion JPEG** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **H.263** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **MS-MPEG4 v3** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **Theora** | ❌ Transcode | ❌ None | Server transcoding required |
-| **VP6** | ❌ Transcode | ❌ None | Server transcoding required |
+| **Theora** | ✅ Direct Play | ✅ Supported | MKV/WebM containers only |
+| **VP6** | ✅ Direct Play | ✅ Supported | FLV container only |
+
+### HDR Format Support
+
+| Format | Xbox One S/X | Xbox Series S/X | Notes |
+|--------|--------------|-----------------|-------|
+| **HDR10** | ✅ Supported | ✅ Supported | Hardware accelerated on all models |
+| **HDR10+** | ✅ Supported* | ✅ Supported* | *Display must support HDR10+ |
+| **HLG** | ✅ Supported* | ✅ Supported* | *Display must support HLG |
+| **Dolby Vision** | ❌ Not Supported | ✅ Profile 8.1 Only | Profile 5 and 7 not supported, will transcode |
 
 ### Audio Codec Comparison
 
@@ -95,7 +104,7 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 | **TrueHD/Atmos** | ✅ Passthrough** | ❌ Decode | **With Audio Direct Stream enabled |
 | **Opus** | ✅ Direct Play | ✅ Full | WebM/Matroska containers |
 | **Vorbis** | ✅ Direct Play | ✅ Full | Ogg/WebM containers |
-| **MP2** | ❌ Transcode | ❌ None | Server transcoding required |
+| **MP2** | ✅ Direct Play | ✅ Full | MPEG containers only |
 
 ## 4K Playback on Xbox
 
@@ -104,7 +113,7 @@ Gelatinarm runs in standard app mode on Xbox, which means it prioritizes **backg
 ### What this means for you:
 - ✅ **Background music works perfectly** - Continue listening while playing games or using other apps
 - ✅ **4K video playback is supported** - Within the standard memory constraints
-- ✅ **HDR/Dolby Vision content works** - Full support for high dynamic range
+- ✅ **HDR content works** - HDR10 on all models, Dolby Vision Profile 8.1 on Series S/X
 - ⚠️ **Some 4K content may transcode** - If it exceeds memory limits, Jellyfin will automatically adjust
 
 ### Technical Background
@@ -143,7 +152,6 @@ Direct play support for all common containers:
 
 ### Platform Limitations
 - **External subtitles** - Only embedded subtitles are supported due to UWP MediaPlaybackItem architecture. External subtitle tracks must be added when creating the MediaPlaybackItem and cannot be dynamically changed during playback. Since we initialize playback in MediaPlayerPage, we cannot pre-load external subtitles. The app will automatically request the server to embed all subtitles in the stream.
-- **Multiple audio streams** - Audio track switching requires stream reload
 
 ## Xbox Controller Mapping
 

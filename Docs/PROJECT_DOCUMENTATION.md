@@ -149,11 +149,11 @@ Services provide reusable functionality across the application:
 - **ImageLoadingService** - Image loading with retry logic
 
 #### Playback Support
-- **PlaybackControlService** - Media control operations, resume handling, HLS stream management
+- **PlaybackControlService** - Media control operations, resume handling with HLS workarounds, adaptive retry logic and segment boundary tolerance
 - **PlaybackQueueService** - Playback queue management
 - **SubtitleService** - Subtitle track handling
 - **SkipSegmentService** - Intro/outro skip functionality
-- **PlaybackStatisticsService** - Playback metrics
+- **PlaybackStatisticsService** - Real-time playback metrics display
 - **MediaNavigationService** - Next/previous navigation
 - **MediaControllerService** - Xbox controller event-based input handling
 
@@ -296,7 +296,10 @@ View ← ViewModel ← Service ← Response Data ←
 - **Controller Input**: Event-based gamepad input handling via MediaControllerService
 - **Focus Management**: Automatic focus handling
 - **Performance**: Memory monitoring and optimization
-- **Media Codecs**: Xbox-specific codec support
+- **Media Codecs**: Xbox-specific codec and HDR support
+  - Direct Play: H.264, H.265/HEVC (One S/X+), VP9, AV1 (Series S/X)
+  - HDR: HDR10 (One S/X+), Dolby Vision Profile 8.1 (Series S/X only)
+  - Audio: AAC, MP3, FLAC, AC3/EAC3 (One S/X+), DTS passthrough
 
 ### Error Handling
 - **Centralized**: All error handling through ErrorHandlingService

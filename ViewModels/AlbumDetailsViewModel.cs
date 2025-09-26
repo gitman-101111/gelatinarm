@@ -132,7 +132,7 @@ namespace Gelatinarm.ViewModels
         private async Task LoadAlbumFromDtoAsync(BaseItemDto dto, CancellationToken cancellationToken)
         {
             Logger?.LogInformation($"AlbumDetailsViewModel: Loading from BaseItemDto: {dto.Name}");
-            
+
             // If we have an ID, fetch the full album details to ensure we have all metadata including images
             if (dto.Id.HasValue)
             {
@@ -175,10 +175,10 @@ namespace Gelatinarm.ViewModels
             {
                 return;
             }
-            
+
             // Update UI on UI thread
             await RunOnUIThreadAsync(() => UpdateAlbumUI());
-            
+
             // Load tracks
             await LoadTracksAsync(cancellationToken);
 

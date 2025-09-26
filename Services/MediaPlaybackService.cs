@@ -606,8 +606,22 @@ namespace Gelatinarm.Services
 
                         if (completedTask == timeoutTask)
                         {
-                            // Timeout occurred
-                            Logger.LogDebug("Progress report timed out - will retry on next interval");
+                            // Timeout occurred - but keep waiting for the actual request to complete
+                            // This prevents starting new requests while the old one is still running
+                            Logger.LogDebug("Progress report timed out - waiting for completion to avoid overlapping requests");
+
+                            // Continue waiting for the actual progress task to complete (no additional timeout)
+                            // This ensures we don't start a new request while this one is still pending
+                            try
+                            {
+                                await progressTask.ConfigureAwait(false);
+                                Logger.LogDebug("Timed-out progress report eventually completed");
+                            }
+                            catch
+                            {
+                                // Ignore errors from timed-out request
+                                Logger.LogDebug("Timed-out progress report eventually failed");
+                            }
                             return;
                         }
 

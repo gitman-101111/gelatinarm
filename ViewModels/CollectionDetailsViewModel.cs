@@ -397,7 +397,7 @@ namespace Gelatinarm.ViewModels
                 // Shuffle the items
                 var random = new Random();
                 var shuffledItems = _playableItems.OrderBy(x => random.Next()).ToList();
-                
+
                 if (shuffledItems.Count == 0)
                 {
                     Logger?.LogWarning("No items to shuffle in collection");
