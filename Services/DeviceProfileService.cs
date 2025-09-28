@@ -57,7 +57,7 @@ namespace Gelatinarm.Services
                     VideoCodec =
                         "h264,avc1,avc3,hevc,hev1,hvc1,h265,mpeg4,mp4v,mp4s,m4s2,mp43,mpeg1video,mpeg2video,h263,mjpeg,mjpg,dv",
                     AudioCodec =
-                        "aac,mp4a,mp3,ac3,ac-3,ec3,eac3,ec-3,flac,alac,opus,pcm,lpcm,wma,wmap,truehd,mlpa,dts,dtsc,dtsh,dtsl,dtse,dts-hd,dts-x,amr,amrnb,amrwb,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
+                        "aac,mp4a,mp3,ac3,ac-3,ec3,eac3,ec-3,flac,alac,pcm,lpcm,wma,wmap,amr,amrnb,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
                 },
                 new DirectPlayProfile
                 {
@@ -67,7 +67,7 @@ namespace Gelatinarm.Services
                         ? "h264,avc1,avc3,hevc,hev1,hvc1,h265,vp8,vp80,vp9,vp90,vp09,av1,av01,mpeg4,mp4v,vc1,wvc1,mpeg1video,mpeg2video,theora"
                         : "h264,avc1,avc3,hevc,hev1,hvc1,h265,vp8,vp80,vp9,vp90,vp09,mpeg4,mp4v,vc1,wvc1,mpeg1video,mpeg2video,theora",
                     AudioCodec =
-                        "aac,mp4a,mp3,ac3,ac-3,ec3,eac3,ec-3,flac,alac,opus,vorbis,dts,dtsc,dtsh,dtsl,dtse,dts-hd,dts-x,dts-es,truehd,mlpa,pcm,lpcm,wma,wmap,wmal,adpcm,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
+                        "aac,mp4a,mp3,ac3,ac-3,ec3,eac3,ec-3,flac,alac,opus,vorbis,pcm,lpcm,wma,wmap,wmal,adpcm,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
                 },
                 new DirectPlayProfile
                 {
@@ -75,20 +75,20 @@ namespace Gelatinarm.Services
                     VideoCodec =
                         "h264,avc1,avc3,mpeg4,mp4v,mp4s,m4s2,mp43,mpeg1video,mpeg2video,mpg2,mjpeg,mjpg,h263,dv",
                     AudioCodec =
-                        "mp3,ac3,ac-3,aac,mp4a,pcm,lpcm,wma,adpcm,dts,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
+                        "mp3,ac3,ac-3,aac,mp4a,pcm,lpcm,wma,flac,alac,adpcm,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
                 },
                 new DirectPlayProfile
                 {
                     Container = "wmv,asf",
                     VideoCodec = "wmv1,wmv2,wmv3,wmv7,wmv8,wmv9,vc1,wvc1,mpeg4,mp4v",
-                    AudioCodec = "wma,wmap,wmal,mp3,ac3"
+                    AudioCodec = "wma,wmap,wmal,mp3,ac3,ac-3"
                 },
                 new DirectPlayProfile
                 {
                     Container = "mpg,mpeg,m2v,ts,m2ts,mts",
                     VideoCodec = "mpeg1video,mpeg2video,mpg2,h264,avc1,avc3,hevc,hev1,hvc1,h265,vc1,wvc1",
                     AudioCodec =
-                        "mp3,mp2,aac,mp4a,ac3,ac-3,ec3,eac3,ec-3,dts,dtsc,dtsh,dtsl,dts-hd,dts-x,truehd,mlpa,pcm,lpcm"
+                        "mp3,mp2,aac,mp4a,ac3,ac-3,ec3,eac3,ec-3,pcm,lpcm"
                 },
                 // Add FLV container support
                 new DirectPlayProfile
@@ -118,7 +118,7 @@ namespace Gelatinarm.Services
                     Container = "mp4",
                     Type = TranscodingProfile_Type.Video,
                     VideoCodec = "h264,hevc",
-                    AudioCodec = "aac,mp3,ac3,eac3,flac,opus", // 27 chars - server validates max 40
+                    AudioCodec = "aac,mp3,ac3,eac3,flac,opus", // server validates max 40
                     Context = TranscodingProfile_Context.Streaming,
                     Protocol = TranscodingProfile_Protocol.Hls,
                     // Don't set MaxAudioChannels - let server decide based on DirectPlayProfiles

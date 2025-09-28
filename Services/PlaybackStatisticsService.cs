@@ -496,12 +496,21 @@ namespace Gelatinarm.Services
                     bool hasVideoTranscode = url.Contains("videocodec=") && !url.Contains("videocodec=copy");
                     bool hasAudioTranscode = url.Contains("audiocodec=") && !url.Contains("audiocodec=copy");
 
+                    // Check if audio stream copying is disabled (indicates audio transcoding)
+                    bool audioStreamCopyDisabled = url.Contains("allowaudiostreamcopy=false");
+
                     // Also check TranscodeReasons - if it's only for container or protocol reasons, it's remuxing
                     bool isOnlyContainerReason = url.Contains("transcodereasons=containernotsupported") ||
                                                   url.Contains("transcodereasons=directplayerror");
 
+                    // If audio transcoding is explicitly disabled, it's transcoding the audio (Direct Stream)
+                    if (audioStreamCopyDisabled && !hasVideoTranscode)
+                    {
+                        return "Direct streaming";
+                    }
+
                     // If neither video nor audio is being transcoded, or only container reasons, it's remuxing
-                    if ((!hasVideoTranscode && !hasAudioTranscode) || isOnlyContainerReason)
+                    if ((!hasVideoTranscode && !hasAudioTranscode && !audioStreamCopyDisabled) || isOnlyContainerReason)
                     {
                         return "Remuxing";
                     }

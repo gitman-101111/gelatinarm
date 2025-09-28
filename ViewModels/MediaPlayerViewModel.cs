@@ -504,7 +504,8 @@ namespace Gelatinarm.ViewModels
                 if (_isCurrentStreamHls)
                 {
                     var rawPosition = _mediaControlService?.MediaPlayer?.PlaybackSession?.Position ?? _position;
-                    var currentPosWithOffset = rawPosition + (_playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
+                    var hlsManifestOffset = _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero;
+                    var currentPosWithOffset = rawPosition + hlsManifestOffset;
                     var targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
 
                     // Prevent seeking too close to the end for HLS streams
@@ -523,6 +524,7 @@ namespace Gelatinarm.ViewModels
                             var adjustedSkip = (int)(safeEndPosition - currentPosWithOffset).TotalSeconds;
                             Logger.LogInformation($"[HLS] Adjusted skip to {adjustedSkip}s to avoid end-of-stream issues");
                             skipSeconds = adjustedSkip;
+                            targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
                         }
                         else
                         {
@@ -531,7 +533,25 @@ namespace Gelatinarm.ViewModels
                         }
                     }
 
-                    if (skipSeconds >= 60)
+                    // For large seeks with HLS manifest offset, calculate the target position within the manifest
+                    // The server expects manifest-relative positions, not absolute video positions
+                    if (skipSeconds >= 60 && hlsManifestOffset > TimeSpan.Zero)
+                    {
+                        // For large seeks that might create a new manifest, we need to be careful
+                        // The targetPos is absolute, but we need to seek within the current manifest
+                        // If the seek would create a new manifest, the server needs the correct position
+                        Logger.LogInformation($"[HLS-MANIFEST-OFFSET] Large seek with offset. Current raw: {rawPosition:mm\\:ss}, offset: {hlsManifestOffset:mm\\:ss}, target absolute: {targetPos:mm\\:ss}");
+
+                        // Use absolute position seek to ensure server gets the correct position
+                        // This tells the MediaPlayer to seek to the exact position we want
+                        _mediaControlService.SeekTo(rawPosition + TimeSpan.FromSeconds(skipSeconds));
+
+                        _expectedHlsSeekTarget = targetPos;
+                        _lastSeekTime = DateTime.UtcNow;
+                        Interlocked.Increment(ref _pendingSeekCount);
+                        return;
+                    }
+                    else if (skipSeconds >= 60)
                     {
                         _expectedHlsSeekTarget = targetPos;
                         _lastSeekTime = DateTime.UtcNow;
@@ -1966,15 +1986,13 @@ namespace Gelatinarm.ViewModels
                         {
                             await SkipForward(forwardSeconds);
                         }
-
                         break;
                     case MediaAction.Rewind:
-                        // Trigger - skip backward by parameter seconds (should be 600 for 10 minutes)  
+                        // Trigger - skip backward by parameter seconds (should be 600 for 10 minutes)
                         if (args.parameter is int backwardSeconds)
                         {
                             await SkipBackward(backwardSeconds);
                         }
-
                         break;
                     default:
                         // For other actions with parameters, just call the regular action

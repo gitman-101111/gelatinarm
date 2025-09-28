@@ -85,7 +85,7 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 
 ### Audio Codec Comparison
 
-**Audio Direct Stream**: Enable in Settings → Playback to pass through DTS/TrueHD/Atmos to compatible receivers
+**Audio Direct Stream**: Enable in Settings → Playback to allow audio stream copy to compatible receivers
 
 | Codec | Gelatinarm Support | Xbox Hardware Support | Notes |
 |-------|-------------------|----------------------|-------|
@@ -99,9 +99,9 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 | **AMR-NB/WB** | ✅ Direct Play | ✅ Full | Adaptive Multi-Rate |
 | **AC3 (DD)** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X only |
 | **E-AC3 (DD+)** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X with Atmos |
-| **DTS** | ✅ Passthrough** | ❌ Decode | **With Audio Direct Stream enabled |
-| **DTS-HD/DTS:X** | ✅ Passthrough** | ❌ Decode | **With Audio Direct Stream enabled |
-| **TrueHD/Atmos** | ✅ Passthrough** | ❌ Decode | **With Audio Direct Stream enabled |
+| **DTS** | ❌ Transcoded | ❌ Decode | Not supported for Direct Play |
+| **DTS-HD/DTS:X** | ❌ Transcoded | ❌ Decode | Not supported for Direct Play |
+| **TrueHD/Atmos** | ❌ Transcoded | ❌ Decode | Not supported for Direct Play |
 | **Opus** | ✅ Direct Play | ✅ Full | WebM/Matroska containers |
 | **Vorbis** | ✅ Direct Play | ✅ Full | Ogg/WebM containers |
 | **MP2** | ✅ Direct Play | ✅ Full | MPEG containers only |

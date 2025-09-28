@@ -294,15 +294,12 @@ namespace Gelatinarm.Services
                     // Direct Play available - use direct HTTP streaming
                     Logger.LogInformation("Direct Play is available - using direct HTTP streaming");
 
-                    // Temporarily clear the TranscodingUrl to force GetStreamUrl to build a direct play URL
-                    var originalTranscodingUrl = _currentMediaSource.TranscodingUrl;
+                    // Clear the TranscodingUrl since we're using Direct Play
+                    // This ensures PlaybackStatisticsService correctly reports "Direct playing"
                     _currentMediaSource.TranscodingUrl = null;
 
                     // Use the SDK-built stream URL for direct play
                     var directPlayUrl = GetStreamUrl(_currentMediaSource, playbackInfo.PlaySessionId);
-
-                    // Restore the TranscodingUrl in case it's needed later
-                    _currentMediaSource.TranscodingUrl = originalTranscodingUrl;
 
                     Logger.LogInformation($"Direct Play URL: {directPlayUrl}");
 
