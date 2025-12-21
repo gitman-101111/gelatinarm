@@ -577,15 +577,16 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // Load the specific version's details
-                if (!Guid.TryParse(version.Id, out var versionGuid) ||
-                    !Guid.TryParse(UserProfileService.CurrentUserId, out var userGuid))
+                var userGuid = UserProfileService.GetCurrentUserGuid();
+                if (!TryGetGuidFromParameter(version.Id, out var versionGuid) ||
+                    !userGuid.HasValue)
                 {
-                    Logger?.LogError($"Invalid ID format - Version: {version.Id}, User: {UserProfileService.CurrentUserId}");
+                    Logger?.LogError($"Invalid ID format - Version: {version.Id}, User: {userGuid}");
                     return;
                 }
                 var item = await ApiClient.Items[versionGuid].GetAsync(config =>
                 {
-                    config.QueryParameters.UserId = userGuid;
+                    config.QueryParameters.UserId = userGuid.Value;
                 });
                 if (item?.MediaStreams == null)
                 {

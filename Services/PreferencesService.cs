@@ -340,7 +340,7 @@ namespace Gelatinarm.Services
                     }
                     else
                     {
-                        AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                        FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                     }
 
                     return defaultValue;
@@ -410,7 +410,7 @@ namespace Gelatinarm.Services
                     }
                     else
                     {
-                        AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                        FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                     }
                 }
                 else
@@ -446,7 +446,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
             }
         }

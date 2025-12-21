@@ -176,7 +176,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         public void ResetToDefaults()
         {
-            AsyncHelper.FireAndForget(() => ResetToDefaultsAsync(), Logger, GetType());
+            FireAndForget(() => ResetToDefaultsAsync());
         }
 
         /// <summary>

@@ -5,7 +5,6 @@ using Gelatinarm.Helpers;
 using Gelatinarm.Services;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -106,7 +105,7 @@ namespace Gelatinarm.Views
                 }
 
                 // Initialize new ViewModel from DI
-                ViewModel = App.Current.Services.GetRequiredService<SeasonDetailsViewModel>();
+                ViewModel = GetRequiredService<SeasonDetailsViewModel>();
                 DataContext = ViewModel;
 
                 // Subscribe to property changes
@@ -123,22 +122,10 @@ namespace Gelatinarm.Views
         {
             if (ViewModel != null)
             {
-                // If we have a parameter, use it (normal navigation)
-                if (parameter != null)
+                var resolvedParameter = ResolveNavigationParameter(parameter);
+                if (resolvedParameter != null)
                 {
-                    await ViewModel.InitializeAsync(parameter);
-                }
-                // If no parameter, check if we have a saved parameter from navigation service (back navigation)
-                else
-                {
-                    var navigationService = App.Current.Services.GetRequiredService<INavigationService>();
-                    var savedParameter = navigationService.GetLastNavigationParameter();
-
-                    if (savedParameter != null)
-                    {
-                        Logger?.LogInformation("Using saved navigation parameter for back navigation");
-                        await ViewModel.InitializeAsync(savedParameter);
-                    }
+                    await ViewModel.InitializeAsync(resolvedParameter);
                 }
 
                 // Wait for data to load
@@ -210,6 +197,7 @@ namespace Gelatinarm.Views
                             // Immediately move focus to the Series Play button
                             await Task.Delay(100); // Small delay to ensure button is ready
                             seriesPlayButton.Focus(FocusState.Programmatic);
+                            FocusLandingButton.IsTabStop = false;
                             Logger?.LogInformation("OnPageLoaded: Moved focus to Series Play button for Series Overview");
                         }
                     }
@@ -440,6 +428,11 @@ namespace Gelatinarm.Views
             {
                 PlayButton.Focus(FocusState.Programmatic);
             }
+
+            if (FocusLandingButton != null)
+            {
+                FocusLandingButton.IsTabStop = false;
+            }
         }
 
         /// <summary>
@@ -449,11 +442,10 @@ namespace Gelatinarm.Views
         {
             if (ViewModel?.Series != null)
             {
-                var navigationService = GetService<INavigationService>();
-                if (navigationService != null)
+                if (NavigationService != null)
                 {
                     // Navigate to the series details page
-                    navigationService.NavigateToItemDetails(ViewModel.Series);
+                    NavigateToItemDetails(ViewModel.Series);
                 }
             }
             else

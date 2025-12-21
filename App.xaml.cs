@@ -65,6 +65,8 @@ namespace Gelatinarm
             {
                 Suspending += OnSuspending;
                 Resuming += OnResuming;
+                EnteredBackground += OnEnteredBackground;
+                LeavingBackground += OnLeavingBackground;
                 UnhandledException += App_UnhandledException;
                 TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
                 // Event handlers registered
@@ -561,6 +563,7 @@ namespace Gelatinarm
             services.AddSingleton<IPlaybackQueueService, PlaybackQueueService>();
             services.AddSingleton<IMediaControlService, MediaControlService>();
             services.AddSingleton<ISystemMediaIntegrationService, SystemMediaIntegrationService>();
+            services.AddSingleton<IPlaybackRestartService, PlaybackRestartService>();
             services.AddSingleton<IPlaybackControlService, PlaybackControlService>();
             services.AddSingleton<ISubtitleService>(provider =>
             {
@@ -607,12 +610,27 @@ namespace Gelatinarm
             }
         }
 
+        private T GetRequiredService<T>() where T : class
+        {
+            if (_serviceProvider == null)
+            {
+                throw new InvalidOperationException("Service provider has not been initialized");
+            }
+
+            return _serviceProvider.GetRequiredService<T>();
+        }
+
+        private T GetService<T>() where T : class
+        {
+            return _serviceProvider?.GetService<T>();
+        }
+
         private void ConnectControllerServices()
         {
             try
             {
-                var unifiedDeviceService = _serviceProvider.GetRequiredService<IUnifiedDeviceService>();
-                var logger = _serviceProvider.GetService<ILogger<App>>();
+                var unifiedDeviceService = GetRequiredService<IUnifiedDeviceService>();
+                var logger = GetService<ILogger<App>>();
                 AsyncHelper.FireAndForget(() => unifiedDeviceService.StartMonitoringAsync(), logger, typeof(App));
             }
             catch (Exception)
@@ -633,7 +651,7 @@ namespace Gelatinarm
             // Try to initialize authentication service
             try
             {
-                _authService = _serviceProvider.GetService<IAuthenticationService>();
+                _authService = GetService<IAuthenticationService>();
                 if (_authService == null)
                 {
                     failedServices.Add("AuthenticationService");
@@ -645,8 +663,8 @@ namespace Gelatinarm
                     // Wire up MusicPlayerService to MediaPlaybackService
                     try
                     {
-                        var mediaPlaybackService = _serviceProvider.GetService<IMediaPlaybackService>();
-                        var musicPlayerService = _serviceProvider.GetService<IMusicPlayerService>();
+                        var mediaPlaybackService = GetService<IMediaPlaybackService>();
+                        var musicPlayerService = GetService<IMusicPlayerService>();
                         if (mediaPlaybackService is MediaPlaybackService mediaPlaybackImpl && musicPlayerService != null)
                         {
                             mediaPlaybackImpl.SetMusicPlayerService(musicPlayerService);
@@ -665,7 +683,7 @@ namespace Gelatinarm
             // Try to initialize device info service
             try
             {
-                _deviceInfo = _serviceProvider.GetService<IUnifiedDeviceService>();
+                _deviceInfo = GetService<IUnifiedDeviceService>();
                 if (_deviceInfo == null)
                 {
                     failedServices.Add("UnifiedDeviceService");
@@ -679,7 +697,7 @@ namespace Gelatinarm
             // Try to initialize logging service (non-critical)
             try
             {
-                _logger = _serviceProvider.GetService<ILogger<App>>();
+                _logger = GetService<ILogger<App>>();
             }
             catch (Exception)
             {
@@ -689,7 +707,7 @@ namespace Gelatinarm
             // Try to verify navigation service is available
             try
             {
-                var navigationService = _serviceProvider.GetService<INavigationService>();
+                var navigationService = GetService<INavigationService>();
                 if (navigationService == null)
                 {
                     failedServices.Add("NavigationService");
@@ -767,7 +785,7 @@ namespace Gelatinarm
                     {
                         try
                         {
-                            var preferencesService = _serviceProvider.GetRequiredService<IPreferencesService>();
+                            var preferencesService = GetRequiredService<IPreferencesService>();
                             var state = preferencesService.GetValue<string>("AppState");
                             if (!string.IsNullOrEmpty(state))
                             {
@@ -801,7 +819,7 @@ namespace Gelatinarm
                                 return;
                             }
 
-                            navigationService = _serviceProvider.GetRequiredService<INavigationService>();
+                            navigationService = GetRequiredService<INavigationService>();
                             if (navigationService == null)
                             {
                                 return;
@@ -815,7 +833,7 @@ namespace Gelatinarm
 
                         try
                         {
-                            var unifiedDeviceService = _serviceProvider.GetRequiredService<IUnifiedDeviceService>();
+                            var unifiedDeviceService = GetRequiredService<IUnifiedDeviceService>();
                         }
                         catch (Exception)
                         {
@@ -825,7 +843,7 @@ namespace Gelatinarm
                         IAuthenticationService authService = null;
                         try
                         {
-                            authService = _serviceProvider.GetService<IAuthenticationService>();
+                            authService = GetService<IAuthenticationService>();
                         }
                         catch (Exception)
                         {
@@ -1017,28 +1035,159 @@ namespace Gelatinarm
             var deferral = e.SuspendingOperation.GetDeferral();
             try
             {
-                var state = new Dictionary<string, object>();
-                var preferencesService = _serviceProvider.GetRequiredService<IPreferencesService>();
-                var rootFrame = Window.Current.Content as Frame;
+                await SaveApplicationStateAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to save application state");
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        }
 
+        private async void OnResuming(object sender, object e)
+        {
+            try
+            {
+                _logger?.LogInformation("App resuming from suspension");
+
+                // Check if we're on the MediaPlayerPage (video playback)
+                var rootFrame = Window.Current.Content as Frame;
+                if (rootFrame?.Content is MediaPlayerPage mediaPlayerPage)
+                {
+                    _logger?.LogInformation(
+                        "App resuming while on MediaPlayerPage - video playback will resume if it was playing before");
+                    // The MediaPlayerPage window activation handler will resume the video if needed
+                }
+
+                var musicPlayerService = GetService<IMusicPlayerService>();
+                if (musicPlayerService?.IsPlaying == true && musicPlayerService.MediaPlayer?.PlaybackSession != null)
+                {
+                    var currentPosition = musicPlayerService.MediaPlayer.PlaybackSession.Position;
+                    _logger?.LogInformation($"Music is still playing at position: {currentPosition}");
+                }
+
+                _logger?.LogInformation("App resumed, network monitoring continues automatically");
+            }
+            catch (Exception ex)
+            {
+                var logger = _logger ?? GetService<ILogger<App>>();
+                logger?.LogError(ex, "Error during app resume");
+            }
+        }
+
+        private async void OnEnteredBackground(object sender, EnteredBackgroundEventArgs e)
+        {
+            var deferral = e.GetDeferral();
+            try
+            {
+                _logger?.LogInformation("App entered background");
+                await HandleMediaPlayerBackgroundChangedAsync(true);
+                if (!IsMusicPlaying())
+                {
+                    _logger?.LogInformation("No music playing - saving state and exiting for background transition");
+                    await SaveApplicationStateAsync();
+                    await ExitAppAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to handle EnteredBackground");
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        }
+
+        private async void OnLeavingBackground(object sender, LeavingBackgroundEventArgs e)
+        {
+            try
+            {
+                _logger?.LogInformation("App leaving background");
+                await HandleMediaPlayerBackgroundChangedAsync(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to handle LeavingBackground");
+            }
+        }
+
+        private async Task HandleMediaPlayerBackgroundChangedAsync(bool isInBackground)
+        {
+            try
+            {
+                var rootContainer = Window.Current?.Content as RootContainer;
+                var rootFrame = rootContainer?.MainFrame;
+                if (rootFrame?.Content is MediaPlayerPage mediaPlayerPage)
+                {
+                    await UIHelper.RunOnUIThreadAsync(
+                        () => mediaPlayerPage.HandleAppBackgroundChangedAsync(isInBackground),
+                        logger: _logger);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to apply media background change");
+            }
+        }
+
+        private Frame GetRootFrame()
+        {
+            var rootContainer = Window.Current?.Content as RootContainer;
+            if (rootContainer?.MainFrame != null)
+            {
+                return rootContainer.MainFrame;
+            }
+
+            return Window.Current?.Content as Frame;
+        }
+
+        private bool IsMusicPlaying()
+        {
+            var musicPlayerService = GetService<IMusicPlayerService>();
+            return musicPlayerService?.IsPlaying == true;
+        }
+
+        private async Task ExitAppAsync()
+        {
+            await UIHelper.RunOnUIThreadAsync(
+                () => Application.Current.Exit(),
+                logger: _logger);
+        }
+
+        private Task SaveApplicationStateAsync()
+        {
+            try
+            {
+                var state = new Dictionary<string, object>();
+                var preferencesService = GetService<IPreferencesService>();
+                if (preferencesService == null)
+                {
+                    _logger?.LogWarning("PreferencesService unavailable - skipping app state save");
+                    return Task.CompletedTask;
+                }
+
+                var rootFrame = GetRootFrame();
                 if (rootFrame != null)
                 {
                     // Only save the current page type, not the full back stack
                     state["CurrentPage"] = rootFrame.Content?.GetType().Name;
 
                     // Check if we're currently on the MediaPlayerPage (video playback)
-                    if (rootFrame.Content is MediaPlayerPage mediaPlayerPage)
+                    if (rootFrame.Content is MediaPlayerPage)
                     {
-                        _logger?.LogInformation("App suspending while video is playing - video will be paused");
+                        _logger?.LogInformation("Saving state while video is playing - video will be paused");
                         // The MediaPlayerPage window deactivation handler will pause the video
                         // We just need to save the state that we were on this page
                         state["WasPlayingVideo"] = true;
                     }
                 }
 
-                // Check if audio is playing via MusicPlayerService
-                var musicPlayerService = _serviceProvider.GetRequiredService<IMusicPlayerService>();
-                if (musicPlayerService.IsPlaying)
+                var musicPlayerService = GetService<IMusicPlayerService>();
+                if (musicPlayerService?.IsPlaying == true)
                 {
                     var playbackState = new Dictionary<string, object>
                     {
@@ -1068,41 +1217,8 @@ namespace Gelatinarm
             {
                 _logger?.LogError(ex, "Failed to save application state");
             }
-            finally
-            {
-                deferral.Complete();
-            }
-        }
 
-        private async void OnResuming(object sender, object e)
-        {
-            try
-            {
-                _logger?.LogInformation("App resuming from suspension");
-
-                // Check if we're on the MediaPlayerPage (video playback)
-                var rootFrame = Window.Current.Content as Frame;
-                if (rootFrame?.Content is MediaPlayerPage mediaPlayerPage)
-                {
-                    _logger?.LogInformation(
-                        "App resuming while on MediaPlayerPage - video playback will resume if it was playing before");
-                    // The MediaPlayerPage window activation handler will resume the video if needed
-                }
-
-                var musicPlayerService = _serviceProvider.GetService<IMusicPlayerService>();
-                if (musicPlayerService?.IsPlaying == true && musicPlayerService.MediaPlayer?.PlaybackSession != null)
-                {
-                    var currentPosition = musicPlayerService.MediaPlayer.PlaybackSession.Position;
-                    _logger?.LogInformation($"Music is still playing at position: {currentPosition}");
-                }
-
-                _logger?.LogInformation("App resumed, network monitoring continues automatically");
-            }
-            catch (Exception ex)
-            {
-                var logger = _logger ?? _serviceProvider?.GetService<ILogger<App>>();
-                logger?.LogError(ex, "Error during app resume");
-            }
+            return Task.CompletedTask;
         }
 
         private void OnNavigationFailed(object sender, NavigationFailedEventArgs e)
@@ -1115,7 +1231,7 @@ namespace Gelatinarm
         {
             try
             {
-                var logger = _serviceProvider?.GetService<ILogger<App>>();
+                var logger = GetService<ILogger<App>>();
 
                 // Log memory usage at time of crash
                 try
@@ -1177,7 +1293,7 @@ namespace Gelatinarm
         {
             try
             {
-                var logger = _serviceProvider?.GetService<ILogger<App>>();
+                var logger = GetService<ILogger<App>>();
                 logger?.LogCritical(e.Exception, "Unobserved task exception occurred");
 
                 e.SetObserved();
@@ -1258,7 +1374,7 @@ namespace Gelatinarm
                 }
 
                 // Otherwise, handle as fallback
-                var navigationService = _serviceProvider?.GetService<INavigationService>();
+                var navigationService = GetService<INavigationService>();
                 if (navigationService != null && navigationService.CanGoBack)
                 {
                     e.Handled = true;

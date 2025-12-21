@@ -2,7 +2,6 @@ using System;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Jellyfin.Sdk;
-using Microsoft.Extensions.DependencyInjection;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -26,8 +25,8 @@ namespace Gelatinarm.Controls
         protected override void OnServicesInitialized(IServiceProvider services)
         {
             // Get additional services needed by this control
-            _jellyfinApi = services.GetService<JellyfinApiClient>();
-            _preferencesService = services.GetService<IPreferencesService>();
+            _jellyfinApi = GetService<JellyfinApiClient>();
+            _preferencesService = GetService<IPreferencesService>();
         }
 
         public void Initialize(AppPreferences preferences)

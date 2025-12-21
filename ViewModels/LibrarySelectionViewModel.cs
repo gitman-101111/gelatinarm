@@ -57,8 +57,8 @@ namespace Gelatinarm.ViewModels
                 throw new InvalidOperationException("Please sign in to view your libraries.");
             }
 
-            var userId = _userProfileService.CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
+            var userGuid = _userProfileService.GetCurrentUserGuid();
+            if (!userGuid.HasValue)
             {
                 throw new InvalidOperationException("User not identified. Cannot load libraries.");
             }
@@ -71,14 +71,9 @@ namespace Gelatinarm.ViewModels
             }
 
             // Use API to get user views
-            if (!Guid.TryParse(userId, out var userGuid))
-            {
-                Logger?.LogError($"Invalid user ID format: {userId}");
-                throw new ArgumentException($"Invalid user ID format: {userId}", nameof(userId));
-            }
             var userViews = await _apiClient.UserViews.GetAsync(config =>
             {
-                config.QueryParameters.UserId = userGuid;
+                config.QueryParameters.UserId = userGuid.Value;
             }, cancellationToken).ConfigureAwait(false);
 
             if (userViews?.Items != null)

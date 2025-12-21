@@ -43,7 +43,7 @@ namespace Gelatinarm.Services
         public void Initialize(MediaPlayer mediaPlayer)
         {
             var context = CreateErrorContext("Initialize");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -103,7 +103,7 @@ namespace Gelatinarm.Services
             }
 
             var context = CreateErrorContext("UpdatePlaybackStatus", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -142,7 +142,7 @@ namespace Gelatinarm.Services
             }
 
             var context = CreateErrorContext("UpdateButtonStates", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -178,7 +178,7 @@ namespace Gelatinarm.Services
             }
 
             var context = CreateErrorContext("SetShuffleEnabled", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -201,7 +201,7 @@ namespace Gelatinarm.Services
             }
 
             var context = CreateErrorContext("SetRepeatMode", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -231,7 +231,7 @@ namespace Gelatinarm.Services
             }
 
             var context = CreateErrorContext("ClearDisplay", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

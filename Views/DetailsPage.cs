@@ -23,7 +23,6 @@ namespace Gelatinarm.Views
         // Additional Services (beyond those in BasePage)
         protected readonly JellyfinApiClient ApiClient;
         protected readonly IUnifiedDeviceService DeviceService;
-        protected readonly IDialogService DialogService;
         protected readonly INavigationStateService NavigationStateService;
 
         // Common Properties
@@ -33,7 +32,6 @@ namespace Gelatinarm.Views
             ApiClient = GetService<JellyfinApiClient>();
             DeviceService = GetService<IUnifiedDeviceService>();
             NavigationStateService = GetService<INavigationStateService>();
-            DialogService = GetService<IDialogService>();
 
         }
 
@@ -148,8 +146,7 @@ namespace Gelatinarm.Views
         protected virtual async Task ShowErrorAndNavigateBackAsync(string message, Exception ex = null)
         {
             // Use ErrorHandlingService if available and we have an exception
-            var errorHandler =
-                App.Current?.Services?.GetService(typeof(IErrorHandlingService)) as IErrorHandlingService;
+            var errorHandler = ErrorHandlingService;
             if (errorHandler != null && ex != null)
             {
                 var context = new ErrorContext(GetType().Name, "LoadDetails", ErrorCategory.User);

@@ -59,7 +59,7 @@ namespace Gelatinarm.ViewModels
         public Task InitializeAsync(object parameter)
         {
             var context = CreateErrorContext("Initialize", ErrorCategory.Configuration);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -152,25 +152,10 @@ namespace Gelatinarm.ViewModels
                         Logger?.LogInformation("Waiting for storage operations to complete...");
                         await Task.Delay(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS);
 
-                        // Ensure user profile is loaded after Quick Connect
-                        if (_userProfileService != null && string.IsNullOrEmpty(_userProfileService.CurrentUserId))
+                        if (!await EnsureUserProfileLoadedAsync("Quick Connect success"))
                         {
-                            Logger?.LogInformation("Loading user profile after Quick Connect success");
-                            var profileLoaded = await _userProfileService.LoadUserProfileAsync(CancellationToken.None);
-                            if (!profileLoaded)
-                            {
-                                Logger?.LogError("Failed to load user profile after Quick Connect");
-                                ConnectionStatus = "❌ Failed to load user profile";
-                                return;
-                            }
-                        }
-
-                        var currentUserId = _userProfileService?.CurrentUserId;
-                        Logger?.LogInformation($"Quick Connect completed - Stored UserId: '{currentUserId}'");
-
-                        if (string.IsNullOrEmpty(currentUserId))
-                        {
-                            Logger?.LogWarning("WARNING: UserId is empty after Quick Connect!");
+                            ConnectionStatus = "❌ Failed to load user profile";
+                            return;
                         }
 
                         Logger?.LogInformation("Navigating to MainPage");
@@ -283,23 +268,14 @@ namespace Gelatinarm.ViewModels
 
                     // The authentication service should have already handled the login
                     // Ensure user profile is loaded before navigating
-                    if (_userProfileService != null && string.IsNullOrEmpty(_userProfileService.CurrentUserId))
-                    {
-                        Logger?.LogInformation("Loading user profile after Quick Connect");
-                        await _userProfileService.LoadUserProfileAsync(CancellationToken.None);
-                    }
+                    await EnsureUserProfileLoadedAsync("Quick Connect");
 
                     await Task.Delay(RetryConstants.QUICK_CONNECT_SUCCESS_DELAY_MS);
 
                     await RunOnUIThreadAsync(() =>
                     {
                         // Clear MainViewModel before navigating to ensure no old server data appears
-                        var mainViewModel = App.Current.Services.GetService(typeof(MainViewModel)) as MainViewModel;
-                        if (mainViewModel != null)
-                        {
-                            mainViewModel.ClearCache();
-                            Logger?.LogInformation("Cleared MainViewModel cache before navigating to MainPage");
-                        }
+                        ClearMainViewModelCache("before navigating to MainPage");
 
                         Logger?.LogInformation("Navigating to MainPage after Quick Connect success");
                         _navigationService.Navigate(typeof(MainPage), "FromLogin");
@@ -338,6 +314,34 @@ namespace Gelatinarm.ViewModels
             {
                 _navigationService.Navigate(typeof(LoginPage));
             }
+        }
+
+        private async Task<bool> EnsureUserProfileLoadedAsync(string context)
+        {
+            if (_userProfileService == null)
+            {
+                Logger?.LogWarning($"User profile service unavailable during {context}");
+                return false;
+            }
+
+            var currentUserGuid = _userProfileService.GetCurrentUserGuid();
+            if (currentUserGuid.HasValue)
+            {
+                Logger?.LogInformation($"User profile ready during {context} - UserId: '{currentUserGuid}'");
+                return true;
+            }
+
+            Logger?.LogInformation($"Loading user profile during {context}");
+            var profileLoaded = await _userProfileService.LoadUserProfileAsync(CancellationToken.None);
+            if (!profileLoaded)
+            {
+                Logger?.LogError($"Failed to load user profile during {context}");
+                return false;
+            }
+
+            currentUserGuid = _userProfileService.GetCurrentUserGuid();
+            Logger?.LogInformation($"User profile loaded during {context} - UserId: '{currentUserGuid}'");
+            return currentUserGuid.HasValue;
         }
 
         [RelayCommand]

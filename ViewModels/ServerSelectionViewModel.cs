@@ -63,7 +63,7 @@ namespace Gelatinarm.ViewModels
         public Task InitializeAsync()
         {
             var context = CreateErrorContext("Initialize", ErrorCategory.Configuration);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -85,7 +85,7 @@ namespace Gelatinarm.ViewModels
         private void LoadSettings()
         {
             var context = CreateErrorContext("LoadSettings", ErrorCategory.Configuration);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -193,7 +193,7 @@ namespace Gelatinarm.ViewModels
         partial void OnAllowUntrustedCertificatesChanged(bool value)
         {
             var context = CreateErrorContext("SaveAllowUntrustedCertificates", ErrorCategory.Configuration);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

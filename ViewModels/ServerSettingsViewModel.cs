@@ -189,7 +189,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         public void ResetToDefaults()
         {
-            AsyncHelper.FireAndForget(() => ResetToDefaultsAsync(), Logger, GetType());
+            FireAndForget(() => ResetToDefaultsAsync());
         }
 
         /// <summary>
@@ -326,8 +326,7 @@ namespace Gelatinarm.ViewModels
                 Logger.LogInformation("Starting logout process");
 
                 // Clear all cached data through the central cache manager
-                var cacheManager =
-                    App.Current.Services.GetService(typeof(ICacheManagerService)) as ICacheManagerService;
+                var cacheManager = GetService<ICacheManagerService>();
                 cacheManager?.Clear();
                 Logger.LogInformation("Cleared all caches through CacheManagerService");
 
@@ -347,12 +346,7 @@ namespace Gelatinarm.ViewModels
                         var frame = Window.Current?.Content as Frame;
 
                         // Always clear MainViewModel since it's a singleton that persists
-                        var mainViewModel = App.Current.Services.GetService(typeof(MainViewModel)) as MainViewModel;
-                        if (mainViewModel != null)
-                        {
-                            mainViewModel.ClearCache();
-                            Logger.LogInformation("Cleared MainViewModel cache during logout");
-                        }
+                        ClearMainViewModelCache("during logout");
 
                         // Navigate to server selection page with special flag to prevent back navigation
                         _navigationService.Navigate(typeof(ServerSelectionPage), "AfterLogout");
@@ -421,7 +415,7 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _connectionTimeout, value))
                 {
-                    AsyncHelper.FireAndForget(() => UpdateConnectionTimeoutAsync(value), Logger, GetType());
+                    FireAndForget(() => UpdateConnectionTimeoutAsync(value));
                 }
             }
         }
@@ -433,7 +427,7 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _allowSelfSignedCertificates, value))
                 {
-                    AsyncHelper.FireAndForget(() => UpdateAllowSelfSignedCertificatesAsync(value), Logger, GetType());
+                    FireAndForget(() => UpdateAllowSelfSignedCertificatesAsync(value));
                 }
             }
         }

@@ -13,6 +13,10 @@ namespace Gelatinarm.Services
 {
     public class EpisodeQueueService : BaseService, IEpisodeQueueService
     {
+        private static int _shuffleSeed = Environment.TickCount;
+        private static readonly ThreadLocal<Random> ShuffleRandom =
+            new ThreadLocal<Random>(() => new Random(Interlocked.Increment(ref _shuffleSeed)));
+
         private readonly JellyfinApiClient _apiClient;
         private readonly IUserProfileService _userProfileService;
 
@@ -112,9 +116,8 @@ namespace Gelatinarm.Services
                 return (null, 0);
             }
 
-            if (!Guid.TryParse(_userProfileService.CurrentUserId, out var userId))
+            if (!TryGetUserIdGuid(_userProfileService, out var userId))
             {
-                Logger.LogWarning("Cannot build episode queue: unable to get current user ID");
                 return (null, 0);
             }
 
@@ -141,16 +144,27 @@ namespace Gelatinarm.Services
                 return new List<BaseItemDto>();
             }
 
-            random ??= new Random();
-            return episodes.OrderBy(x => random.Next()).ToList();
+            var list = episodes.ToList();
+            if (list.Count < 2)
+            {
+                return list;
+            }
+
+            var rng = random ?? ShuffleRandom.Value;
+            for (var i = list.Count - 1; i > 0; i--)
+            {
+                var j = rng.Next(i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
+
+            return list;
         }
 
         public async Task<(List<BaseItemDto> queue, int startIndex)> BuildShuffledSeriesQueueAsync(Guid seriesId,
             CancellationToken cancellationToken = default)
         {
-            if (!Guid.TryParse(_userProfileService.CurrentUserId, out var userId))
+            if (!TryGetUserIdGuid(_userProfileService, out var userId))
             {
-                Logger.LogWarning("Cannot build shuffled queue: unable to get current user ID");
                 return (null, 0);
             }
 

@@ -8,7 +8,6 @@ using Gelatinarm.Services;
 using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
 using Windows.UI.Xaml;
@@ -22,8 +21,11 @@ namespace Gelatinarm.Controls
         private MediaPlayer _currentMediaPlayer;
         private bool _isUpdatingProgress = false;
         private IMusicPlayerService _musicPlayerService;
+        private INavigationService _navigationService;
+        private JellyfinApiClient _apiClient;
+        private IUserProfileService _userProfileService;
+        private IImageLoadingService _imageLoadingService;
         private DispatcherTimer _progressTimer;
-        private IServiceProvider _serviceProvider;
 
         public MusicPlayer()
         {
@@ -34,7 +36,11 @@ namespace Gelatinarm.Controls
         protected override void OnServicesInitialized(IServiceProvider services)
         {
             // Store service provider for later use
-            _serviceProvider = services; _musicPlayerService = services.GetService<IMusicPlayerService>();
+            _musicPlayerService = GetService<IMusicPlayerService>();
+            _navigationService = GetService<INavigationService>();
+            _apiClient = GetService<JellyfinApiClient>();
+            _userProfileService = GetService<IUserProfileService>();
+            _imageLoadingService = GetService<IImageLoadingService>();
         }
 
         private void MusicPlayer_Loaded(object sender, RoutedEventArgs e)
@@ -413,8 +419,7 @@ namespace Gelatinarm.Controls
                 // Load album art asynchronously
                 AsyncHelper.FireAndForget(async () =>
                 {
-                    var imageLoadingService = App.Current.Services?.GetService<IImageLoadingService>();
-                    if (imageLoadingService != null)
+                    if (_imageLoadingService != null)
                     {
                         BaseItemDto imageItem = null;
 
@@ -431,7 +436,7 @@ namespace Gelatinarm.Controls
 
                         if (imageItem != null)
                         {
-                            await imageLoadingService.LoadImageIntoTargetAsync(
+                            await _imageLoadingService.LoadImageIntoTargetAsync(
                                 imageItem,
                                 "Primary",
                                 imageSource => AlbumArt.Source = imageSource,
@@ -605,12 +610,11 @@ namespace Gelatinarm.Controls
                 var currentItem = _musicPlayerService?.CurrentItem;
                 if (currentItem?.AlbumArtists?.Any() == true || currentItem?.ArtistItems?.Any() == true)
                 {
-                    var navigationService = _serviceProvider.GetService<INavigationService>();
                     var artistItem = currentItem.ArtistItems?.FirstOrDefault() ??
                                      currentItem.AlbumArtists?.FirstOrDefault();
-                    if (artistItem != null && navigationService != null) // Added null check for navigationService
+                    if (artistItem != null && _navigationService != null) // Added null check for navigationService
                     {
-                        navigationService.Navigate(typeof(ArtistDetailsPage), artistItem.Id.Value.ToString());
+                        _navigationService.Navigate(typeof(ArtistDetailsPage), artistItem.Id.Value.ToString());
                     }
                 }
             }
@@ -627,10 +631,9 @@ namespace Gelatinarm.Controls
                 var currentItem = _musicPlayerService?.CurrentItem;
                 if (currentItem?.AlbumId.HasValue == true)
                 {
-                    var navigationService = _serviceProvider.GetService<INavigationService>();
-                    if (navigationService != null) // Added null check for navigationService
+                    if (_navigationService != null) // Added null check for navigationService
                     {
-                        navigationService.Navigate(typeof(AlbumDetailsPage), currentItem.AlbumId.Value.ToString());
+                        _navigationService.Navigate(typeof(AlbumDetailsPage), currentItem.AlbumId.Value.ToString());
                     }
                 }
             }
@@ -650,16 +653,13 @@ namespace Gelatinarm.Controls
                     Logger?.LogInformation($"Starting instant mix for '{currentItem.Name}'");
 
                     // Get the API client
-                    var apiClient = _serviceProvider.GetService<JellyfinApiClient>();
-                    var userProfileService = _serviceProvider.GetService<IUserProfileService>();
-
-                    if (apiClient != null && userProfileService != null)
+                    if (_apiClient != null && _userProfileService != null)
                     {
-                        var userId = userProfileService.CurrentUserId;
+                        var userId = _userProfileService.CurrentUserId;
                         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
                         {
                             // Get instant mix for the current track
-                            var instantMix = await apiClient.Items[currentItem.Id.Value].InstantMix.GetAsync(config =>
+                            var instantMix = await _apiClient.Items[currentItem.Id.Value].InstantMix.GetAsync(config =>
                             {
                                 config.QueryParameters.UserId = userIdGuid;
                                 config.QueryParameters.Limit = MediaConstants.MAX_DISCOVERY_QUERY_LIMIT;

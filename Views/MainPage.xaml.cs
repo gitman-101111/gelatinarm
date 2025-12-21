@@ -30,9 +30,15 @@ namespace Gelatinarm.Views
 
         public MainPage() : base(typeof(MainPage))
         {
-            InitializeComponent(); _unifiedDeviceService = GetRequiredService<IUnifiedDeviceService>();
+            InitializeComponent();
+            _unifiedDeviceService = GetService<IUnifiedDeviceService>();
             _mediaPlaybackService = GetService<IMediaPlaybackService>();
             _musicPlayerService = GetService<IMusicPlayerService>();
+
+            if (_unifiedDeviceService == null)
+            {
+                Logger?.LogWarning("MainPage: IUnifiedDeviceService unavailable during construction");
+            }
 
             // Subscribe to events
             Loaded += MainPage_Loaded;
@@ -115,19 +121,15 @@ namespace Gelatinarm.Views
 
         private void MediaItem_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is BaseItemDto item)
+            if (sender is Button button)
             {
-                NavigateToDetailsPage(item);
+                HandleItemClick(button.Tag);
             }
         }
 
         private void GridView_ItemClick(object sender, ItemClickEventArgs e)
         {
-            if (e.ClickedItem is BaseItemDto item)
-            {
-                // All items navigate to their respective details pages
-                NavigateToDetailsPage(item);
-            }
+            HandleItemClick(e.ClickedItem);
         }
 
         private void CheckUIElementBinding()
@@ -161,7 +163,12 @@ namespace Gelatinarm.Views
 
         private void OnItemClick(object sender, ItemClickEventArgs e)
         {
-            if (e.ClickedItem is BaseItemDto item)
+            HandleItemClick(e.ClickedItem);
+        }
+
+        private void HandleItemClick(object clickedItem)
+        {
+            if (clickedItem is BaseItemDto item)
             {
                 NavigateToDetailsPage(item);
             }
@@ -178,7 +185,7 @@ namespace Gelatinarm.Views
                 $"Navigating to details for {item.Name} (Type: {item.Type}, MediaType: {item.MediaType})");
 
             // Navigate to item details
-            NavigationService.NavigateToItemDetails(item);
+            NavigateToItemDetails(item);
         }
 
         // SetupFocusNavigation method removed - wasn't working properly
@@ -208,12 +215,11 @@ namespace Gelatinarm.Views
             var systemNavigationManager = SystemNavigationManager.GetForCurrentView();
             systemNavigationManager.AppViewBackButtonVisibility = AppViewBackButtonVisibility.Collapsed;
 
-            // Check if we're coming from login by looking for specific parameter
-            // or by checking if the ViewModel doesn't have data yet (first time loading)
+            // Check if we're coming from login by looking for specific parameter.
             var hasExistingData = ViewModel?.ContinueWatchingItems?.Count > 0 ||
                                   ViewModel?.LatestMovies?.Count > 0 ||
                                   ViewModel?.LatestTVShows?.Count > 0;
-            var isComingFromLogin = parameter?.ToString() == "FromLogin" || !hasExistingData;
+            var isComingFromLogin = parameter?.ToString() == "FromLogin";
 
             // Log the actual state
             Logger?.LogInformation(
@@ -223,8 +229,8 @@ namespace Gelatinarm.Views
             Frame.BackStack.Clear();
             Logger?.LogInformation("MainPage: Cleared navigation back stack to prevent returning to login");
 
-            // Only clear cache when actually coming from login (no existing data)
-            if (isComingFromLogin && !hasExistingData)
+            // Only clear cache when explicitly coming from login.
+            if (isComingFromLogin)
             {
                 Logger?.LogInformation("MainPage: Coming from login - forcing refresh and clearing cache");
                 ViewModel?.ClearCache();
@@ -322,7 +328,7 @@ namespace Gelatinarm.Views
         private void FireAndForgetDispatcher(Func<Task> asyncAction,
             CoreDispatcherPriority priority = CoreDispatcherPriority.Normal, string operationName = null)
         {
-            AsyncHelper.FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(async () =>
+            FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(async () =>
             {
                 try
                 {
@@ -333,7 +339,7 @@ namespace Gelatinarm.Views
                     var operation = operationName ?? asyncAction.Method?.Name ?? "Unknown";
                     Logger?.LogError(ex, $"Fire-and-forget dispatcher operation failed in MainPage.{operation}");
                 }
-            }, Dispatcher, Logger), Logger, GetType());
+            }, Dispatcher, Logger), operationName ?? "FireAndForgetDispatcher");
         }
     }
 }

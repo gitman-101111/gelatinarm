@@ -122,7 +122,8 @@ namespace Gelatinarm.Services
                     return;
                 }
 
-                Logger.LogInformation($"Changing subtitle to: {subtitle.DisplayTitle}");
+                Logger.LogInformation(
+                    $"Changing subtitle to: {subtitle.DisplayTitle} (Index={subtitle.ServerStreamIndex}, None={subtitle.IsNoneOption})");
 
                 if (_playbackParams != null)
                 {
@@ -224,19 +225,6 @@ namespace Gelatinarm.Services
             }
 
             return string.Join(" ", parts);
-        }
-
-        private bool IsEmbeddedSubtitle(SubtitleTrack subtitle)
-        {
-            if (_currentMediaSource?.MediaStreams == null)
-            {
-                return true;
-            }
-
-            var stream = _currentMediaSource.MediaStreams
-                .FirstOrDefault(s => s.Index == subtitle.ServerStreamIndex);
-
-            return stream == null || !(stream.IsExternal ?? false);
         }
 
         private async Task ReloadMediaWithSubtitle(SubtitleTrack subtitle)

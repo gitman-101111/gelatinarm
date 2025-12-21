@@ -66,46 +66,46 @@
     </PackageReference>
     <!-- Jellyfin SDK -->
     <PackageReference Include="Jellyfin.Sdk">
-      <Version>2024.10.28</Version>
+      <Version>2025.10.21</Version>
     </PackageReference>
     <!-- Dependency Injection -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging.Debug">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <!-- UWP Community Toolkit -->
     <PackageReference Include="CommunityToolkit.Uwp.Animations">
-      <Version>8.2.250402</Version>
+      <Version>8.2.251219</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications">
       <Version>7.1.3</Version>
     </PackageReference>
     <!-- Additional Dependencies for SDK -->
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Options">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Http">
-      <Version>8.0.0</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="System.Diagnostics.DiagnosticSource">
-      <Version>8.0.1</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
     <PackageReference Include="System.Text.Json">
-      <Version>8.0.5</Version>
+      <Version>10.0.1</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
@@ -141,13 +141,22 @@
     </Compile>
     <!-- Helpers -->
     <Compile Include="Helpers\AsyncHelper.cs" />
+    <Compile Include="Helpers\BufferingStateCoordinator.cs" />
+    <Compile Include="Helpers\PlaybackStateOrchestrator.cs" />
+    <Compile Include="Helpers\PlaybackSessionState.cs" />
+    <Compile Include="Helpers\PlaybackSessionSnapshot.cs" />
+    <Compile Include="Helpers\ResumeFlowCoordinator.cs" />
+    <Compile Include="Helpers\ResumeRetryCoordinator.cs" />
+    <Compile Include="Helpers\SeekCompletionCoordinator.cs" />
     <Compile Include="Helpers\ImageHelper.cs" />
     <Compile Include="Helpers\MediaPlaybackHelper.cs" />
     <Compile Include="Helpers\NetworkHelper.cs" />
     <Compile Include="Helpers\ObservableCollectionExtensions.cs" />
     <Compile Include="Helpers\RetryHelper.cs" />
+    <Compile Include="Helpers\ServiceLocator.cs" />
     <Compile Include="Helpers\TimeFormattingHelper.cs" />
     <Compile Include="Helpers\UIHelper.cs" />
+    <Compile Include="Helpers\UrlHelper.cs" />
     <!-- Models -->
     <Compile Include="Models\AppPreferences.cs" />
     <Compile Include="Models\ErrorHandling.cs" />
@@ -202,6 +211,10 @@
     <Compile Include="Services\MediaControllerService.cs" />
     <Compile Include="Services\MediaNavigationService.cs" />
     <Compile Include="Services\PlaybackControlService.cs" />
+    <Compile Include="Services\PlaybackRestartService.cs" />
+    <Compile Include="Services\PlaybackResumeCoordinator.cs" />
+    <Compile Include="Services\PlaybackResumeModels.cs" />
+    <Compile Include="Services\PlaybackSourceResolver.cs" />
     <Compile Include="Services\PlaybackStatisticsService.cs" />
     <Compile Include="Services\SkipSegmentService.cs" />
     <Compile Include="Services\SubtitleService.cs" />

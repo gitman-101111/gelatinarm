@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Gelatinarm.Constants;
 
 namespace Gelatinarm.Helpers
@@ -10,12 +11,22 @@ namespace Gelatinarm.Helpers
         /// </summary>
         public static string FormatTime(TimeSpan time)
         {
-            if (time.TotalHours >= 1)
-            {
-                return time.ToString(MediaPlayerConstants.TIME_FORMAT_HOURS);
-            }
+            var format = time.TotalHours >= 1
+                ? MediaPlayerConstants.TIME_FORMAT_HOURS
+                : MediaPlayerConstants.TIME_FORMAT_MINUTES;
 
-            return time.ToString(MediaPlayerConstants.TIME_FORMAT_MINUTES);
+            try
+            {
+                return time.ToString(format, CultureInfo.InvariantCulture);
+            }
+            catch (FormatException)
+            {
+                return time.ToString("c", CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return "0:00";
+            }
         }
 
         /// <summary>

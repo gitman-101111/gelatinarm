@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
 using Gelatinarm.Constants;
+using Gelatinarm.Helpers;
 using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Media.Imaging;
@@ -23,6 +23,10 @@ namespace Gelatinarm.Converters.Image
             Auto // Automatically determine based on context
         }
 
+        private static T GetService<T>() where T : class
+        {
+            return ServiceLocator.GetService<T>();
+        }
 
         public object Convert(object value, Type targetType, object parameter, string language)
         {
@@ -42,14 +46,11 @@ namespace Gelatinarm.Converters.Image
                         imageType = parsedType;
                     }
                 }
-                var authService = App.Current.Services?.GetService<IAuthenticationService>();
-                var serverUrl = authService?.ServerUrl;
-                var accessToken = authService?.AccessToken;
-
-                if (string.IsNullOrEmpty(serverUrl))
+                if (!TryGetAuthContext(out var authService, out var serverUrl, out var accessToken))
                 {
                     return null;
                 }
+
                 var url = GetImageUrl(item, imageType, serverUrl);
 
                 // Create bitmap if we have a URL
@@ -71,8 +72,7 @@ namespace Gelatinarm.Converters.Image
 #if DEBUG
             catch (Exception ex)
             {
-                var logger = App.Current.Services?.GetService<ILogger<ImageConverter>>();
-                logger?.LogDebug($"ImageConverter error: {ex.Message}");
+                GetLogger()?.LogDebug($"ImageConverter error: {ex.Message}");
             }
 #else
             catch
@@ -82,6 +82,27 @@ namespace Gelatinarm.Converters.Image
 
             return null;
         }
+
+        private static bool TryGetAuthContext(out IAuthenticationService authService, out string serverUrl, out string accessToken)
+        {
+            authService = GetService<IAuthenticationService>();
+            serverUrl = authService?.ServerUrl;
+            accessToken = authService?.AccessToken;
+            return !string.IsNullOrEmpty(serverUrl);
+        }
+
+        private static ILogger<ImageConverter> GetLogger()
+        {
+            return GetService<ILogger<ImageConverter>>();
+        }
+
+        private static bool TryGetApiContext(out JellyfinApiClient apiClient, out IAuthenticationService authService)
+        {
+            apiClient = GetService<JellyfinApiClient>();
+            authService = GetService<IAuthenticationService>();
+            return apiClient != null && authService != null;
+        }
+
         private string GetImageUrl(BaseItemDto item, ImageType imageType, string serverUrl)
         {
             switch (imageType)
@@ -108,10 +129,7 @@ namespace Gelatinarm.Converters.Image
 
         private string GetPrimaryImageUrl(BaseItemDto item, string serverUrl)
         {
-            var apiClient = App.Current.Services?.GetService<JellyfinApiClient>();
-            var authService = App.Current.Services?.GetService<IAuthenticationService>();
-
-            if (apiClient == null || authService == null)
+            if (!TryGetApiContext(out var apiClient, out var authService))
             {
                 return null;
             }
@@ -173,10 +191,7 @@ namespace Gelatinarm.Converters.Image
 
         private string GetBackdropImageUrl(BaseItemDto item, string serverUrl)
         {
-            var apiClient = App.Current.Services?.GetService<JellyfinApiClient>();
-            var authService = App.Current.Services?.GetService<IAuthenticationService>();
-
-            if (apiClient == null || authService == null)
+            if (!TryGetApiContext(out var apiClient, out var authService))
             {
                 return null;
             }

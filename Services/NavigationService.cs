@@ -17,6 +17,7 @@ namespace Gelatinarm.Services
     public interface INavigationService : IDisposable
     {
         bool CanGoBack { get; }
+        bool IsNavigating { get; }
         event EventHandler<Type> Navigated;
         void Initialize(Frame frame);
         bool Navigate(Type pageType, object parameter = null);
@@ -41,6 +42,7 @@ namespace Gelatinarm.Services
         private readonly Stack<(Type PageType, object Parameter)> _navigationStack = new();
         private readonly TimeSpan _navigationThrottleTime = TimeSpan.FromMilliseconds(500);
         private readonly Dictionary<string, Type> _pageMap;
+        private int _navigationInProgress;
 
         // State management
         private readonly Dictionary<Type, object> _returnStates = new();
@@ -80,6 +82,7 @@ namespace Gelatinarm.Services
 
         public event EventHandler<Type> Navigated;
         public bool CanGoBack => _frame?.CanGoBack ?? false;
+        public bool IsNavigating => _navigationInProgress == 1;
 
         public void Dispose()
         {
@@ -166,6 +169,7 @@ namespace Gelatinarm.Services
 
             try
             {
+                Interlocked.Exchange(ref _navigationInProgress, 1);
                 return NavigateCore(pageType, parameter);
             }
             catch (Exception ex)
@@ -175,6 +179,7 @@ namespace Gelatinarm.Services
             }
             finally
             {
+                Interlocked.Exchange(ref _navigationInProgress, 0);
                 _navigationSemaphore.Release();
             }
         }
@@ -353,6 +358,7 @@ namespace Gelatinarm.Services
 
             try
             {
+                Interlocked.Exchange(ref _navigationInProgress, 1);
                 Logger.LogInformation("NavigateAsync: Attempting to navigate to {PageType} with parameter: {Parameter}",
                     pageType?.FullName, parameter);
 
@@ -385,6 +391,7 @@ namespace Gelatinarm.Services
             }
             finally
             {
+                Interlocked.Exchange(ref _navigationInProgress, 0);
                 _navigationSemaphore.Release();
             }
         }
@@ -449,11 +456,11 @@ namespace Gelatinarm.Services
                     break;
                 case BaseItemDto_Type.Audio: // For individual songs
                     // Use MusicPlayer for songs instead of navigating
-                    AsyncHelper.FireAndForget(async () =>
+                    FireAndForget(async () =>
                     {
                         try
                         {
-                            var musicPlayerService = _serviceProvider.GetService<IMusicPlayerService>();
+                            var musicPlayerService = GetService<IMusicPlayerService>();
                             if (musicPlayerService == null)
                             {
                                 Logger.LogError("MusicPlayerService not available");
@@ -467,7 +474,7 @@ namespace Gelatinarm.Services
                         {
                             Logger.LogError(ex, $"Error playing song '{item.Name}' with MusicPlayer");
                         }
-                    }, Logger, typeof(NavigationService));
+                    }, "PlayMusicItem");
                     return;
                 case BaseItemDto_Type.MusicAlbum:
                     pageType = typeof(AlbumDetailsPage);
@@ -500,8 +507,16 @@ namespace Gelatinarm.Services
         {
             if (_frame?.CanGoBack == true)
             {
-                _frame.GoBack();
-                return true;
+                try
+                {
+                    Interlocked.Exchange(ref _navigationInProgress, 1);
+                    _frame.GoBack();
+                    return true;
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _navigationInProgress, 0);
+                }
             }
 
             return false;

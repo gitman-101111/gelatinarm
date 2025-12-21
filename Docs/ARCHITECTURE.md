@@ -82,13 +82,17 @@ Gelatinarm follows the Model-View-ViewModel (MVVM) pattern with a service layer:
   - Direct control of Windows.Media.Playback.MediaPlayer
   - Handles play, pause, seek operations
   - Manages playback state events
-- **PlaybackControlService**: Resume position and HLS workaround handling
-  - Applies tiered resume strategy to work around HLS server limitations
-  - Handles HLS manifest offset detection and segment boundary tolerance
-  - Manages playback progress reporting
-  - Adaptive retry delays: 5s for HLS (transcoding time), 1s for direct play
-  - Position tolerance: 10s for HLS (keyframe alignment), 5s for direct play
-- **Separation of Concerns**: Clear distinction between orchestration and control
+- **PlaybackControlService**: Playback setup, stream selection, and restart flow
+  - Delegates source selection to `PlaybackSourceResolver`
+  - Delegates resume logic to `PlaybackResumeCoordinator`
+  - Delegates restart logic for track/subtitle changes to `PlaybackRestartService`
+  - Uses stream policy to align DirectPlay and HLS behavior with shared logic
+- **Playback Resume / Buffering Orchestration** (Helpers)
+  - `PlaybackStateOrchestrator`: reacts to PlaybackStateChanged and updates UI-facing state
+  - `BufferingStateCoordinator`: standardizes buffering start/end transitions and timeout handling
+  - `ResumeFlowCoordinator`: centralizes resume acceptance and completion reporting
+  - `SeekCompletionCoordinator`: handles seek completion logging and validation
+- **Separation of Concerns**: orchestration (ViewModel + helpers) is kept distinct from control (services)
 
 ### 6. Error Handling Pattern
 - **ErrorHandlingService**: Centralized error processing
@@ -118,6 +122,8 @@ Gelatinarm follows the Model-View-ViewModel (MVVM) pattern with a service layer:
   - AuthenticationService, NavigationService, ErrorHandlingService
 - **Runtime Resolution**: Most services resolved when needed via GetService<T>()
 - **Failure Logging**: Failed services logged but app continues
+- **Service Locator**: Helpers and converters use `ServiceLocator` when constructor injection is not available
+  - Cache frequently used services in controls/pages to avoid repeated lookups
 
 ## Key Architectural Decisions
 
@@ -533,7 +539,7 @@ await UIHelper.RunOnUIThreadAsync(Action action, CoreDispatcherPriority priority
 
 4. **Fire-and-Forget** (use sparingly):
    ```csharp
-   AsyncHelper.FireAndForget(UIHelper.RunOnUIThreadAsync(() => 
+   FireAndForget(() => UIHelper.RunOnUIThreadAsync(() =>
    {
        // Non-critical UI updates
    }, dispatcher, logger));

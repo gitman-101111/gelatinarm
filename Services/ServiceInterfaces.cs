@@ -554,6 +554,11 @@ namespace Gelatinarm.Services
         bool ApplyPendingResumePosition();
 
         /// <summary>
+        ///     Apply pending seek (track/quality switch) or resume if needed
+        /// </summary>
+        bool ApplyResumeIfNeeded(ref long pendingSeekPositionTicks);
+
+        /// <summary>
         ///     Check if HLS resume is still in progress
         /// </summary>
         bool IsHlsResumeInProgress();
@@ -562,6 +567,11 @@ namespace Gelatinarm.Services
         ///     Get HLS resume status for diagnostics
         /// </summary>
         (bool InProgress, int Attempts, TimeSpan? Target) GetHlsResumeStatus();
+
+        /// <summary>
+        ///     Cancel any pending resume attempt
+        /// </summary>
+        void CancelPendingResume(string reason);
 
         /// <summary>
         ///     Get available audio tracks

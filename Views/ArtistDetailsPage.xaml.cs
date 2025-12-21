@@ -27,21 +27,10 @@ namespace Gelatinarm.Views
         protected override async Task InitializePageAsync(object parameter)
         {
             // Initialize the ViewModel with navigation parameters
-            // If we have a parameter, use it (normal navigation)
-            if (parameter != null)
+            var resolvedParameter = ResolveNavigationParameter(parameter);
+            if (resolvedParameter != null)
             {
-                await ViewModel.InitializeAsync(parameter);
-            }
-            // If no parameter, check if we have a saved parameter from navigation service (back navigation)
-            else
-            {
-                var savedParameter = GetSavedNavigationParameter();
-
-                if (savedParameter != null)
-                {
-                    Logger?.LogInformation("Using saved navigation parameter for back navigation");
-                    await ViewModel.InitializeAsync(savedParameter);
-                }
+                await ViewModel.InitializeAsync(resolvedParameter);
             }
         }
 

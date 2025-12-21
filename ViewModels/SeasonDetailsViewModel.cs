@@ -283,7 +283,8 @@ namespace Gelatinarm.ViewModels
 
                         // Store the last played item ID to restore selection after loading
                         Guid? lastPlayedItemId = null;
-                        if (!string.IsNullOrEmpty(playbackParams.ItemId) && Guid.TryParse(playbackParams.ItemId, out var itemGuid))
+                        if (!string.IsNullOrEmpty(playbackParams.ItemId) &&
+                            TryGetGuidFromParameter(playbackParams.ItemId, out var itemGuid))
                         {
                             lastPlayedItemId = itemGuid;
                             Logger?.LogInformation($"Will restore selection to last played episode: {lastPlayedItemId}");
@@ -326,7 +327,7 @@ namespace Gelatinarm.ViewModels
                             $"SeasonDetailsViewModel.InitializeAsync - Received BaseItemDto: {item.Name} (Type: {item.Type}, Id: {item.Id})");
                         await HandleItemNavigationAsync(item, targetEpisode);
                     }
-                    else if (parameter is string itemId && Guid.TryParse(itemId, out var itemGuid))
+                    else if (TryGetGuidFromParameter(parameter, out var itemGuid))
                     {
                         var loadedItem = await ApiClient.Items[itemGuid].GetAsync(config =>
                         {
@@ -1227,18 +1228,14 @@ namespace Gelatinarm.ViewModels
                     var isWatched = Series.UserData?.Played ?? false;
                     var newWatchedStatus = !isWatched;
 
-                    var updatedData =
-                        await UserDataService.ToggleWatchedAsync(Series.Id.Value, newWatchedStatus, UserIdGuid);
+                    await UserDataService.ToggleWatchedAsync(Series.Id.Value, newWatchedStatus, UserIdGuid);
 
-                    if (updatedData != null)
+                    if (Series.UserData == null)
                     {
-                        if (Series.UserData == null)
-                        {
-                            Series.UserData = new UserItemDataDto();
-                        }
-
-                        Series.UserData.Played = updatedData.Played;
+                        Series.UserData = new UserItemDataDto();
                     }
+
+                    Series.UserData.Played = newWatchedStatus;
 
                     MarkWatchedText = newWatchedStatus ? "Mark Series Unwatched" : "Mark Series Watched";
                 }
@@ -1248,20 +1245,15 @@ namespace Gelatinarm.ViewModels
                     var isWatched = SelectedEpisode.UserData?.Played ?? false;
                     var newWatchedStatus = !isWatched;
 
-                    var updatedData =
-                        await UserDataService.ToggleWatchedAsync(SelectedEpisode.Id.Value, newWatchedStatus,
-                            UserIdGuid);
+                    await UserDataService.ToggleWatchedAsync(SelectedEpisode.Id.Value, newWatchedStatus, UserIdGuid);
 
-                    if (updatedData != null)
+                    if (SelectedEpisode.UserData == null)
                     {
-                        if (SelectedEpisode.UserData == null)
-                        {
-                            SelectedEpisode.UserData = new UserItemDataDto();
-                        }
-
-                        SelectedEpisode.UserData.Played = updatedData.Played;
-                        SelectedEpisode.UserData.PlayedPercentage = newWatchedStatus ? 100 : 0;
+                        SelectedEpisode.UserData = new UserItemDataDto();
                     }
+
+                    SelectedEpisode.UserData.Played = newWatchedStatus;
+                    SelectedEpisode.UserData.PlayedPercentage = newWatchedStatus ? 100 : 0;
 
                     UpdateButtonStates(SelectedEpisode);
 

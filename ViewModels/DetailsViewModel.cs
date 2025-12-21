@@ -117,14 +117,14 @@ namespace Gelatinarm.ViewModels
 
             // Get user ID
             var context = CreateErrorContext("GetUserId", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
-                    var userId = UserProfileService.CurrentUserId;
-                    if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userGuid))
+                    var userGuid = UserProfileService.GetCurrentUserGuid();
+                    if (userGuid.HasValue)
                     {
-                        UserIdGuid = userGuid;
+                        UserIdGuid = userGuid.Value;
                     }
 
                     await Task.CompletedTask;
@@ -222,7 +222,7 @@ namespace Gelatinarm.ViewModels
             }
 
             var context = CreateErrorContext(operationName, ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -297,9 +297,9 @@ namespace Gelatinarm.ViewModels
                     Logger?.LogInformation("Parameter is BaseItemDto convertible to TItem, calling LoadItemAsync");
                     await LoadItemAsync(typedItem);
                 }
-                else if (parameter is string itemId && Guid.TryParse(itemId, out var guidId))
+                else if (TryGetGuidFromParameter(parameter, out var guidId))
                 {
-                    Logger?.LogInformation($"Parameter is string GUID: {guidId}, calling LoadItemByIdAsync");
+                    Logger?.LogInformation($"Parameter is GUID: {guidId}, calling LoadItemByIdAsync");
                     await LoadItemByIdAsync(guidId);
                 }
                 else

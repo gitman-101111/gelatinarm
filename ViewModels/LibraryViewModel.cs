@@ -54,7 +54,6 @@ namespace Gelatinarm.ViewModels
         private readonly object _loadLibrariesCtsLock = new object();
 
         private CancellationTokenSource _loadMoreCts = new();
-        private readonly object _loadMoreCtsLock = new object();
 
         private string _searchTerm = string.Empty;
 
@@ -335,7 +334,7 @@ namespace Gelatinarm.ViewModels
                 if (SetProperty(ref _selectedSortIndex, value))
                 {
                     // Trigger refresh when sort changes
-                    AsyncHelper.FireAndForget(async () => await ApplyFiltersAsync());
+                    FireAndForget(async () => await ApplyFiltersAsync());
                 }
             }
         }
@@ -348,7 +347,7 @@ namespace Gelatinarm.ViewModels
                 if (SetProperty(ref _isAscending, value))
                 {
                     // Trigger refresh when sort order changes
-                    AsyncHelper.FireAndForget(async () => await ApplyFiltersAsync());
+                    FireAndForget(async () => await ApplyFiltersAsync());
                 }
             }
         }
@@ -505,9 +504,8 @@ namespace Gelatinarm.ViewModels
             var context = CreateErrorContext("LoadLibraries");
             try
             {
-                if (!_currentUserId.HasValue)
+                if (!TryGetCurrentUserId(out var userId))
                 {
-                    Logger?.LogWarning("CurrentUserId is null in LoadLibrariesAsync");
                     IsError = true;
                     ErrorMessage = "User is not logged in.";
                     return;
@@ -518,7 +516,7 @@ namespace Gelatinarm.ViewModels
                 Logger?.LogInformation("Loading user libraries");
                 var userViews = await _apiClient.UserViews.GetAsync(config =>
                 {
-                    config.QueryParameters.UserId = _currentUserId.Value;
+                    config.QueryParameters.UserId = userId;
                 }, localToken).ConfigureAwait(false);
 
                 if (Libraries != null)
@@ -572,7 +570,7 @@ namespace Gelatinarm.ViewModels
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, localCts.Token);
             var localToken = linkedCts.Token;
 
-            if (_currentUserId == null || SelectedLibrary == null || !SelectedLibrary.Id.HasValue)
+            if (!TryGetCurrentUserId(out _) || SelectedLibrary == null || !SelectedLibrary.Id.HasValue)
             {
                 Logger.LogInformation(
                     "LoadFiltersAsync: CurrentUserId or SelectedLibrary (or its ID) is null. Clearing filters.");
@@ -877,6 +875,19 @@ namespace Gelatinarm.ViewModels
             }
         }
 
+        private bool TryGetCurrentUserId(out Guid userId)
+        {
+            userId = Guid.Empty;
+            if (!_currentUserId.HasValue)
+            {
+                Logger?.LogWarning("CurrentUserId is null.");
+                return false;
+            }
+
+            userId = _currentUserId.Value;
+            return true;
+        }
+
         private Dictionary<string, string> PrepareQueryParams(int startIndex, int limit)
         {
             var queryParams = new Dictionary<string, string>
@@ -945,9 +956,8 @@ namespace Gelatinarm.ViewModels
         private async Task<BaseItemDtoQueryResult> FetchMediaItemsPageAsync(int startIndex, int limit,
             CancellationToken cancellationToken)
         {
-            if (!_currentUserId.HasValue)
+            if (!TryGetCurrentUserId(out _))
             {
-                Logger.LogWarning("FetchMediaItemsPageAsync called without a CurrentUserId.");
                 return new BaseItemDtoQueryResult { Items = new List<BaseItemDto>(), TotalRecordCount = 0 };
             }
 
@@ -1507,7 +1517,7 @@ namespace Gelatinarm.ViewModels
         private void SetFilter(string filter)
         {
             var context = CreateErrorContext("SetFilter", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -1525,7 +1535,7 @@ namespace Gelatinarm.ViewModels
         private void SetAlphabetFilter(string letter)
         {
             var context = CreateErrorContext("SetAlphabetFilter", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -1566,7 +1576,7 @@ namespace Gelatinarm.ViewModels
         public void ClearAllFilters()
         {
             var context = CreateErrorContext("ClearAllFilters", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -1665,7 +1675,7 @@ namespace Gelatinarm.ViewModels
         private void OnFilterCollectionChanged()
         {
             var context = CreateErrorContext("FilterCollectionChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

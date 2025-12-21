@@ -57,7 +57,7 @@ namespace Gelatinarm.ViewModels
         public Task InitializeAsync(object parameter)
         {
             var context = CreateErrorContext("Initialize", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -88,7 +88,7 @@ namespace Gelatinarm.ViewModels
         private void UpdateApiClientBaseUrl(string serverUrl)
         {
             var context = CreateErrorContext("UpdateApiClientBaseUrl", ErrorCategory.Configuration);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -128,12 +128,7 @@ namespace Gelatinarm.ViewModels
                 if (authResult)
                 {
                     // Clear MainViewModel before navigating to ensure no old server data appears
-                    var mainViewModel = App.Current.Services.GetService(typeof(MainViewModel)) as MainViewModel;
-                    if (mainViewModel != null)
-                    {
-                        mainViewModel.ClearCache();
-                        Logger?.LogInformation("Cleared MainViewModel cache before navigating to MainPage");
-                    }
+                    ClearMainViewModelCache("before navigating to MainPage");
 
                     Logger?.LogInformation("LoginViewModel: Login successful, navigating to MainPage");
                     _navigationService.Navigate(typeof(MainPage), "FromLogin");

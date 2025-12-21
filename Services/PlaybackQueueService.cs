@@ -59,7 +59,7 @@ namespace Gelatinarm.Services
         public void SetQueue(List<BaseItemDto> items, int startIndex = 0)
         {
             var context = CreateErrorContext("SetQueue", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -95,7 +95,7 @@ namespace Gelatinarm.Services
         public void AddToQueue(BaseItemDto item)
         {
             var context = CreateErrorContext("AddToQueue", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -128,7 +128,7 @@ namespace Gelatinarm.Services
         public void AddToQueueNext(BaseItemDto item)
         {
             var context = CreateErrorContext("AddToQueueNext", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -154,7 +154,7 @@ namespace Gelatinarm.Services
         public void ClearQueue()
         {
             var context = CreateErrorContext("ClearQueue", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -178,7 +178,7 @@ namespace Gelatinarm.Services
         public void SetCurrentIndex(int index)
         {
             var context = CreateErrorContext("SetCurrentIndex", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -211,7 +211,7 @@ namespace Gelatinarm.Services
         public void SetShuffle(bool enabled)
         {
             var context = CreateErrorContext("SetShuffle", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

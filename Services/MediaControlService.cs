@@ -119,7 +119,7 @@ namespace Gelatinarm.Services
         public void Stop()
         {
             var context = CreateErrorContext("Stop", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -141,7 +141,7 @@ namespace Gelatinarm.Services
         public void SeekTo(TimeSpan position)
         {
             var context = CreateErrorContext("SeekTo", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -239,7 +239,7 @@ namespace Gelatinarm.Services
         public void SetRepeatMode(RepeatMode mode)
         {
             var context = CreateErrorContext("SetRepeatMode", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -257,7 +257,7 @@ namespace Gelatinarm.Services
         public RepeatMode CycleRepeatMode()
         {
             var context = CreateErrorContext("CycleRepeatMode", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -285,7 +285,7 @@ namespace Gelatinarm.Services
         public void SetPlaybackRate(double rate)
         {
             var context = CreateErrorContext("SetPlaybackRate", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -339,7 +339,7 @@ namespace Gelatinarm.Services
         public void ClearMediaSource()
         {
             var context = CreateErrorContext("ClearMediaSource", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

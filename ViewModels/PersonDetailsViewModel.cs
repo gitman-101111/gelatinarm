@@ -102,13 +102,9 @@ namespace Gelatinarm.ViewModels
                         throw new ArgumentException("Invalid person DTO");
                     }
                 }
-                else if (parameter is string guidString && Guid.TryParse(guidString, out personId))
+                else if (TryGetGuidFromParameter(parameter, out var parameterGuid))
                 {
-                    // Valid GUID from string
-                }
-                else if (parameter is Guid guid)
-                {
-                    personId = guid;
+                    personId = parameterGuid;
                 }
                 else
                 {
@@ -241,7 +237,7 @@ namespace Gelatinarm.ViewModels
             }
 
             var context = CreateErrorContext("LoadPersonImage", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

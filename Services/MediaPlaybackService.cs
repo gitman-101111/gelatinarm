@@ -8,7 +8,6 @@ using Gelatinarm.Models;
 using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
@@ -61,16 +60,13 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetPlaybackInfo", ErrorCategory.Media);
             try
             {
-                if (!Guid.TryParse(itemId, out var itemGuid))
+                if (!TryGetItemGuid(itemId, out var itemGuid))
                 {
-                    Logger.LogError($"Invalid item ID format: {itemId}");
                     return null;
                 }
 
-                var userId = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userId, out var userGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
                 {
-                    Logger.LogError($"Invalid user ID format: {userId}");
                     return null;
                 }
 
@@ -87,6 +83,10 @@ namespace Gelatinarm.Services
                     SubtitleStreamIndex = _playbackParams?.SubtitleStreamIndex
                 };
 
+                Logger.LogInformation(
+                    $"[PLAYBACK-INFO] ItemId={itemId}, StartTimeTicks={startTimeTicks ?? 0}, " +
+                    $"AudioStreamIndex={_playbackParams?.AudioStreamIndex}, SubtitleStreamIndex={_playbackParams?.SubtitleStreamIndex}");
+
                 if (_playbackParams?.SubtitleStreamIndex.HasValue == true)
                 {
                     Logger.LogInformation($"Requesting playback info with SubtitleStreamIndex: {_playbackParams.SubtitleStreamIndex}");
@@ -102,6 +102,9 @@ namespace Gelatinarm.Services
                         .PostAsync(playbackInfoRequest, null, cancellationToken).ConfigureAwait(false),
                     cancellationToken: cancellationToken
                 ).ConfigureAwait(false);
+
+                Logger.LogInformation(
+                    $"[PLAYBACK-INFO] Response PlaySessionId={response?.PlaySessionId}, MediaSources={response?.MediaSources?.Count ?? 0}");
 
                 return response;
             }
@@ -162,16 +165,13 @@ namespace Gelatinarm.Services
 
         public async Task<BaseItemDto> GetItemAsync(string itemId, CancellationToken cancellationToken = default)
         {
-            if (!Guid.TryParse(itemId, out var itemGuid))
+            if (!TryGetItemGuid(itemId, out var itemGuid))
             {
-                Logger.LogError($"Invalid item ID format: {itemId}");
                 return null;
             }
 
-            var userId = _userProfileService.CurrentUserId;
-            if (!Guid.TryParse(userId, out var userGuid))
+            if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
             {
-                Logger.LogError($"Invalid user ID format: {userId}");
                 return null;
             }
 
@@ -199,16 +199,13 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetEpisodes", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userId, out var userGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
                 {
-                    Logger.LogError($"Invalid user ID format: {userId}");
                     return null;
                 }
 
-                if (!Guid.TryParse(seasonId, out var seasonGuid))
+                if (!TryGetItemGuid(seasonId, out var seasonGuid))
                 {
-                    Logger?.LogError($"Invalid season ID format: {seasonId}");
                     return new BaseItemDtoQueryResult { Items = new List<BaseItemDto>() };
                 }
 
@@ -249,9 +246,8 @@ namespace Gelatinarm.Services
                 if (mediaSource.Protocol != MediaSourceInfo_Protocol.File)
                 {
                     // Parse the item ID from the media source
-                    if (!Guid.TryParse(mediaSource.Id, out var itemId))
+                    if (!TryGetItemGuid(mediaSource.Id, out var itemId))
                     {
-                        Logger.LogError($"Invalid media source ID: {mediaSource.Id}");
                         return null;
                     }
 
@@ -334,16 +330,13 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("MarkWatched", ErrorCategory.Media);
             try
             {
-                if (!Guid.TryParse(itemId, out var itemGuid))
+                if (!TryGetItemGuid(itemId, out var itemGuid))
                 {
-                    Logger.LogError($"Invalid item ID format: {itemId}");
                     return false;
                 }
 
-                var userId = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userId, out var userGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
                 {
-                    Logger.LogError($"Invalid user ID format: {userId}");
                     return false;
                 }
 
@@ -368,16 +361,13 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("MarkUnwatched", ErrorCategory.Media);
             try
             {
-                if (!Guid.TryParse(itemId, out var itemGuid))
+                if (!TryGetItemGuid(itemId, out var itemGuid))
                 {
-                    Logger.LogError($"Invalid item ID format: {itemId}");
                     return false;
                 }
 
-                var userId = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userId, out var userGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
                 {
-                    Logger.LogError($"Invalid user ID format: {userId}");
                     return false;
                 }
 
@@ -427,7 +417,7 @@ namespace Gelatinarm.Services
                     }
 
                     // Get navigation service from the app
-                    var navigationService = App.Current.Services.GetService<INavigationService>();
+                    var navigationService = GetService<INavigationService>();
                     if (navigationService != null)
                     {
                         var playbackParams = new MediaPlaybackParams
@@ -518,6 +508,11 @@ namespace Gelatinarm.Services
                     IsPaused = false
                 };
 
+                Logger.LogInformation(
+                    $"[PLAYBACK-START] ItemId={_currentItem.Id.Value}, Session={playSessionId}, " +
+                    $"PositionTicks={positionTicks}, AudioStreamIndex={_playbackParams?.AudioStreamIndex}, " +
+                    $"SubtitleStreamIndex={_playbackParams?.SubtitleStreamIndex}");
+
                 using (var cts = new CancellationTokenSource(
                            TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS)))
                 {
@@ -584,6 +579,10 @@ namespace Gelatinarm.Services
                     PlayMethod = DeterminePlayMethod()
                 };
 
+                Logger.LogDebug(
+                    $"[PLAYBACK-PROGRESS] ItemId={_currentItem.Id.Value}, Session={playSessionId}, " +
+                    $"PositionTicks={positionTicks}, IsPaused={isPaused}");
+
                 // Check if a previous progress report is still running
                 if (_activeProgressReportTask != null && !_activeProgressReportTask.IsCompleted)
                 {
@@ -632,9 +631,8 @@ namespace Gelatinarm.Services
                         await progressTask.ConfigureAwait(false);
 
                         var position = TimeSpan.FromTicks(positionTicks);
-                        var timeFormat = position.TotalHours >= 1 ? @"h\:mm\:ss" : @"mm\:ss";
                         Logger.LogDebug(
-                            $"Reported playback progress at {position.ToString(timeFormat)} for {_currentItem.Name}");
+                            $"Reported playback progress at {position:hh\\:mm\\:ss} for {_currentItem.Name}");
                     }
                     catch (OperationCanceledException)
                     {
@@ -687,6 +685,9 @@ namespace Gelatinarm.Services
                     PositionTicks = positionTicks,
                     PlaySessionId = playSessionId
                 };
+
+                Logger.LogInformation(
+                    $"[PLAYBACK-STOP] ItemId={currentItem.Id.Value}, Session={playSessionId}, PositionTicks={positionTicks}");
 
                 using (var cts = new CancellationTokenSource(
                            TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS)))

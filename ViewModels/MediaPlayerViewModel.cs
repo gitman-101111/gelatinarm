@@ -64,16 +64,8 @@ namespace Gelatinarm.ViewModels
         private bool _hasAutoPlayedNext = false;
 
         // Track/quality change tracking
-        private bool _hasPerformedInitialSeek = false;
         private bool _hasReportedPlaybackStart = false;
         private int _progressReportCounter = 0;
-        // HLS stream handling
-        private bool _isCurrentStreamHls = false; // Track if current stream is HLS
-        private TimeSpan _hlsManifestOffset = TimeSpan.Zero; // Track the offset for HLS manifests with large seeks
-        private bool _hlsManifestOffsetApplied = false; // Track if we've seeked to position 0 of new manifest
-        private TimeSpan _expectedHlsSeekTarget = TimeSpan.Zero; // Track expected position after large HLS seek
-        private DateTime _lastSeekTime = DateTime.MinValue; // Track when last seek was initiated
-        private volatile int _pendingSeekCount = 0; // Track number of pending seeks
         private TimeSpan _actualResumePosition = TimeSpan.Zero; // Track actual resume position for corruption detection
 
         // Track when video playback has started
@@ -85,8 +77,6 @@ namespace Gelatinarm.ViewModels
 
         // Track whether auto-play next episode is enabled
         private bool _autoPlayNextEpisode = false;
-
-        // Track if we've performed the initial seek for resume
 
         [ObservableProperty] private bool _isAudioVisualizationActive;
 
@@ -101,18 +91,11 @@ namespace Gelatinarm.ViewModels
         private bool _isOutroSkipAvailable = false;
 
         [ObservableProperty] private bool _isPaused;
-
-
         [ObservableProperty] private bool _isPlaying;
-
-        [ObservableProperty] private bool _isShuffleEnabled;
-
 
         [ObservableProperty] private bool _isStatsOverlayVisible;
 
         [ObservableProperty] private bool _isStatsVisible;
-
-        // State tracking for skip actions
 
         // Skip button check throttling
         private TimeSpan _lastSkipCheckPosition = TimeSpan.Zero;
@@ -123,9 +106,8 @@ namespace Gelatinarm.ViewModels
         [ObservableProperty] private BaseItemDto _nextEpisode;
 
         private bool _nextEpisodeButtonOverlayVisible = false;
-        private long _pendingSeekPositionAfterQualitySwitch = 0;
         private string _playSessionId;
-        private bool _isHlsTrackChange = false; // Track when we're changing tracks on HLS
+        private readonly PlaybackSessionState _sessionState = new PlaybackSessionState();
 
         // State tracking
         private MediaPlaybackParams _playbackParams;
@@ -137,21 +119,10 @@ namespace Gelatinarm.ViewModels
             {
                 // For HLS streams, we may need to add manifest offset from two sources:
                 // 1. PlaybackControlService.HlsManifestOffset - for initial resume operations
-                // 2. Local _hlsManifestOffset - for large seeks during playback that create new manifests
+                // 2. Local session offset - for large seeks during playback that create new manifests
 
                 // Use PlaybackControlService offset for resume scenarios
-                if (_playbackControlService?.HlsManifestOffset > TimeSpan.Zero)
-                {
-                    return _position + _playbackControlService.HlsManifestOffset;
-                }
-
-                // Use local offset for large seek scenarios (after manifest change)
-                if (_hlsManifestOffsetApplied && _hlsManifestOffset > TimeSpan.Zero)
-                {
-                    return _position + _hlsManifestOffset;
-                }
-
-                return _position;
+                return _sessionState.GetDisplayPosition(_position, _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
             }
             set => SetProperty(ref _position, value);
         }
@@ -175,26 +146,35 @@ namespace Gelatinarm.ViewModels
         private DispatcherTimer _bufferingTimeoutTimer;
         private DateTime? _bufferingStartTime;
         private const int BUFFERING_TIMEOUT_SECONDS = 30; // Default buffering timeout
+        private readonly ResumeRetryCoordinator _resumeRetryCoordinator;
+        private readonly BufferingStateCoordinator _bufferingStateCoordinator;
+        private readonly PlaybackStateOrchestrator _playbackStateOrchestrator;
+        private readonly ResumeFlowCoordinator _resumeFlowCoordinator;
+        private readonly SeekCompletionCoordinator _seekCompletionCoordinator;
+        private bool _resumeAttemptInProgress;
 
         [ObservableProperty] private ObservableCollection<SubtitleTrack> _subtitleTracks = new();
 
         public MediaPlayerViewModel(ILogger<MediaPlayerViewModel> logger) : base(logger)
         {
-            var services = App.Current.Services;
+            _playbackControlService = GetRequiredService<IPlaybackControlService>();
+            _subtitleService = GetRequiredService<ISubtitleService>();
+            _mediaOptimizationService = GetRequiredService<IMediaOptimizationService>();
+            _preferencesService = GetRequiredService<IPreferencesService>();
+            _mediaPlaybackService = GetRequiredService<IMediaPlaybackService>();
+            _navigationService = GetRequiredService<INavigationService>();
+            _episodeQueueService = GetRequiredService<IEpisodeQueueService>();
+            _mediaNavigationService = GetRequiredService<IMediaNavigationService>();
+            _playbackStatisticsService = GetRequiredService<IPlaybackStatisticsService>();
+            _mediaControllerService = GetRequiredService<IMediaControllerService>();
+            _skipSegmentService = GetRequiredService<ISkipSegmentService>();
+            _mediaControlService = GetRequiredService<IMediaControlService>();
 
-            _playbackControlService = services.GetRequiredService<IPlaybackControlService>();
-            _subtitleService = services.GetRequiredService<ISubtitleService>();
-            _mediaOptimizationService = services.GetRequiredService<IMediaOptimizationService>();
-            _preferencesService = services.GetRequiredService<IPreferencesService>();
-            _mediaPlaybackService = services.GetRequiredService<IMediaPlaybackService>();
-            _navigationService = services.GetRequiredService<INavigationService>();
-            _episodeQueueService = services.GetRequiredService<IEpisodeQueueService>();
-            _mediaNavigationService = services.GetRequiredService<IMediaNavigationService>();
-            _playbackStatisticsService = services.GetRequiredService<IPlaybackStatisticsService>();
-            _mediaControllerService = services.GetRequiredService<IMediaControllerService>();
-            _skipSegmentService = services.GetRequiredService<ISkipSegmentService>();
-            _mediaControlService = services.GetRequiredService<IMediaControlService>();
-
+            _resumeRetryCoordinator = new ResumeRetryCoordinator(logger);
+            _bufferingStateCoordinator = new BufferingStateCoordinator(logger, BUFFERING_TIMEOUT_SECONDS);
+            _playbackStateOrchestrator = new PlaybackStateOrchestrator(logger, _bufferingStateCoordinator);
+            _resumeFlowCoordinator = new ResumeFlowCoordinator(logger, _playbackControlService, _resumeRetryCoordinator);
+            _seekCompletionCoordinator = new SeekCompletionCoordinator(logger);
             InitializeTimers();
         }
 
@@ -241,7 +221,6 @@ namespace Gelatinarm.ViewModels
         // Computed property for Episodes button visibility
         // Hide it when the Next Episode overlay is visible to avoid duplicate buttons
         public bool IsEpisodesButtonVisible => IsNextEpisodeAvailable && !NextEpisodeButtonOverlayVisible;
-
         public bool NextEpisodeButtonOverlayVisible
         {
             get => _nextEpisodeButtonOverlayVisible;
@@ -316,9 +295,8 @@ namespace Gelatinarm.ViewModels
             {
                 LastActionWasSkip = false; // Clear skip flag when play/pause is pressed
 
-                if (_mediaControlService == null)
+                if (!EnsureMediaControlService("toggle play/pause"))
                 {
-                    Logger.LogWarning("MediaControlService is null - cannot toggle play/pause");
                     return;
                 }
 
@@ -373,95 +351,35 @@ namespace Gelatinarm.ViewModels
             var context = CreateErrorContext("SkipBackward", ErrorCategory.Media);
             try
             {
-                // Block skipping before playback has actually started
-                if (!_hasVideoStarted)
+                if (!EnsurePlaybackStarted("skip backward"))
                 {
-                    Logger.LogWarning("Cannot skip backward - playback has not started yet");
                     return;
                 }
+
+                CancelResumeForUserSeek("User initiated backward seek");
 
                 LastActionWasSkip = true;
 
-                if (_mediaControlService == null)
+                if (!EnsureMediaControlService("skip backward"))
                 {
-                    Logger.LogWarning("MediaControlService is null - cannot skip backward");
                     return;
                 }
 
-                // Check if a specific skip amount was passed as parameter
-                var skipSeconds = MediaPlayerConstants.SKIP_BACKWARD_SECONDS; // Default 10 seconds
+                var skipSeconds = GetSkipSeconds(parameter, MediaPlayerConstants.SKIP_BACKWARD_SECONDS);
 
-                if (parameter is int seconds)
+                if (await TryHandleHlsBackwardSeekBeforeManifestStartAsync(skipSeconds))
                 {
-                    skipSeconds = seconds;
+                    return;
                 }
 
-                // HLS WORKAROUND: Check if backward seek would go before current manifest start
-                // Can be removed when server properly handles seeking in HLS streams
-                if (_playbackControlService?.HlsManifestOffset > TimeSpan.Zero)
-                {
-                    var currentRawPosition = MediaPlayerElement?.MediaPlayer?.PlaybackSession?.Position ?? TimeSpan.Zero;
-                    var targetRawPosition = currentRawPosition - TimeSpan.FromSeconds(skipSeconds);
-
-                    if (targetRawPosition < TimeSpan.Zero)
-                    {
-                        // Need to restart stream at earlier position since we can't seek before manifest start
-                        var actualCurrentPosition = currentRawPosition + _playbackControlService.HlsManifestOffset;
-                        var actualTargetPosition = actualCurrentPosition - TimeSpan.FromSeconds(skipSeconds);
-
-                        if (actualTargetPosition < TimeSpan.Zero)
-                            actualTargetPosition = TimeSpan.Zero;
-
-                        Logger.LogInformation($"[HLS-SEEK] Backward seek would go before manifest start. Restarting at {actualTargetPosition:mm\\:ss}");
-
-                        // Store the target position for restart
-                        var restartTicks = actualTargetPosition.Ticks;
-                        var wasPlaying = IsPlaying;
-
-                        // Update playback params for the restart
-                        _playbackParams.StartPositionTicks = restartTicks;
-
-                        // Stop current playback
-                        _mediaControlService.Stop();
-
-                        // Clear the HLS manifest offset since we're starting fresh
-                        if (_playbackControlService is PlaybackControlService pcs)
-                        {
-                            pcs.HlsManifestOffset = TimeSpan.Zero;
-                        }
-
-                        // Re-initialize with new position
-                        await InitializeAsync(_playbackParams);
-
-                        // Resume playback if it was playing
-                        if (wasPlaying)
-                        {
-                            _mediaControlService.Play();
-                        }
-
-                        return;
-                    }
-                }
-
-                if (_isCurrentStreamHls && skipSeconds >= 60)
-                {
-                    var rawPosition = _mediaControlService?.MediaPlayer?.PlaybackSession?.Position ?? _position;
-                    var currentPosWithOffset = rawPosition + (_playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
-                    var targetPos = currentPosWithOffset - TimeSpan.FromSeconds(skipSeconds);
-                    if (targetPos < TimeSpan.Zero)
-                    {
-                        targetPos = TimeSpan.Zero;
-                    }
-
-                    Logger.LogInformation($"[HLS] Large backward seek: {skipSeconds}s from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} - server may create new manifest");
-                }
+                LogHlsLargeBackwardSeek(skipSeconds);
 
                 _mediaControlService.SeekBackward(skipSeconds);
                 // Force immediate position update
-                UpdatePositionImmediate();
+                await UpdatePositionImmediateAsync();
 
                 // Show skip indicator
-                ShowSkipIndicator($"-{(skipSeconds >= 60 ? $"{skipSeconds / 60}m" : $"{skipSeconds}s")}");
+                ShowSkipIndicator(FormatSkipIndicator(skipSeconds, forward: false));
 
                 // Always notify about skip - the view will decide how to handle it based on timing
                 ToggleControlsRequested?.Invoke(this, EventArgs.Empty);
@@ -478,94 +396,33 @@ namespace Gelatinarm.ViewModels
             var context = CreateErrorContext("SkipForward", ErrorCategory.Media);
             try
             {
-                // Block skipping before playback has actually started
-                if (!_hasVideoStarted)
+                if (!EnsurePlaybackStarted("skip forward"))
                 {
-                    Logger.LogWarning("Cannot skip forward - playback has not started yet");
                     return;
                 }
+
+                CancelResumeForUserSeek("User initiated forward seek");
 
                 LastActionWasSkip = true;
 
-                if (_mediaControlService == null)
+                if (!EnsureMediaControlService("skip forward"))
                 {
-                    Logger.LogWarning("MediaControlService is null - cannot skip forward");
                     return;
                 }
 
-                // Check if a specific skip amount was passed as parameter
-                var skipSeconds = MediaPlayerConstants.SKIP_FORWARD_SECONDS; // Default 30 seconds
+                var skipSeconds = GetSkipSeconds(parameter, MediaPlayerConstants.SKIP_FORWARD_SECONDS);
 
-                if (parameter is int seconds)
+                if (!TryPrepareHlsForwardSeek(ref skipSeconds))
                 {
-                    skipSeconds = seconds;
-                }
-
-                if (_isCurrentStreamHls)
-                {
-                    var rawPosition = _mediaControlService?.MediaPlayer?.PlaybackSession?.Position ?? _position;
-                    var hlsManifestOffset = _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero;
-                    var currentPosWithOffset = rawPosition + hlsManifestOffset;
-                    var targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
-
-                    // Prevent seeking too close to the end for HLS streams
-                    var metadataDuration = CurrentItem?.RunTimeTicks != null && CurrentItem.RunTimeTicks > 0
-                        ? TimeSpan.FromTicks(CurrentItem.RunTimeTicks.Value)
-                        : TimeSpan.Zero;
-
-                    if (metadataDuration > TimeSpan.Zero && targetPos >= metadataDuration - TimeSpan.FromSeconds(30))
-                    {
-                        Logger.LogWarning($"[HLS] Preventing seek to {targetPos:mm\\:ss} - too close to end ({metadataDuration:mm\\:ss}). This could corrupt the HLS manifest.");
-
-                        // If we're within 30 seconds of the end, just jump to near the end but not too close
-                        var safeEndPosition = metadataDuration - TimeSpan.FromSeconds(35);
-                        if (currentPosWithOffset < safeEndPosition)
-                        {
-                            var adjustedSkip = (int)(safeEndPosition - currentPosWithOffset).TotalSeconds;
-                            Logger.LogInformation($"[HLS] Adjusted skip to {adjustedSkip}s to avoid end-of-stream issues");
-                            skipSeconds = adjustedSkip;
-                            targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
-                        }
-                        else
-                        {
-                            Logger.LogInformation("[HLS] Already close to end, skipping forward disabled");
-                            return;
-                        }
-                    }
-
-                    // For large seeks with HLS manifest offset, calculate the target position within the manifest
-                    // The server expects manifest-relative positions, not absolute video positions
-                    if (skipSeconds >= 60 && hlsManifestOffset > TimeSpan.Zero)
-                    {
-                        // For large seeks that might create a new manifest, we need to be careful
-                        // The targetPos is absolute, but we need to seek within the current manifest
-                        // If the seek would create a new manifest, the server needs the correct position
-                        Logger.LogInformation($"[HLS-MANIFEST-OFFSET] Large seek with offset. Current raw: {rawPosition:mm\\:ss}, offset: {hlsManifestOffset:mm\\:ss}, target absolute: {targetPos:mm\\:ss}");
-
-                        // Use absolute position seek to ensure server gets the correct position
-                        // This tells the MediaPlayer to seek to the exact position we want
-                        _mediaControlService.SeekTo(rawPosition + TimeSpan.FromSeconds(skipSeconds));
-
-                        _expectedHlsSeekTarget = targetPos;
-                        _lastSeekTime = DateTime.UtcNow;
-                        Interlocked.Increment(ref _pendingSeekCount);
-                        return;
-                    }
-                    else if (skipSeconds >= 60)
-                    {
-                        _expectedHlsSeekTarget = targetPos;
-                        _lastSeekTime = DateTime.UtcNow;
-                        Interlocked.Increment(ref _pendingSeekCount);
-                        Logger.LogInformation($"[HLS] Large seek detected: {skipSeconds}s forward from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} (pending seeks: {_pendingSeekCount})");
-                    }
+                    return;
                 }
 
                 _mediaControlService.SeekForward(skipSeconds);
                 // Force immediate position update
-                UpdatePositionImmediate();
+                await UpdatePositionImmediateAsync();
 
                 // Show skip indicator
-                ShowSkipIndicator($"+{(skipSeconds >= 60 ? $"{skipSeconds / 60}m" : $"{skipSeconds}s")}");
+                ShowSkipIndicator(FormatSkipIndicator(skipSeconds, forward: true));
 
                 // Always notify about skip - the view will decide how to handle it based on timing
                 ToggleControlsRequested?.Invoke(this, EventArgs.Empty);
@@ -586,16 +443,185 @@ namespace Gelatinarm.ViewModels
             }
         }
 
+        private void CancelResumeForUserSeek(string reason)
+        {
+            if (_playbackParams?.StartPositionTicks == null || _playbackParams.StartPositionTicks == 0)
+            {
+                return;
+            }
+
+            Logger?.LogInformation($"[RESUME-CANCEL] {reason} - clearing resume target");
+            _playbackParams.StartPositionTicks = null;
+            _sessionState.PendingSeekPositionAfterQualitySwitch = 0;
+            _sessionState.HasPerformedInitialSeek = true;
+            _playbackControlService?.CancelPendingResume(reason);
+        }
+
+        private bool EnsurePlaybackStarted(string action)
+        {
+            if (_hasVideoStarted)
+            {
+                return true;
+            }
+
+            Logger.LogWarning($"Cannot {action} - playback has not started yet");
+            return false;
+        }
+
+        private bool EnsureMediaControlService(string action)
+        {
+            if (_mediaControlService != null)
+            {
+                return true;
+            }
+
+            Logger.LogWarning($"MediaControlService is null - cannot {action}");
+            return false;
+        }
+
+        private static int GetSkipSeconds(object parameter, int defaultSeconds)
+        {
+            return parameter is int seconds ? seconds : defaultSeconds;
+        }
+
+        private static string FormatSkipIndicator(int seconds, bool forward)
+        {
+            var direction = forward ? "+" : "-";
+            var label = seconds >= 60 ? $"{seconds / 60}m" : $"{seconds}s";
+            return $"{direction}{label}";
+        }
+
+        private TimeSpan GetCurrentRawPosition()
+        {
+            var offset = _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero;
+            var rawPosition = GetCurrentPlaybackPosition() - offset;
+            return rawPosition < TimeSpan.Zero ? TimeSpan.Zero : rawPosition;
+        }
+
+        private async Task<bool> TryHandleHlsBackwardSeekBeforeManifestStartAsync(int skipSeconds)
+        {
+            if (_playbackControlService?.HlsManifestOffset <= TimeSpan.Zero)
+            {
+                return false;
+            }
+
+            var currentRawPosition = GetCurrentRawPosition();
+            var targetRawPosition = currentRawPosition - TimeSpan.FromSeconds(skipSeconds);
+
+            if (targetRawPosition >= TimeSpan.Zero)
+            {
+                return false;
+            }
+
+            var actualCurrentPosition = GetCurrentPlaybackPosition();
+            var actualTargetPosition = actualCurrentPosition - TimeSpan.FromSeconds(skipSeconds);
+
+            if (actualTargetPosition < TimeSpan.Zero)
+            {
+                actualTargetPosition = TimeSpan.Zero;
+            }
+
+            Logger.LogInformation($"[HLS-SEEK] Backward seek would go before manifest start. Restarting at {actualTargetPosition:mm\\:ss}");
+
+            var restartTicks = actualTargetPosition.Ticks;
+            var wasPlaying = IsPlaying;
+
+            _playbackParams.StartPositionTicks = restartTicks;
+            _mediaControlService.Stop();
+
+            if (_playbackControlService is PlaybackControlService pcs)
+            {
+                pcs.HlsManifestOffset = TimeSpan.Zero;
+            }
+
+            await InitializeAsync(_playbackParams);
+
+            if (wasPlaying)
+            {
+                _mediaControlService.Play();
+            }
+
+            return true;
+        }
+
+        private void LogHlsLargeBackwardSeek(int skipSeconds)
+        {
+            if (!_sessionState.IsHlsStream || skipSeconds < 60)
+            {
+                return;
+            }
+
+            var currentPosWithOffset = GetCurrentPlaybackPosition();
+            var targetPos = currentPosWithOffset - TimeSpan.FromSeconds(skipSeconds);
+
+            if (targetPos < TimeSpan.Zero)
+            {
+                targetPos = TimeSpan.Zero;
+            }
+
+            Logger.LogInformation($"[HLS] Large backward seek: {skipSeconds}s from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} - server may create new manifest");
+        }
+
+        private bool TryPrepareHlsForwardSeek(ref int skipSeconds)
+        {
+            if (!_sessionState.IsHlsStream)
+            {
+                return true;
+            }
+
+            var rawPosition = GetCurrentRawPosition();
+            var hlsManifestOffset = _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero;
+            var currentPosWithOffset = rawPosition + hlsManifestOffset;
+            var targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
+
+            var metadataDuration = CurrentItem?.RunTimeTicks != null && CurrentItem.RunTimeTicks > 0
+                ? TimeSpan.FromTicks(CurrentItem.RunTimeTicks.Value)
+                : TimeSpan.Zero;
+
+            if (metadataDuration > TimeSpan.Zero && targetPos >= metadataDuration - TimeSpan.FromSeconds(30))
+            {
+                Logger.LogWarning($"[HLS] Preventing seek to {targetPos:mm\\:ss} - too close to end ({metadataDuration:mm\\:ss}). This could corrupt the HLS manifest.");
+
+                var safeEndPosition = metadataDuration - TimeSpan.FromSeconds(35);
+                if (currentPosWithOffset < safeEndPosition)
+                {
+                    var adjustedSkip = (int)(safeEndPosition - currentPosWithOffset).TotalSeconds;
+                    Logger.LogInformation($"[HLS] Adjusted skip to {adjustedSkip}s to avoid end-of-stream issues");
+                    skipSeconds = adjustedSkip;
+                    targetPos = currentPosWithOffset + TimeSpan.FromSeconds(skipSeconds);
+                }
+                else
+                {
+                    Logger.LogInformation("[HLS] Already close to end, skipping forward disabled");
+                    return false;
+                }
+            }
+
+            if (skipSeconds >= 60 && hlsManifestOffset > TimeSpan.Zero)
+            {
+                Logger.LogInformation($"[HLS-MANIFEST-OFFSET] Large seek with offset. Current raw: {rawPosition:mm\\:ss}, offset: {hlsManifestOffset:mm\\:ss}, target absolute: {targetPos:mm\\:ss}");
+                _mediaControlService.SeekTo(rawPosition + TimeSpan.FromSeconds(skipSeconds));
+                _sessionState.RecordLargeSeek(targetPos);
+                return false;
+            }
+
+            if (skipSeconds >= 60)
+            {
+                _sessionState.RecordLargeSeek(targetPos);
+                Logger.LogInformation($"[HLS] Large seek detected: {skipSeconds}s forward from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} (pending seeks: {_sessionState.PendingSeekCount})");
+            }
+
+            return true;
+        }
+
         [RelayCommand]
         private async Task SkipIntro()
         {
             var context = CreateErrorContext("SkipIntro", ErrorCategory.Media);
             try
             {
-                // Block skipping before playback has actually started
-                if (!_hasVideoStarted)
+                if (!EnsurePlaybackStarted("skip intro"))
                 {
-                    Logger.LogWarning("Cannot skip intro - playback has not started yet");
                     return;
                 }
 
@@ -627,10 +653,8 @@ namespace Gelatinarm.ViewModels
             var context = CreateErrorContext("SkipOutro", ErrorCategory.Media);
             try
             {
-                // Block skipping before playback has actually started
-                if (!_hasVideoStarted)
+                if (!EnsurePlaybackStarted("skip outro"))
                 {
-                    Logger.LogWarning("Cannot skip outro - playback has not started yet");
                     return;
                 }
 
@@ -690,22 +714,14 @@ namespace Gelatinarm.ViewModels
             {
                 if (subtitle != SelectedSubtitle)
                 {
-                    // Handle position tracking for resume after track change
-                    if (_isCurrentStreamHls)
-                    {
-                        PrepareHlsTrackChange();
-                    }
-                    else
-                    {
-                        _pendingSeekPositionAfterQualitySwitch = Position.Ticks;
-                    }
+                    Logger?.LogInformation(
+                        $"Subtitle change requested: {subtitle?.DisplayTitle} (Index={subtitle?.ServerStreamIndex})");
+                    PrepareResumeForTrackChange();
 
                     await _subtitleService.ChangeSubtitleTrackAsync(subtitle);
                     SelectedSubtitle = subtitle;
 
-                    // Reset flags so resume position is applied when video is ready
-                    _hasPerformedInitialSeek = false;
-                    _hasVideoStarted = false;
+                    ResetResumeFlagsAfterTrackChange();
                 }
 
                 success = true;
@@ -740,22 +756,14 @@ namespace Gelatinarm.ViewModels
             {
                 if (audioTrack != null && audioTrack != SelectedAudioTrack)
                 {
-                    // Handle position tracking for resume after track change
-                    if (_isCurrentStreamHls)
-                    {
-                        PrepareHlsTrackChange();
-                    }
-                    else
-                    {
-                        _pendingSeekPositionAfterQualitySwitch = Position.Ticks;
-                    }
+                    Logger?.LogInformation(
+                        $"Audio track change requested: {audioTrack.DisplayName} (Index={audioTrack.ServerStreamIndex})");
+                    PrepareResumeForTrackChange();
 
                     await _playbackControlService.ChangeAudioTrackAsync(audioTrack);
                     SelectedAudioTrack = audioTrack;
 
-                    // Reset flags so resume position is applied when video is ready
-                    _hasPerformedInitialSeek = false;
-                    _hasVideoStarted = false;
+                    ResetResumeFlagsAfterTrackChange();
                 }
 
                 success = true;
@@ -788,29 +796,23 @@ namespace Gelatinarm.ViewModels
             IsStatsVisible = _playbackStatisticsService.IsVisible;
         }
 
-        [RelayCommand]
-        private async Task ToggleShuffle()
+        private void PrepareResumeForTrackChange()
         {
-            var context = CreateErrorContext("ToggleShuffle", ErrorCategory.Media);
-            try
+            if (_sessionState.IsHlsStream)
             {
-                await _mediaNavigationService.SetShuffleModeAsync(!IsShuffleEnabled);
-                IsShuffleEnabled = _mediaNavigationService.IsShuffleEnabled();
+                PrepareHlsTrackChange();
             }
-            catch (Exception ex)
+            else
             {
-                if (ErrorHandler != null)
-                {
-                    context.Source = context.Source ?? GetType().Name;
-                    await ErrorHandler.HandleErrorAsync(ex, context, false);
-                }
-                else
-                {
-                    Logger?.LogError(ex, $"Error in {GetType().Name}.{context?.Operation}");
-                    ErrorMessage = ex.Message;
-                    IsError = true;
-                }
+                _sessionState.PendingSeekPositionAfterQualitySwitch = Position.Ticks;
             }
+        }
+
+        private void ResetResumeFlagsAfterTrackChange()
+        {
+            // Reset flags so resume position is applied when video is ready
+            _sessionState.HasPerformedInitialSeek = false;
+            _hasVideoStarted = false;
         }
 
         [RelayCommand]
@@ -933,7 +935,7 @@ namespace Gelatinarm.ViewModels
                     if (CurrentItem == null && !string.IsNullOrEmpty(playbackParams.ItemId))
                     {
                         Logger.LogInformation($"Loading item details for ID: {playbackParams.ItemId}");
-                        var mediaPlaybackService = App.Current.Services.GetService<IMediaPlaybackService>();
+                        var mediaPlaybackService = GetService<IMediaPlaybackService>();
                         if (mediaPlaybackService != null)
                         {
                             CurrentItem =
@@ -1171,7 +1173,7 @@ namespace Gelatinarm.ViewModels
                 // Report playback start position
                 // For HLS streams, always report 0 to avoid server restart issues
                 var isHlsStream = playbackInfo.MediaSources?.FirstOrDefault()?.TranscodingUrl?.Contains(".m3u8") == true;
-                _isCurrentStreamHls = isHlsStream; // Store for later use
+                _sessionState.IsHlsStream = isHlsStream; // Store for later use
 
                 // For HLS streams with resume, we'll do a client-side seek after playback starts
                 // We don't use manifest offset tracking for initial resume since the server
@@ -1193,7 +1195,7 @@ namespace Gelatinarm.ViewModels
                 // Preload next episode if applicable
                 if (CurrentItem.Type == BaseItemDto_Type.Episode)
                 {
-                    AsyncHelper.FireAndForget(async () => await PreloadNextEpisodeAsync());
+                    FireAndForget(async () => await PreloadNextEpisodeAsync());
                 }
 
             }
@@ -1363,29 +1365,12 @@ namespace Gelatinarm.ViewModels
                     }
 
                     // Log if we detect HLS corruption (duration becomes unreasonably short)
-                    if (_isCurrentStreamHls && metadataDuration > TimeSpan.FromMinutes(5) && duration < TimeSpan.FromMinutes(1))
+                    if (_sessionState.IsHlsStream && metadataDuration > TimeSpan.FromMinutes(5) && duration < TimeSpan.FromMinutes(1))
                     {
                         Logger.LogError($"[HLS-CORRUPTION] Duration corruption detected! Natural: {duration:mm\\:ss}, Metadata: {metadataDuration:mm\\:ss}, Position: {currentPosition:mm\\:ss}");
                     }
 
-                    // Check for HLS manifest recreation from backward seek
-                    if (_isCurrentStreamHls && _expectedHlsSeekTarget != TimeSpan.Zero)
-                    {
-                        var timeSinceSeek = (DateTime.UtcNow - _lastSeekTime).TotalSeconds;
-                        if (timeSinceSeek < 5 && _pendingSeekCount > 0) // Recent seek
-                        {
-                            // Check if we're at position 0 (new manifest created)
-                            if (currentPosition.TotalSeconds < 1)
-                            {
-                                _pendingSeekCount = Math.Max(0, _pendingSeekCount - 1);
-                                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected new manifest creation after backward seek (pending: {_pendingSeekCount})");
-                                _hlsManifestOffset = _expectedHlsSeekTarget;
-                                _hlsManifestOffsetApplied = true; // Mark as applied since we're already at position 0
-                                _expectedHlsSeekTarget = TimeSpan.Zero;
-                                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Position 0 in new manifest = {_hlsManifestOffset:mm\\:ss}");
-                            }
-                        }
-                    }
+                    TryApplyHlsManifestChangeAfterBackwardSeek(currentPosition);
 
                     // Update internal position so the Position property getter can add HLS offset
                     _position = currentPosition;
@@ -1468,89 +1453,111 @@ namespace Gelatinarm.ViewModels
 
             try
             {
-                // Check if we're still buffering and have exceeded the timeout
-                if (_bufferingStartTime.HasValue && IsBuffering)
+                if (TryHandleBufferingTimeout())
                 {
-                    var bufferingDuration = DateTime.UtcNow - _bufferingStartTime.Value;
-
-                    if (bufferingDuration.TotalSeconds >= BUFFERING_TIMEOUT_SECONDS)
-                    {
-                        var actualPosition = GetCurrentPlaybackPosition();
-                        Logger.LogWarning($"[BUFFERING-TIMEOUT] Buffering timeout reached after {bufferingDuration.TotalSeconds:F1}s at position {actualPosition:mm\\:ss}, HLS: {_isCurrentStreamHls}");
-
-                        if (_isCurrentStreamHls)
-                        {
-                            Logger.LogWarning("[BUFFERING-TIMEOUT] HLS stream stuck - attempting recovery by toggling playback");
-
-                            // Try recovery: pause and play to restart the stream
-                            if (_mediaControlService != null)
-                            {
-                                _mediaControlService.Pause();
-                                AsyncHelper.FireAndForget(async () =>
-                                {
-                                    await Task.Delay(500);
-                                    await RunOnUIThreadAsync(() =>
-                                    {
-                                        if (_mediaControlService != null)
-                                        {
-                                            Logger.LogInformation("[BUFFERING-RECOVERY] Attempting to resume playback");
-                                            _mediaControlService.Play();
-                                        }
-                                    });
-                                });
-
-                                // Give recovery attempt 10 more seconds
-                                _bufferingStartTime = DateTime.UtcNow.AddSeconds(-20); // Reset to 20s ago so we get 10 more seconds
-                                Logger.LogInformation("[BUFFERING-RECOVERY] Recovery attempted, extending timeout by 10 seconds");
-                                return; // Don't give up yet
-                            }
-                        }
-
-                        // If we get here, recovery failed or not applicable
-                        // Stop the timer
-                        _bufferingTimeoutTimer?.Stop();
-
-                        Logger.LogError($"[BUFFERING-TIMEOUT] Unable to recover, giving up");
-
-                        // Reset buffering tracking
-                        _bufferingStartTime = null;
-
-                        // Show error to user
-                        ErrorMessage = "Playback is taking too long. Please check your network connection.";
-                        IsError = true;
-
-                        // Navigate back after showing error for a few seconds
-                        AsyncHelper.FireAndForget(async () =>
-                        {
-                            // Give user time to read the error message
-                            await Task.Delay(3000);
-
-                            // Clear error and navigate back
-                            await UIHelper.RunOnUIThreadAsync(() =>
-                            {
-                                IsError = false;
-                                ErrorMessage = string.Empty;
-
-                                if (_navigationService?.CanGoBack == true)
-                                {
-                                    _navigationService.GoBack();
-                                    Logger.LogInformation("[BUFFERING-TIMEOUT] Navigated back after buffering timeout");
-                                }
-                            }, logger: Logger);
-                        });
-                    }
+                    return;
                 }
-                else if (!IsBuffering)
+
+                if (!IsBuffering)
                 {
-                    // If we're no longer buffering, stop the timer
-                    _bufferingTimeoutTimer?.Stop();
-                    _bufferingStartTime = null;
+                    ResetBufferingTimeout();
                 }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error in buffering timeout check");
             }
+        }
+
+        private bool TryHandleBufferingTimeout()
+        {
+            if (!_bufferingStartTime.HasValue || !IsBuffering)
+            {
+                return false;
+            }
+
+            var bufferingDuration = DateTime.UtcNow - _bufferingStartTime.Value;
+            if (bufferingDuration.TotalSeconds < BUFFERING_TIMEOUT_SECONDS)
+            {
+                return false;
+            }
+
+            var actualPosition = GetCurrentPlaybackPosition();
+            Logger.LogWarning($"[BUFFERING-TIMEOUT] Buffering timeout reached after {bufferingDuration.TotalSeconds:F1}s at position {actualPosition:mm\\:ss}, HLS: {_sessionState.IsHlsStream}");
+
+            if (TryRecoverHlsBuffering())
+            {
+                return true;
+            }
+
+            HandleBufferingTimeoutFailure();
+            return true;
+        }
+
+        private bool TryRecoverHlsBuffering()
+        {
+            if (!_sessionState.IsHlsStream)
+            {
+                return false;
+            }
+
+            Logger.LogWarning("[BUFFERING-TIMEOUT] HLS stream stuck - attempting recovery by toggling playback");
+
+            if (_mediaControlService == null)
+            {
+                return false;
+            }
+
+            _mediaControlService.Pause();
+            FireAndForget(async () =>
+            {
+                await Task.Delay(500);
+                await RunOnUIThreadAsync(() =>
+                {
+                    if (_mediaControlService != null)
+                    {
+                        Logger.LogInformation("[BUFFERING-RECOVERY] Attempting to resume playback");
+                        _mediaControlService.Play();
+                    }
+                });
+            });
+
+            // Give recovery attempt 10 more seconds
+            _bufferingStartTime = DateTime.UtcNow.AddSeconds(-20); // Reset to 20s ago so we get 10 more seconds
+            Logger.LogInformation("[BUFFERING-RECOVERY] Recovery attempted, extending timeout by 10 seconds");
+            return true;
+        }
+
+        private void HandleBufferingTimeoutFailure()
+        {
+            ResetBufferingTimeout();
+            Logger.LogError("[BUFFERING-TIMEOUT] Unable to recover, giving up");
+
+            ErrorMessage = "Playback is taking too long. Please check your network connection.";
+            IsError = true;
+
+            FireAndForget(async () =>
+            {
+                await Task.Delay(3000);
+
+                await UIHelper.RunOnUIThreadAsync(() =>
+                {
+                    IsError = false;
+                    ErrorMessage = string.Empty;
+
+                    if (_navigationService?.CanGoBack == true)
+                    {
+                        _navigationService.GoBack();
+                        Logger.LogInformation("[BUFFERING-TIMEOUT] Navigated back after buffering timeout");
+                    }
+                }, logger: Logger);
+            });
+        }
+
+        private void ResetBufferingTimeout()
+        {
+            _bufferingTimeoutTimer?.Stop();
+            _bufferingStartTime = null;
         }
 
         private void OnStatsUpdateTimerTick(object sender, object e)
@@ -1626,323 +1633,25 @@ namespace Gelatinarm.ViewModels
 
         private async void OnPlaybackStateChanged(MediaPlaybackSession sender, object args)
         {
-            // Check if we're disposed
-            if (_isDisposed)
+            await _playbackStateOrchestrator.HandlePlaybackStateChangedAsync(new PlaybackStateChangeContext
             {
-                Logger.LogDebug("[VM-PLAYBACK-STATE] Event fired after disposal, ignoring");
-                return;
-            }
-
-            try
-            {
-                // Log immediately to see if we even enter the handler
-                Logger.LogInformation($"[VM-PLAYBACK-STATE] Handler entered");
-
-                // Get state before doing anything else
-                MediaPlaybackState newState = MediaPlaybackState.None;
-                try
-                {
-                    newState = sender.PlaybackState;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError(ex, "[VM-PLAYBACK-STATE] Failed to get PlaybackState from sender");
-                    return;
-                }
-
-                // Log state change with safe BufferingProgress access
-                double bufferProgress = 1.0;
-                try
-                {
-                    bufferProgress = sender?.BufferingProgress ?? 1.0;
-                }
-                catch (InvalidCastException)
-                {
-                    // Expected for HLS streams
-                }
-
-                Logger.LogInformation($"[VM-PLAYBACK-STATE] State changed to: {newState}, " +
-                    $"Position: {sender?.Position.TotalSeconds:F2}s, " +
-                    $"BufferingProgress: {bufferProgress:P}");
-
-                // Ensure we're on UI thread
-                await RunOnUIThreadAsync(async () =>
-                {
-                    try
-                    {
-                        var wasBuffering = IsBuffering;
-                        var rawPosition = sender.Position;
-
-                        // Update the internal position first
-                        _position = rawPosition;
-
-                        // Use the Position property which includes HLS manifest offset
-                        var position = Position;
-
-                        // BufferingProgress often throws InvalidCastException during HLS playback
-                        // We'll safely access it only when needed
-                        double bufferingProgress = 1.0;
-                        try
-                        {
-                            bufferingProgress = sender.BufferingProgress;
-                        }
-                        catch (InvalidCastException)
-                        {
-                            // Expected for HLS streams - ignore
-                        }
-
-                        // CanSeek can throw COMException during media source changes
-                        bool canSeek = true;
-                        try
-                        {
-                            canSeek = sender.CanSeek;
-                        }
-                        catch (System.Runtime.InteropServices.COMException)
-                        {
-                            // Expected during media source transitions - ignore
-                        }
-
-                        Logger.LogInformation($"PlaybackStateChanged: {newState}, Position: {position.TotalSeconds:F2}s, BufferingProgress: {bufferingProgress:F2}, CanSeek: {canSeek}, WasBuffering: {wasBuffering}");
-
-                        // Update buffering state
-                        IsBuffering = newState == MediaPlaybackState.Buffering;
-
-                        // Log buffering state changes and manage timeout timer
-                        if (IsBuffering && !wasBuffering)
-                        {
-                            Logger.LogInformation($"Buffering started at position {position:mm\\:ss}, HLS: {_isCurrentStreamHls}");
-
-                            // For HLS with expected seek target, check if manifest has changed
-                            if (_isCurrentStreamHls && _expectedHlsSeekTarget > TimeSpan.Zero)
-                            {
-                                var naturalDuration = sender?.NaturalDuration;
-                                var metadataDuration = GetMetadataDuration();
-
-                                if (naturalDuration.HasValue && metadataDuration > TimeSpan.Zero)
-                                {
-                                    var durationDiff = Math.Abs((naturalDuration.Value - metadataDuration).TotalSeconds);
-                                    if (durationDiff > 10 && naturalDuration.Value < metadataDuration)
-                                    {
-                                        Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected during buffering. Natural: {naturalDuration.Value:mm\\:ss}, Metadata: {metadataDuration:mm\\:ss}");
-                                        // Set up manifest offset for the new manifest
-                                        _hlsManifestOffset = _expectedHlsSeekTarget;
-                                        _hlsManifestOffsetApplied = false;
-                                        _expectedHlsSeekTarget = TimeSpan.Zero;
-                                        Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Position 0 in new manifest = {_hlsManifestOffset:mm\\:ss}");
-                                    }
-                                }
-                            }
-
-                            // Track buffering start time
-                            _bufferingStartTime = DateTime.UtcNow;
-
-                            // Handle HLS-specific buffering fix (pass session to avoid cross-thread issues)
-                            HandleHlsBufferingFix(sender);
-
-                            // Start buffering timeout timer for all streams
-                            // (After seek, a direct play stream might become HLS transcode)
-                            _bufferingTimeoutTimer?.Start();
-                            Logger.LogInformation($"[BUFFERING-TIMEOUT] Started {BUFFERING_TIMEOUT_SECONDS}s timeout timer for {(_isCurrentStreamHls ? "HLS" : "direct")} stream");
-                        }
-                        else if (!IsBuffering && wasBuffering)
-                        {
-                            Logger.LogInformation($"Buffering ended at position {position:mm\\:ss}, transitioning to {newState}");
-
-                            // Stop buffering timeout timer
-                            if (_bufferingStartTime.HasValue)
-                            {
-                                var bufferingDuration = DateTime.UtcNow - _bufferingStartTime.Value;
-                                Logger.LogInformation($"[BUFFERING-END] Buffering completed after {bufferingDuration.TotalSeconds:F1}s");
-                            }
-
-                            _bufferingTimeoutTimer?.Stop();
-                            _bufferingStartTime = null;
-                            _isHlsTrackChange = false; // Reset flag if buffering ends
-
-                            // Don't need to do anything here - resume is handled when transitioning to Playing state
-                        }
-
-                        // When we transition to Playing state, video is ready for operations
-                        if (newState == MediaPlaybackState.Playing)
-                        {
-                            Logger.LogInformation($"Transitioned to Playing state at {position:mm\\:ss}");
-
-                            // Mark video as started when we first transition to Playing state
-                            if (!_hasVideoStarted)
-                            {
-                                _hasVideoStarted = true;
-                                Logger.LogInformation("Video playback started");
-                            }
-
-                            // Check if we need to apply resume position
-                            // This should happen on first transition to Playing state
-                            if (!_hasPerformedInitialSeek && _playbackParams?.StartPositionTicks > 0)
-                            {
-                                Logger.LogInformation("Video playback started - checking for resume position");
-
-                                // Mark that we've started the resume process to prevent duplicate attempts
-                                _hasPerformedInitialSeek = true;
-
-                                // For HLS streams WITH RESUME, wait briefly to let server establish the stream
-                                // The enhanced HLS resume logic will handle retries if needed
-                                if (_isCurrentStreamHls && _playbackParams?.StartPositionTicks > 0 && !_hasPerformedInitialSeek)
-                                {
-                                    Logger.LogInformation("[HLS-RESUME] Waiting 1 second for HLS manifest to stabilize before applying resume");
-
-                                    await Task.Delay(1000); // Brief wait to let server establish the stream
-
-                                    // Check if we're still playing and haven't been interrupted
-                                    if (MediaPlayerElement?.MediaPlayer?.PlaybackSession?.PlaybackState != MediaPlaybackState.Playing)
-                                    {
-                                        Logger.LogWarning("[HLS-RESUME] Playback state changed during wait, skipping resume");
-                                        return;
-                                    }
-                                }
-
-                                // Apply resume position now that playback has started
-                                // Enhanced resume logic with retry support for both HLS and DirectPlay
-                                var resumeResult = await TryApplyResumePositionAsync();
-
-                                // If resume succeeded immediately, log it
-                                if (resumeResult)
-                                {
-                                    Logger.LogInformation("Applied resume position on playback start");
-                                }
-
-                                // May need multiple attempts for both HLS and DirectPlay streams
-                                if (!resumeResult && _playbackControlService != null && _playbackParams?.StartPositionTicks > 0)
-                                {
-                                    var retryCount = 0;
-                                    var maxRetries = _isCurrentStreamHls ? 15 : 8; // HLS needs more time for server to transcode
-                                    var retryDelay = _isCurrentStreamHls ? 5000 : 1000; // HLS needs longer delays for server to restart transcode
-
-                                    while (!resumeResult && retryCount < maxRetries)
-                                    {
-                                        retryCount++;
-
-                                        // Check if still needs resume (for both HLS and DirectPlay)
-                                        var stillPending = _isCurrentStreamHls ?
-                                            _playbackControlService.IsHlsResumeInProgress() :
-                                            !_hasPerformedInitialSeek;
-
-
-                                        if (stillPending)
-                                        {
-                                            var streamType = _isCurrentStreamHls ? "HLS-RESUME" : "DirectPlay";
-                                            Logger.LogInformation($"[{streamType}] Retry {retryCount}/{maxRetries} in {retryDelay}ms");
-                                            await Task.Delay(retryDelay);
-
-                                            resumeResult = await TryApplyResumePositionAsync();
-
-                                            // If resume succeeded, exit immediately
-                                            if (resumeResult)
-                                            {
-                                                break;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            Logger.LogInformation($"Resume no longer pending, stopping retries");
-                                            break;
-                                        }
-                                    }
-
-                                    if (resumeResult)
-                                    {
-                                        var streamType = _isCurrentStreamHls ? "HLS" : "DirectPlay";
-                                        Logger.LogInformation($"[{streamType}] Successfully resumed after {retryCount} retries");
-
-                                        // Resume succeeded
-
-                                        // Resume successful - no opacity/mute restoration needed
-
-                                        // Check if we ended up at a different position than requested (common with HLS -noaccurate_seek)
-                                        var actualPosition = MediaPlayerElement?.MediaPlayer?.PlaybackSession?.Position ?? TimeSpan.Zero;
-                                        var targetPosition = TimeSpan.FromTicks(_playbackParams?.StartPositionTicks ?? 0);
-                                        var diff = Math.Abs((actualPosition - targetPosition).TotalSeconds);
-
-                                        if (diff > 3.0)
-                                        {
-                                            Logger.LogInformation($"[{streamType}] Accepted server position {actualPosition:mm\\:ss} (target was {targetPosition:mm\\:ss}, diff: {diff:F1}s)");
-                                            // Note: We don't update StartPositionTicks here as it's used for progress reporting
-                                        }
-                                    }
-                                    else
-                                    {
-                                        var streamType = _isCurrentStreamHls ? "HLS" : "DirectPlay";
-                                        Logger.LogWarning($"[{streamType}] Failed to resume after all retries");
-
-                                        // Resume failed - already marked as attempted earlier
-
-                                        // Resume failed - no opacity/mute restoration needed
-
-                                        // Show error to user when resume fails
-                                        if (ErrorHandler != null)
-                                        {
-                                            var errorContext = new ErrorContext(
-                                                source: "MediaPlayerViewModel",
-                                                operation: "ResumePlayback",
-                                                category: ErrorCategory.Media,
-                                                severity: ErrorSeverity.Warning)
-                                            {
-                                                Data = new System.Collections.Generic.Dictionary<string, object>
-                                                {
-                                                    ["ItemName"] = CurrentItem?.Name ?? "Unknown",
-                                                    ["ResumePosition"] = TimeSpan.FromTicks(_playbackParams.StartPositionTicks ?? 0).ToString(@"mm\:ss"),
-                                                    ["StreamType"] = streamType
-                                                }
-                                            };
-
-                                            // Mark as failed
-                                            _hasPerformedInitialSeek = true;
-
-                                            // Use non-async HandleError method to show dialog
-                                            var context = CreateErrorContext("ResumePlayback", ErrorCategory.Media, ErrorSeverity.Error);
-
-                                            // Use specific exception type for better error handling
-                                            var currentPos = MediaPlayerElement?.MediaPlayer?.PlaybackSession?.Position ?? TimeSpan.Zero;
-                                            var targetPos = TimeSpan.FromTicks(_playbackParams?.StartPositionTicks ?? 0);
-                                            var resumeException = new ResumeStuckException(currentPos, targetPos, retryCount);
-
-                                            ErrorHandler?.HandleError(resumeException, context, showUserMessage: true);
-
-                                            // Small delay to allow dialog to appear before navigation
-                                            await Task.Delay(100);
-
-                                            // Navigate back after dialog attempt
-                                            if (_navigationService?.CanGoBack == true)
-                                            {
-                                                _navigationService.GoBack();
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (resumeResult)
-                                {
-                                    Logger.LogInformation("Applied resume position on playback start");
-                                }
-
-                                // Resume completed - no opacity/mute restoration needed
-                                if (_isCurrentStreamHls && _playbackParams?.StartPositionTicks > 0 && resumeResult)
-                                {
-                                    // For HLS, if resume was applied, log success
-                                    var resumeTime = TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value);
-                                    Logger.LogInformation($"HLS stream - resume to {resumeTime:hh\\:mm\\:ss} completed");
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception innerEx)
-                    {
-                        Logger.LogError(innerEx, $"Error inside RunOnUIThreadAsync for state {newState}");
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error in OnPlaybackStateChanged event handler (outer)");
-            }
+                IsDisposed = _isDisposed,
+                Session = sender,
+                SessionState = _sessionState,
+                BufferingTimeoutTimer = _bufferingTimeoutTimer,
+                SetRawPosition = position => _position = position,
+                GetDisplayPosition = () => Position,
+                GetMetadataDuration = GetMetadataDuration,
+                HandleHlsBufferingFix = HandleHlsBufferingFix,
+                RunOnUiThreadAsync = RunOnUIThreadAsync,
+                GetIsBuffering = () => IsBuffering,
+                SetIsBuffering = value => IsBuffering = value,
+                GetBufferingStartTime = () => _bufferingStartTime,
+                SetBufferingStartTime = value => _bufferingStartTime = value,
+                GetHasVideoStarted = () => _hasVideoStarted,
+                SetHasVideoStarted = value => _hasVideoStarted = value,
+                HandleResumeOnPlaybackStartAsync = HandleResumeOnPlaybackStartAsync
+            });
         }
 
 
@@ -1956,9 +1665,66 @@ namespace Gelatinarm.ViewModels
             IsNextEpisodeAvailable = _mediaNavigationService.HasNextItem();
         }
 
+        partial void OnCurrentItemChanged(BaseItemDto value)
+        {
+        }
+
         private void OnStatsUpdated(object sender, PlaybackStats stats)
         {
             CurrentStats = stats;
+        }
+
+        private async Task HandleResumeOnPlaybackStartAsync()
+        {
+            if (_resumeAttemptInProgress)
+            {
+                Logger.LogDebug("Resume attempt already in progress, skipping duplicate call");
+                return;
+            }
+
+            _resumeAttemptInProgress = true;
+            try
+            {
+                var outcome = await _resumeFlowCoordinator.HandleResumeOnPlaybackStartAsync(new ResumeFlowContext
+                {
+                    SessionState = _sessionState,
+                    PlaybackParams = _playbackParams,
+                    GetCurrentPosition = () => GetCurrentPlaybackPosition(),
+                    OnHlsResumeFixCompleted = CompleteHlsResumeFix,
+                    OnResumeFailedAsync = HandleResumeFailureAsync
+                });
+
+                if (outcome.Success)
+                {
+                    Logger.LogInformation("Applied resume position on playback start");
+                }
+            }
+            finally
+            {
+                _resumeAttemptInProgress = false;
+            }
+        }
+
+        private async Task HandleResumeFailureAsync(ResumeFailureContext failureContext)
+        {
+            if (ErrorHandler == null)
+            {
+                return;
+            }
+
+            _sessionState.HasPerformedInitialSeek = true;
+
+            var context = CreateErrorContext("ResumePlayback", ErrorCategory.Media, ErrorSeverity.Error);
+            var resumeException = new ResumeStuckException(failureContext.CurrentPosition, failureContext.TargetPosition, failureContext.RetryCount);
+
+            ErrorHandler?.HandleError(resumeException, context, showUserMessage: true);
+
+            await Task.Delay(100);
+
+            if (_navigationService?.CanGoBack == true)
+            {
+                _navigationService.GoBack();
+            }
         }
 
         public void SetControlsVisible(bool visible)
@@ -2093,10 +1859,13 @@ namespace Gelatinarm.ViewModels
 
             try
             {
+                var sessionSnapshot = PlaybackSessionSnapshot.Capture(
+                    sender.PlaybackSession,
+                    skipBufferingProgress: _sessionState.IsHlsStream);
                 Logger.LogInformation(
-                    $"[MEDIA-OPENED] Natural duration: {sender.PlaybackSession.NaturalDuration.TotalSeconds}s, " +
-                    $"CanSeek: {sender.PlaybackSession.CanSeek}, " +
-                    $"IsProtected: {sender.PlaybackSession.IsProtected}");
+                    $"[MEDIA-OPENED] Natural duration: {sessionSnapshot.NaturalDuration.TotalSeconds}s, " +
+                    $"CanSeek: {sessionSnapshot.CanSeek}, " +
+                    $"IsProtected: {sessionSnapshot.IsProtected}");
 
                 // Log memory after media opens
                 var memoryUsage = Windows.System.MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
@@ -2155,233 +1924,114 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        /// <summary>
-        /// Attempts to apply pending resume position with proper safeguards
-        /// </summary>
-        private async Task<bool> TryApplyResumePositionAsync()
-        {
-            Logger.LogInformation($"TryApplyResumePositionAsync called. HasPerformedInitialSeek: {_hasPerformedInitialSeek}");
-
-            bool resumeApplied = false;
-
-            // First check if we have a pending seek from quality/track change
-            if (_pendingSeekPositionAfterQualitySwitch > 0)
-            {
-                var targetPosition = TimeSpan.FromTicks(_pendingSeekPositionAfterQualitySwitch);
-                Logger.LogInformation($"Applying pending seek after quality/track switch to {targetPosition:mm\\:ss}");
-
-                if (MediaPlayerElement?.MediaPlayer?.PlaybackSession != null)
-                {
-                    try
-                    {
-                        MediaPlayerElement.MediaPlayer.PlaybackSession.Position = targetPosition;
-                        _pendingSeekPositionAfterQualitySwitch = 0;
-                        resumeApplied = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, $"Failed to apply quality/track switch resume position");
-                    }
-                }
-            }
-            // Check for normal resume position from PlaybackControlService
-            // For HLS, this will trigger the server to create a new manifest at the resume position
-            // Note: ApplyPendingResumePosition returns false when it needs more retries, not just when there's no position
-            else if (_playbackControlService != null)
-            {
-                var result = _playbackControlService.ApplyPendingResumePosition();
-                if (result)
-                {
-                    Logger.LogInformation($"Applied pending resume position from PlaybackControlService");
-                    resumeApplied = true;
-
-                    // For HLS streams, when PlaybackControlService detects stuck buffering and seeks to position 0,
-                    // it will set HlsManifestOffset. We only need to set up our local tracking if that happened.
-                    if (_isCurrentStreamHls && _playbackControlService.HlsManifestOffset > TimeSpan.Zero)
-                    {
-                        var resumePos = _playbackControlService.HlsManifestOffset;
-                        Logger.LogInformation($"[HLS-RESUME] PlaybackControlService applied manifest offset workaround at {resumePos:mm\\:ss}");
-
-                        // Don't double-apply the offset - PlaybackControlService already set it
-                        // Just mark our local tracking as complete
-                        _hlsManifestOffset = TimeSpan.Zero; // Clear local offset since PlaybackControlService is handling it
-                        _hlsManifestOffsetApplied = false;
-                        CompleteHlsResumeFix();
-                    }
-                }
-                // If false, it either needs more retries or there's no pending position
-                // The retry loop in the caller will handle this
-            }
-
-            // Common handling for successful resume
-            if (resumeApplied)
-            {
-                _hasPerformedInitialSeek = true;
-                return true;
-            }
-
-            // Return false - either no resume position or needs more retries
-            return false;
-        }
-
-
         private async void OnSeekCompleted(MediaPlayer sender, object args)
         {
             if (_isDisposed) return;
 
             try
             {
-                var seekPosition = sender?.PlaybackSession?.Position ?? TimeSpan.Zero;
-                Logger.LogInformation($"[SEEK-COMPLETED] Position after seek: {seekPosition.TotalSeconds:F2}s");
-
                 await RunOnUIThreadAsync(() =>
-            {
-                var position = sender?.PlaybackSession?.Position ?? TimeSpan.Zero;
-                var state = sender?.PlaybackSession?.PlaybackState;
-                var naturalDuration = sender?.PlaybackSession?.NaturalDuration;
-                var metadataDuration = GetMetadataDuration();
-
-                // Decrement pending seek count
-                if (_pendingSeekCount > 0)
                 {
-                    Interlocked.Decrement(ref _pendingSeekCount);
-                }
+                    var position = sender?.PlaybackSession?.Position ?? TimeSpan.Zero;
+                    var state = sender?.PlaybackSession?.PlaybackState;
+                    var naturalDuration = sender?.PlaybackSession?.NaturalDuration;
+                    var metadataDuration = GetMetadataDuration();
 
-                Logger.LogInformation($"SeekCompleted event fired. Position: {position:mm\\:ss}, State: {state}, Pending seeks: {_pendingSeekCount}");
-                Logger.LogInformation($"NaturalDuration after seek: {naturalDuration:mm\\:ss}, MetadataDuration: {metadataDuration:mm\\:ss}");
-
-                // Store the actual position for manifest corruption detection
-                // This helps detect when initial resume creates a truncated manifest
-                if (_isCurrentStreamHls && !_hasPerformedInitialSeek)
-                {
-                    _actualResumePosition = position;
-                    _hasPerformedInitialSeek = true;
-                }
-
-                // For HLS streams with resume, after the initial client-side seek completes,
-                // the server creates a new manifest starting at the seek position
-                if (_isCurrentStreamHls && _hlsManifestOffset > TimeSpan.Zero && !_hasPerformedInitialSeek)
-                {
-                    // Check if we just completed the initial resume seek
-                    var expectedResumePos = _hlsManifestOffset;
-                    var diff = Math.Abs((position - expectedResumePos).TotalSeconds);
-
-                    if (diff < 5) // We're close to the expected resume position
+                    _seekCompletionCoordinator.HandleSeekCompleted(new SeekCompletionContext
                     {
-                        Logger.LogInformation($"[HLS-RESUME] Initial seek to {position:mm\\:ss} completed, server should create new manifest");
-                        _hasPerformedInitialSeek = true;
-
-                        // The server now has a new manifest starting at this position
-                        // If we get stuck buffering, we'll need to seek to position 0 of that manifest
-                    }
-                }
-
-                // Check if NaturalDuration has changed unexpectedly (HLS manifest recreation/corruption)
-                if (naturalDuration.HasValue && metadataDuration > TimeSpan.Zero)
-                {
-                    var durationDiff = Math.Abs((naturalDuration.Value - metadataDuration).TotalSeconds);
-                    if (durationDiff > 10) // More than 10 seconds difference
-                    {
-                        Logger.LogWarning($"Duration mismatch after seek! Natural: {naturalDuration:mm\\:ss}, Metadata: {metadataDuration:mm\\:ss}, Diff: {durationDiff:F1}s");
-
-                        // Detect potential HLS manifest issues from resume
-                        if (_isCurrentStreamHls && naturalDuration.Value < metadataDuration * 0.5)
-                        {
-                            Logger.LogWarning($"[HLS-MANIFEST] Manifest appears truncated after resume seek");
-                            Logger.LogWarning($"[HLS-MANIFEST] Natural duration is only {(naturalDuration.Value.TotalSeconds / metadataDuration.TotalSeconds * 100):F1}% of expected");
-
-                            // If we're paused, try auto-playing to recover
-                            if (sender?.PlaybackSession?.PlaybackState == MediaPlaybackState.Paused)
-                            {
-                                Logger.LogInformation($"[HLS-RECOVERY] Attempting to recover by resuming playback");
-                                _ = Task.Run(async () =>
-                                {
-                                    await Task.Delay(500); // Brief delay
-                                    await RunOnUIThreadAsync(() =>
-                                    {
-                                        if (_mediaControlService != null && !IsPlaying)
-                                        {
-                                            Logger.LogInformation($"[HLS-RECOVERY] Auto-playing to recover from manifest issue");
-                                            _mediaControlService.Play();
-                                        }
-                                    });
-                                });
-                            }
-                        }
-
-                        // Check for manifest corruption on initial resume
-                        // If natural duration becomes tiny (< 1 minute) after resume, it's corrupted
-                        if (_isCurrentStreamHls && naturalDuration.Value < TimeSpan.FromMinutes(1) &&
-                            position > naturalDuration.Value && _actualResumePosition > TimeSpan.Zero)
-                        {
-                            Logger.LogError($"[HLS-CORRUPT-RESUME] Manifest corrupted after resume to {_actualResumePosition:mm\\:ss}");
-                            Logger.LogError($"[HLS-CORRUPT-RESUME] Natural duration is only {naturalDuration.Value:mm\\:ss}, position is {position:mm\\:ss}");
-
-                            // The server created a corrupt manifest when we resumed
-                            // MediaEnded will fire automatically since position > duration
-                            // User will need to restart playback
-                            return;
-                        }
-
-                        // For HLS streams, if NaturalDuration becomes significantly shorter than metadata duration
-                        // after a seek, it indicates Jellyfin created a new manifest starting at the seek position
-                        if (_isCurrentStreamHls && naturalDuration.Value < metadataDuration && _expectedHlsSeekTarget > TimeSpan.Zero)
-                        {
-                            var percentageOfOriginal = (naturalDuration.Value.TotalSeconds / metadataDuration.TotalSeconds) * 100;
-                            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected new HLS manifest after seek. Natural duration is {percentageOfOriginal:F1}% of metadata duration");
-                            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] New manifest starts at {_expectedHlsSeekTarget:mm\\:ss}, duration: {naturalDuration.Value:mm\\:ss}");
-
-                            // Only process the manifest change if there are no more pending seeks
-                            // OR if it's been more than 2 seconds since the last seek (timeout for stuck seeks)
-                            var timeSinceLastSeek = DateTime.UtcNow - _lastSeekTime;
-                            var shouldProcessManifest = _pendingSeekCount == 0 || timeSinceLastSeek.TotalSeconds > 2;
-
-                            if (shouldProcessManifest)
-                            {
-                                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Processing manifest change (pending seeks: {_pendingSeekCount}, time since last seek: {timeSinceLastSeek.TotalSeconds:F1}s)");
-
-                                // Reset pending seeks since we're processing this one
-                                _pendingSeekCount = 0;
-
-                                // The new manifest starts at the seek position
-                                // Position 0 in new manifest = _expectedHlsSeekTarget in original timeline
-                                _hlsManifestOffset = _expectedHlsSeekTarget;
-                                _hlsManifestOffsetApplied = false; // Will be set to true after we seek to 0
-
-                                // Now we need to seek to position 0 of the new manifest
-                                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Setting up offset tracking. Position 0 = {_hlsManifestOffset:mm\\:ss}");
-
-                                // Clear the expected target since we've handled it
-                                _expectedHlsSeekTarget = TimeSpan.Zero;
-
-                                // Apply the HLS fix immediately to seek to position 0 of the new manifest
-                                // This prevents MediaEnded from firing due to position being past the new duration
-                                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Applying immediate seek to position 0 of new manifest");
-                                if (MediaPlayerElement?.MediaPlayer?.PlaybackSession != null)
-                                {
-                                    MediaPlayerElement.MediaPlayer.PlaybackSession.Position = TimeSpan.Zero;
-                                    CompleteHlsResumeFix();
-                                    Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Seeked to position 0, playback should continue from {_hlsManifestOffset:mm\\:ss}");
-                                }
-                            }
-                            else
-                            {
-                                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Skipping manifest offset due to {_pendingSeekCount} pending seeks");
-                                // Keep the expected target for when the next SeekCompleted fires
-                            }
-                        }
-                    }
-                }
-
-
-                // Simply log that seek completed
-                Logger.LogInformation($"SeekCompleted");
-            });
+                        Position = position,
+                        PlaybackState = state,
+                        NaturalDuration = naturalDuration,
+                        MetadataDuration = metadataDuration,
+                        IsHlsStream = _sessionState.IsHlsStream,
+                        HasPerformedInitialSeek = _sessionState.HasPerformedInitialSeek,
+                        PendingSeekCount = _sessionState.PendingSeekCount,
+                        ActualResumePosition = _actualResumePosition,
+                        DecrementPendingSeek = _sessionState.DecrementPendingSeek,
+                        SetActualResumePosition = resumePosition => _actualResumePosition = resumePosition,
+                        MarkInitialSeekPerformed = () => _sessionState.HasPerformedInitialSeek = true,
+                        AttemptHlsRecovery = AttemptHlsRecoveryAfterSeek,
+                        TryHandleHlsManifestChange = TryHandleHlsManifestChange
+                    });
+                });
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "[ERROR] Exception in OnSeekCompleted handler");
             }
+        }
+
+        private void AttemptHlsRecoveryAfterSeek()
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(500);
+                await RunOnUIThreadAsync(() =>
+                {
+                    if (_mediaControlService != null && !IsPlaying)
+                    {
+                        Logger.LogInformation("[HLS-RECOVERY] Auto-playing to recover from manifest issue");
+                        _mediaControlService.Play();
+                    }
+                });
+            });
+        }
+
+        private void TryHandleHlsManifestChange(TimeSpan position, TimeSpan naturalDuration, TimeSpan metadataDuration)
+        {
+            if (!_sessionState.IsHlsStream || naturalDuration >= metadataDuration || _sessionState.ExpectedHlsSeekTarget <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            var percentageOfOriginal = (naturalDuration.TotalSeconds / metadataDuration.TotalSeconds) * 100;
+            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected new HLS manifest after seek. Natural duration is {percentageOfOriginal:F1}% of metadata duration");
+            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] New manifest starts at {_sessionState.ExpectedHlsSeekTarget:mm\\:ss}, duration: {naturalDuration:mm\\:ss}");
+
+            var timeSinceLastSeek = DateTime.UtcNow - _sessionState.LastSeekTime;
+            var shouldProcessManifest = _sessionState.PendingSeekCount == 0 || timeSinceLastSeek.TotalSeconds > 2;
+
+            if (!shouldProcessManifest)
+            {
+                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Skipping manifest offset due to {_sessionState.PendingSeekCount} pending seeks");
+                return;
+            }
+
+            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Processing manifest change (pending seeks: {_sessionState.PendingSeekCount}, time since last seek: {timeSinceLastSeek.TotalSeconds:F1}s)");
+
+            _sessionState.PendingSeekCount = 0;
+            SetHlsManifestOffset(_sessionState.ExpectedHlsSeekTarget, false, "Setting up offset tracking.");
+
+            Logger.LogInformation("[HLS-MANIFEST-CHANGE] Applying immediate seek to position 0 of new manifest");
+            if (MediaPlayerElement?.MediaPlayer?.PlaybackSession != null)
+            {
+                MediaPlayerElement.MediaPlayer.PlaybackSession.Position = TimeSpan.Zero;
+                CompleteHlsResumeFix();
+                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Seeked to position 0, playback should continue from {_sessionState.HlsManifestOffset:mm\\:ss}");
+            }
+        }
+
+        private void TryApplyHlsManifestChangeAfterBackwardSeek(TimeSpan currentPosition)
+        {
+            if (!_sessionState.IsHlsStream || _sessionState.ExpectedHlsSeekTarget == TimeSpan.Zero)
+            {
+                return;
+            }
+
+            var timeSinceSeek = (DateTime.UtcNow - _sessionState.LastSeekTime).TotalSeconds;
+            if (timeSinceSeek >= 5 || _sessionState.PendingSeekCount <= 0)
+            {
+                return;
+            }
+
+            if (currentPosition.TotalSeconds >= 1)
+            {
+                return;
+            }
+
+            _sessionState.PendingSeekCount = Math.Max(0, _sessionState.PendingSeekCount - 1);
+            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected new manifest creation after backward seek (pending: {_sessionState.PendingSeekCount})");
+            SetHlsManifestOffset(_sessionState.ExpectedHlsSeekTarget, true, "Detected new manifest creation after backward seek.");
         }
 
         private void OnMediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
@@ -2442,9 +2092,9 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // Don't report progress during seeks to prevent incorrect positions
-                if (_pendingSeekCount > 0)
+                if (_sessionState.PendingSeekCount > 0)
                 {
-                    Logger.LogDebug($"Skipping progress report - seek in progress (PendingSeeks: {_pendingSeekCount})");
+                    Logger.LogDebug($"Skipping progress report - seek in progress (PendingSeeks: {_sessionState.PendingSeekCount})");
                     return;
                 }
 
@@ -2533,18 +2183,23 @@ namespace Gelatinarm.ViewModels
                 {
                     _hasAutoPlayedNext = true;
                     Logger.LogWarning($"Auto-playing next episode at {percentComplete:F2}% (Position={Position:mm\\:ss}, MetadataDuration={metadataDuration:mm\\:ss})");
-                    AsyncHelper.FireAndForget(async () => await PlayNextEpisode());
+                    FireAndForget(async () => await PlayNextEpisode());
                 }
             }
         }
 
 
-        public async void UpdatePositionImmediate()
+        public async Task UpdatePositionImmediateAsync()
         {
             if (_isDisposed) return;
 
-            if (MediaPlayerElement?.MediaPlayer?.PlaybackSession != null)
+            try
             {
+                if (MediaPlayerElement?.MediaPlayer?.PlaybackSession == null)
+                {
+                    return;
+                }
+
                 // Ensure UI updates happen on UI thread
                 await RunOnUIThreadAsync(() =>
                 {
@@ -2556,10 +2211,15 @@ namespace Gelatinarm.ViewModels
                     UpdateCustomProgressBar(Position, Duration);
                 });
             }
+            catch (Exception ex)
+            {
+                Logger?.LogError(ex, "Error updating position immediately");
+            }
         }
 
         private void ShowSkipIndicator(string text)
-        {            // In the future, this could trigger a visual overlay
+        {
+            // In the future, this could trigger a visual overlay
         }
 
 
@@ -2679,6 +2339,46 @@ namespace Gelatinarm.ViewModels
             }
         }
 
+        public void HandleAppBackgroundChanged(bool isInBackground)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            if (isInBackground)
+            {
+                StopTimers();
+                return;
+            }
+
+            RestartTimers();
+        }
+
+        private void RestartTimers()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _progressReportCancellationTokenSource?.Dispose();
+            _progressReportCancellationTokenSource = new CancellationTokenSource();
+
+            _positionTimer?.Start();
+            _controlVisibilityTimer?.Start();
+            _statsUpdateTimer?.Start();
+
+            if (IsBuffering)
+            {
+                _bufferingTimeoutTimer?.Start();
+            }
+            else
+            {
+                _bufferingTimeoutTimer?.Stop();
+            }
+        }
+
         // Report playback stopped - critical operation that must complete
         public async Task ReportPlaybackStoppedAsync()
         {
@@ -2747,38 +2447,32 @@ namespace Gelatinarm.ViewModels
             return rawPosition;
         }
 
-        /// <summary>
-        /// Prepares HLS stream for resume playback
-        /// </summary>
-        private void PrepareHlsResume(TimeSpan resumePosition)
+        private void SetHlsManifestOffset(TimeSpan offset, bool markApplied, string context)
         {
-            if (!_isCurrentStreamHls)
-            {
-                return;
-            }
+            _sessionState.HlsManifestOffset = offset;
+            _sessionState.HlsManifestOffsetApplied = markApplied;
+            _sessionState.ExpectedHlsSeekTarget = TimeSpan.Zero;
 
-            _hlsManifestOffset = resumePosition;
-            _hlsManifestOffsetApplied = false;
-            Logger?.LogInformation($"[HLS] Prepared resume at {resumePosition:mm\\:ss}");
+            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] {context} Position 0 in new manifest = {offset:mm\\:ss}");
         }
 
         /// <summary>
-        /// Prepares HLS stream for track change (subtitle/audio)
+        /// Prepares track change resume for HLS streams
         /// </summary>
         private void PrepareHlsTrackChange()
         {
-            if (!_isCurrentStreamHls)
+            if (!_sessionState.IsHlsStream)
             {
                 return;
             }
 
-            var currentPosition = Position; // This already includes offset if applied
-            _hlsManifestOffset = currentPosition;
-            _hlsManifestOffsetApplied = false;
-            _isHlsTrackChange = true;
-            _pendingSeekPositionAfterQualitySwitch = 0; // Don't seek, HLS fix will handle it
+            var currentPosition = Position; // Includes offset if present
+            _sessionState.PendingSeekPositionAfterQualitySwitch = currentPosition.Ticks;
+            _sessionState.HlsManifestOffset = TimeSpan.Zero;
+            _sessionState.HlsManifestOffsetApplied = false;
+            _sessionState.IsHlsTrackChange = false;
 
-            Logger?.LogInformation($"[HLS] Track change at {currentPosition:mm\\:ss}");
+            Logger?.LogInformation($"[HLS] Track change will resume to {currentPosition:hh\\:mm\\:ss}");
         }
 
         /// <summary>
@@ -2791,9 +2485,9 @@ namespace Gelatinarm.ViewModels
                 return;
             }
 
-            Logger.LogInformation($"[HLS-RESUME] Buffering at resume position, will try seeking to manifest start");
+            Logger.LogInformation("[HLS-RESUME] Buffering at resume position, will try seeking to manifest start");
 
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 await Task.Delay(500); // Short delay to allow manifest to load but minimize audio buffering
 
@@ -2804,31 +2498,7 @@ namespace Gelatinarm.ViewModels
 
                 await UIHelper.RunOnUIThreadAsync(() =>
                 {
-                    if (MediaPlayerElement?.MediaPlayer?.PlaybackSession != null)
-                    {
-                        var currentState = MediaPlayerElement.MediaPlayer.PlaybackSession.PlaybackState;
-                        Logger.LogInformation($"[HLS-RESUME] Applying fix - current state: {currentState}, position before: {MediaPlayerElement.MediaPlayer.PlaybackSession.Position:mm\\:ss}");
-
-                        // Pause briefly to ensure clean audio buffer transition
-                        var wasPlaying = currentState == MediaPlaybackState.Playing || currentState == MediaPlaybackState.Buffering;
-                        if (wasPlaying)
-                        {
-                            Logger.LogInformation("[HLS-RESUME] Pausing playback for clean seek");
-                            MediaPlayerElement.MediaPlayer.Pause();
-                        }
-
-                        // Seek to start of new manifest
-                        MediaPlayerElement.MediaPlayer.PlaybackSession.Position = TimeSpan.Zero;
-                        Logger.LogInformation($"[HLS-RESUME] Seeked to position 0, new position: {MediaPlayerElement.MediaPlayer.PlaybackSession.Position:mm\\:ss}");
-                        CompleteHlsResumeFix();
-
-                        // Resume if we were playing
-                        if (wasPlaying)
-                        {
-                            Logger.LogInformation("[HLS-RESUME] Resuming playback");
-                            MediaPlayerElement.MediaPlayer.Play();
-                        }
-                    }
+                    ApplyHlsManifestOffsetSeek(MediaPlayerElement?.MediaPlayer?.PlaybackSession);
                 }, logger: Logger);
             });
         }
@@ -2840,21 +2510,51 @@ namespace Gelatinarm.ViewModels
         {
             // Only apply fix if we have a manifest offset (from track change or large seek)
             // Initial resume doesn't use manifest offset - it's just a client-side seek
-            if (!_isCurrentStreamHls || _hlsManifestOffset <= TimeSpan.Zero)
+            if (!_sessionState.IsHlsStream || _sessionState.HlsManifestOffset <= TimeSpan.Zero)
             {
                 return false;
             }
 
             // Apply fix for track changes or large seeks that create new manifests
-            var shouldApply = _isHlsTrackChange || (_hlsManifestOffset > TimeSpan.Zero && !_hlsManifestOffsetApplied);
+            var shouldApply = _sessionState.IsHlsTrackChange ||
+                (_sessionState.HlsManifestOffset > TimeSpan.Zero && !_sessionState.HlsManifestOffsetApplied);
             if (!shouldApply)
             {
                 return false;
             }
 
             var rawPosition = session?.Position ?? TimeSpan.Zero;
-            var diff = Math.Abs((rawPosition - _hlsManifestOffset).TotalSeconds);
+            var diff = Math.Abs((rawPosition - _sessionState.HlsManifestOffset).TotalSeconds);
             return diff < 10;
+        }
+
+        private void ApplyHlsManifestOffsetSeek(MediaPlaybackSession session)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            var currentState = session.PlaybackState;
+            Logger.LogInformation($"[HLS-RESUME] Applying fix - current state: {currentState}, position before: {session.Position:mm\\:ss}");
+
+            // Pause briefly to ensure clean audio buffer transition
+            var wasPlaying = currentState == MediaPlaybackState.Playing || currentState == MediaPlaybackState.Buffering;
+            if (wasPlaying)
+            {
+                Logger.LogInformation("[HLS-RESUME] Pausing playback for clean seek");
+                session.MediaPlayer.Pause();
+            }
+
+            session.Position = TimeSpan.Zero;
+            Logger.LogInformation($"[HLS-RESUME] Seeked to position 0, new position: {session.Position:mm\\:ss}");
+            CompleteHlsResumeFix();
+
+            if (wasPlaying)
+            {
+                Logger.LogInformation("[HLS-RESUME] Resuming playback");
+                session.MediaPlayer.Play();
+            }
         }
 
         /// <summary>
@@ -2862,8 +2562,8 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         private void CompleteHlsResumeFix()
         {
-            _hlsManifestOffsetApplied = true;
-            _isHlsTrackChange = false;
+            _sessionState.HlsManifestOffsetApplied = true;
+            _sessionState.IsHlsTrackChange = false;
             OnPropertyChanged(nameof(Position)); // UI needs to update
         }
 
@@ -2872,13 +2572,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         private void ResetHlsState()
         {
-            _hlsManifestOffset = TimeSpan.Zero;
-            _hlsManifestOffsetApplied = false;
-            _isHlsTrackChange = false;
-            _isCurrentStreamHls = false;
-            _expectedHlsSeekTarget = TimeSpan.Zero;
-            _pendingSeekCount = 0;
-            _lastSeekTime = DateTime.MinValue;
+            _sessionState.Reset();
             _actualResumePosition = TimeSpan.Zero;
         }
 

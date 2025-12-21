@@ -175,7 +175,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         public void ResetToDefaults()
         {
-            AsyncHelper.FireAndForget(() => ResetToDefaultsAsync(), Logger, GetType());
+            FireAndForget(() => ResetToDefaultsAsync());
         }
 
         /// <summary>
@@ -322,9 +322,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _autoPlayNextEpisode, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.AutoPlayNextEpisode = value,
-                            nameof(AutoPlayNextEpisode)), Logger, GetType());
+                            nameof(AutoPlayNextEpisode)));
                 }
             }
         }
@@ -336,9 +336,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _pauseOnFocusLoss, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.PauseOnFocusLoss = value,
-                            nameof(PauseOnFocusLoss)), Logger, GetType());
+                            nameof(PauseOnFocusLoss)));
                 }
             }
         }
@@ -350,9 +350,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _autoSkipIntros, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.AutoSkipIntroEnabled = value,
-                            nameof(AutoSkipIntros)), Logger, GetType());
+                            nameof(AutoSkipIntros)));
                 }
             }
         }
@@ -364,9 +364,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _controlsHideDelay, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.ControlsHideDelay = value,
-                            nameof(ControlsHideDelay)), Logger, GetType());
+                            nameof(ControlsHideDelay)));
                 }
             }
         }
@@ -378,9 +378,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _enableDirectPlay, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.EnableDirectPlay = value,
-                            nameof(EnableDirectPlay)), Logger, GetType());
+                            nameof(EnableDirectPlay)));
                     // Media optimization service doesn't have InvalidateRecommendations method                    Logger.LogInformation("Direct play setting changed to {Value}", value);
                 }
             }
@@ -393,9 +393,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _allowAudioStreamCopy, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.AllowAudioStreamCopy = value,
-                            nameof(AllowAudioStreamCopy)), Logger, GetType());
+                            nameof(AllowAudioStreamCopy)));
                     // Media optimization service doesn't have InvalidateRecommendations method                    Logger.LogInformation("Audio stream copy setting changed to {Value}", value);
                 }
             }
@@ -409,9 +409,9 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _videoStretchMode, value))
                 {
-                    AsyncHelper.FireAndForget(
+                    FireAndForget(
                         () => UpdateAppPreferenceAsync(prefs => prefs.VideoStretchMode = value,
-                            nameof(VideoStretchMode)), Logger, GetType());
+                            nameof(VideoStretchMode)));
                 }
             }
         }

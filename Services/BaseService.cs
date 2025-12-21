@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
+using Gelatinarm.ViewModels;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Xaml;
 
@@ -29,14 +30,36 @@ namespace Gelatinarm.Services
         {
             get
             {
-                if (_errorHandler == null && App.Current?.Services != null)
-                {
-                    _errorHandler =
-                        App.Current.Services.GetService(typeof(IErrorHandlingService)) as IErrorHandlingService;
-                }
+                _errorHandler ??= GetService<IErrorHandlingService>();
 
                 return _errorHandler;
             }
+        }
+
+        /// <summary>
+        ///     Gets a service from the dependency injection container
+        /// </summary>
+        protected T GetService<T>() where T : class
+        {
+            return ServiceLocator.GetService<T>();
+        }
+
+        protected object GetService(Type serviceType)
+        {
+            return ServiceLocator.GetService(serviceType);
+        }
+
+        /// <summary>
+        ///     Gets a required service from the dependency injection container
+        /// </summary>
+        protected T GetRequiredService<T>() where T : class
+        {
+            return ServiceLocator.GetRequiredService<T>();
+        }
+
+        protected object GetRequiredService(Type serviceType)
+        {
+            return ServiceLocator.GetRequiredService(serviceType);
         }
 
         /// <summary>
@@ -183,6 +206,124 @@ namespace Gelatinarm.Services
         {
             await HandleErrorAsync(ex, operation, category, showUserMessage, memberName);
             return defaultValue;
+        }
+
+        /// <summary>
+        ///     Execute an operation with standardized error handling
+        /// </summary>
+        protected async Task<T> ExecuteWithErrorHandlingAsync<T>(
+            Func<Task<T>> operation,
+            ErrorContext context,
+            T defaultValue = default,
+            bool showUserMessage = false)
+        {
+            try
+            {
+                return await operation().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return await ErrorHandler.HandleErrorAsync(ex, context, defaultValue, showUserMessage);
+            }
+        }
+
+        /// <summary>
+        ///     Execute an operation with standardized error handling (void)
+        /// </summary>
+        protected async Task ExecuteWithErrorHandlingAsync(
+            Func<Task> operation,
+            ErrorContext context,
+            bool showUserMessage = false)
+        {
+            try
+            {
+                await operation().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await ErrorHandler.HandleErrorAsync(ex, context, showUserMessage);
+            }
+        }
+
+        protected MainViewModel GetMainViewModel()
+        {
+            return GetService<MainViewModel>();
+        }
+
+        protected void ClearMainViewModelCache(string context)
+        {
+            var mainViewModel = GetMainViewModel();
+            if (mainViewModel == null)
+            {
+                Logger?.LogDebug("MainViewModel not available to clear cache {Context}", context);
+                return;
+            }
+
+            mainViewModel.ClearCache();
+            if (string.IsNullOrWhiteSpace(context))
+            {
+                Logger?.LogInformation("Cleared MainViewModel cache");
+            }
+            else
+            {
+                Logger?.LogInformation("Cleared MainViewModel cache {Context}", context);
+            }
+        }
+
+        /// <summary>
+        ///     Resolve the current user ID as a Guid when available
+        /// </summary>
+        protected bool TryGetUserIdGuid(IUserProfileService userProfileService, out Guid userIdGuid)
+        {
+            userIdGuid = Guid.Empty;
+            if (userProfileService == null)
+            {
+                Logger?.LogDebug("User profile service not available");
+                return false;
+            }
+
+            var userId = userProfileService.GetCurrentUserGuid();
+            if (!userId.HasValue)
+            {
+                Logger?.LogDebug("User ID not available");
+                return false;
+            }
+
+            userIdGuid = userId.Value;
+            return true;
+        }
+
+        protected bool TryGetItemGuid(string itemId, out Guid itemGuid)
+        {
+            itemGuid = Guid.Empty;
+            if (string.IsNullOrWhiteSpace(itemId) || !Guid.TryParse(itemId, out itemGuid))
+            {
+                Logger?.LogError($"Invalid item ID format: {itemId}");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        ///     Resolve the authenticated user ID as a Guid when available
+        /// </summary>
+        protected bool TryGetAuthUserGuid(IAuthenticationService authService, out Guid userGuid)
+        {
+            userGuid = Guid.Empty;
+            if (authService == null || string.IsNullOrEmpty(authService.UserId))
+            {
+                Logger?.LogDebug("Auth user ID not available");
+                return false;
+            }
+
+            if (!Guid.TryParse(authService.UserId, out userGuid))
+            {
+                Logger?.LogError($"Invalid user ID format: {authService.UserId}");
+                return false;
+            }
+
+            return true;
         }
 
         #endregion

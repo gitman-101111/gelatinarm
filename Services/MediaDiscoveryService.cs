@@ -15,6 +15,10 @@ namespace Gelatinarm.Services
     public class MediaDiscoveryService : BaseService, IMediaDiscoveryService
     {
         private const int MAX_SEARCH_HISTORY = 10;
+        private static readonly ItemFields[] DefaultItemFields =
+            { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+        private static readonly ImageType[] DefaultImageTypes =
+            { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
         private readonly JellyfinApiClient _apiClient;
         private readonly IAuthenticationService _authService;
 
@@ -45,6 +49,11 @@ namespace Gelatinarm.Services
         public event EventHandler<BaseItemDto[]> RecommendationsUpdated;
         public event EventHandler<BaseItemDto[]> ContinueWatchingUpdated;
 
+        private bool TryGetUserIdGuid(out Guid userIdGuid)
+        {
+            return TryGetUserIdGuid(_userProfileService, out userIdGuid);
+        }
+
         public async Task<IEnumerable<BaseItemDto>> GetRecentlyAddedAsync(int limit = 0,
             CancellationToken cancellationToken = default)
         {
@@ -61,8 +70,7 @@ namespace Gelatinarm.Services
                     var context = CreateErrorContext("GetRecentlyAdded", ErrorCategory.Media);
                     try
                     {
-                        var userId = _userProfileService?.CurrentUserId;
-                        if (string.IsNullOrEmpty(userId))
+                        if (!TryGetUserIdGuid(out var userIdGuid))
                         {
                             return new List<BaseItemDto>();
                         }
@@ -70,12 +78,6 @@ namespace Gelatinarm.Services
                         if (_apiClient == null)
                         {
                             Logger?.LogError("SDK client not available");
-                            return new List<BaseItemDto>();
-                        }
-
-                        if (!Guid.TryParse(userId, out var userIdGuid))
-                        {
-                            Logger?.LogError($"Invalid user ID format: {userId}");
                             return new List<BaseItemDto>();
                         }
 
@@ -87,9 +89,9 @@ namespace Gelatinarm.Services
                             config.QueryParameters.SortOrder = new[] { SortOrder.Descending };
                             config.QueryParameters.Limit = limit + 10; // Small buffer for grouping
                             config.QueryParameters.Fields =
-                                new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                                DefaultItemFields;
                             config.QueryParameters.EnableImageTypes =
-                                new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                                DefaultImageTypes;
                             config.QueryParameters.Recursive = true;
                             config.QueryParameters.ExcludeItemTypes = new[] { BaseItemKind.CollectionFolder };
                             config.QueryParameters.IncludeItemTypes = new[]
@@ -215,8 +217,7 @@ namespace Gelatinarm.Services
                     var context = CreateErrorContext("GetContinueWatching", ErrorCategory.Media);
                     try
                     {
-                        var userId = _userProfileService?.CurrentUserId;
-                        if (string.IsNullOrEmpty(userId))
+                        if (!TryGetUserIdGuid(out var userIdGuid))
                         {
                             return new List<BaseItemDto>();
                         }
@@ -226,18 +227,12 @@ namespace Gelatinarm.Services
                             Logger?.LogError("SDK client not available");
                             return new List<BaseItemDto>();
                         }
-
-                        if (!Guid.TryParse(userId, out var userIdGuid))
-                        {
-                            Logger?.LogError($"Invalid user ID format: {userId}");
-                            return new List<BaseItemDto>();
-                        }
                         var response = await _apiClient.UserItems.Resume.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
                             config.QueryParameters.Limit = limit;
                             config.QueryParameters.Fields =
-                                new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                                DefaultItemFields;
                             config.QueryParameters.EnableImageTypes = new[]
                             {
                                 ImageType.Primary, ImageType.Backdrop, ImageType.Banner, ImageType.Thumb
@@ -276,8 +271,7 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetRecommended", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService?.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userGuid))
                 {
                     return new List<BaseItemDto>();
                 }
@@ -288,17 +282,11 @@ namespace Gelatinarm.Services
                     return new List<BaseItemDto>();
                 }
 
-                if (!Guid.TryParse(userId, out var userGuid))
-                {
-                    Logger?.LogError($"Invalid user ID format: {userId}");
-                    return new List<BaseItemDto>();
-                }
-
                 var response = await _apiClient.Movies.Recommendations.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userGuid;
                     // Note: Recommendations endpoint doesn't have a Limit parameter
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                 }, cancellationToken).ConfigureAwait(false);
 
                 var recommendations = new List<BaseItemDto>();
@@ -344,8 +332,7 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetNextUpEpisodes", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService?.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userGuid))
                 {
                     return new List<BaseItemDto>();
                 }
@@ -356,18 +343,12 @@ namespace Gelatinarm.Services
                     return new List<BaseItemDto>();
                 }
 
-                if (!Guid.TryParse(userId, out var userGuid))
-                {
-                    Logger?.LogError($"Invalid user ID format: {userId}");
-                    return new List<BaseItemDto>();
-                }
-
                 var response = await _apiClient.Shows.NextUp.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.SeriesId = new Guid(seriesId);
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response?.Items ?? new List<BaseItemDto>();
@@ -394,8 +375,7 @@ namespace Gelatinarm.Services
                     var context = CreateErrorContext("GetLatestMovies", ErrorCategory.Media);
                     try
                     {
-                        var userId = _userProfileService?.CurrentUserId;
-                        if (string.IsNullOrEmpty(userId))
+                        if (!TryGetUserIdGuid(out var userIdGuid))
                         {
                             return new List<BaseItemDto>();
                         }
@@ -405,21 +385,15 @@ namespace Gelatinarm.Services
                             Logger?.LogError("SDK client not available");
                             return new List<BaseItemDto>();
                         }
-
-                        if (!Guid.TryParse(userId, out var userIdGuid))
-                        {
-                            Logger?.LogError($"Invalid user ID format: {userId}");
-                            return new List<BaseItemDto>();
-                        }
                         var response = await _apiClient.Items.Latest.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
                             config.QueryParameters.IncludeItemTypes = new[] { BaseItemKind.Movie };
                             config.QueryParameters.Limit = limit;
                             config.QueryParameters.Fields =
-                                new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                                DefaultItemFields;
                             config.QueryParameters.EnableImageTypes =
-                                new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                                DefaultImageTypes;
                         }, ct).ConfigureAwait(false);
 
                         return response ?? new List<BaseItemDto>();
@@ -448,8 +422,7 @@ namespace Gelatinarm.Services
                     var context = CreateErrorContext("GetLatestShows", ErrorCategory.Media);
                     try
                     {
-                        var userId = _userProfileService?.CurrentUserId;
-                        if (string.IsNullOrEmpty(userId))
+                        if (!TryGetUserIdGuid(out var userIdGuid))
                         {
                             return new List<BaseItemDto>();
                         }
@@ -459,21 +432,15 @@ namespace Gelatinarm.Services
                             Logger?.LogError("SDK client not available");
                             return new List<BaseItemDto>();
                         }
-
-                        if (!Guid.TryParse(userId, out var userIdGuid))
-                        {
-                            Logger?.LogError($"Invalid user ID format: {userId}");
-                            return new List<BaseItemDto>();
-                        }
                         var response = await _apiClient.Items.Latest.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
                             config.QueryParameters.IncludeItemTypes = new[] { BaseItemKind.Series };
                             config.QueryParameters.Limit = limit;
                             config.QueryParameters.Fields =
-                                new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                                DefaultItemFields;
                             config.QueryParameters.EnableImageTypes =
-                                new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                                DefaultImageTypes;
                         }, ct).ConfigureAwait(false);
 
                         return response ?? new List<BaseItemDto>();
@@ -492,21 +459,18 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetFavoriteItems", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userIdGuid))
                 {
                     return new List<BaseItemDto>();
                 }
-
-                var userIdGuid = Guid.Parse(userId);
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.IsFavorite = true;
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                        DefaultImageTypes;
                     config.QueryParameters.Recursive = true;
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -542,16 +506,9 @@ namespace Gelatinarm.Services
                     return new SearchHintResult { SearchHints = new List<SearchHint>(), TotalRecordCount = 0 };
                 }
 
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userGuid))
                 {
                     Logger?.LogError("User ID not available");
-                    return new SearchHintResult { SearchHints = new List<SearchHint>(), TotalRecordCount = 0 };
-                }
-
-                if (!Guid.TryParse(userId, out var userGuid))
-                {
-                    Logger?.LogError($"Invalid user ID format: {userId}");
                     return new SearchHintResult { SearchHints = new List<SearchHint>(), TotalRecordCount = 0 };
                 }
 
@@ -582,21 +539,18 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetByGenre", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userIdGuid))
                 {
                     return new List<BaseItemDto>();
                 }
-
-                var userIdGuid = Guid.Parse(userId);
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.GenreIds = new[] { (Guid?)new Guid(genreId) };
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                        DefaultImageTypes;
                     config.QueryParameters.Recursive = true;
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -614,15 +568,8 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetSimilarItems", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userGuid))
                 {
-                    return new List<BaseItemDto>();
-                }
-
-                if (!Guid.TryParse(userId, out var userGuid))
-                {
-                    Logger?.LogError($"Invalid user ID format: {userId}");
                     return new List<BaseItemDto>();
                 }
 
@@ -630,7 +577,7 @@ namespace Gelatinarm.Services
                 {
                     config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response?.Items ?? new List<BaseItemDto>();
@@ -646,13 +593,10 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetSuggestions", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userIdGuid))
                 {
                     return new List<BaseItemDto>();
                 }
-
-                var userIdGuid = Guid.Parse(userId);
                 var response = await _apiClient.Items.Suggestions.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
@@ -678,15 +622,8 @@ namespace Gelatinarm.Services
                     var context = CreateErrorContext("GetNextUp", ErrorCategory.Media);
                     try
                     {
-                        var userId = _userProfileService.CurrentUserId;
-                        if (string.IsNullOrEmpty(userId))
+                        if (!TryGetUserIdGuid(out var userGuid))
                         {
-                            return new List<BaseItemDto>();
-                        }
-
-                        if (!Guid.TryParse(userId, out var userGuid))
-                        {
-                            Logger?.LogError($"Invalid user ID format: {userId}");
                             return new List<BaseItemDto>();
                         }
 
@@ -695,7 +632,7 @@ namespace Gelatinarm.Services
                             config.QueryParameters.UserId = userGuid;
                             config.QueryParameters.Limit = MediaConstants.DEFAULT_QUERY_LIMIT;
                             config.QueryParameters.Fields =
-                                new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                                DefaultItemFields;
                         }, ct).ConfigureAwait(false);
 
                         var items = response?.Items ?? new List<BaseItemDto>();
@@ -723,21 +660,23 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("Search", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId) || string.IsNullOrWhiteSpace(searchTerm))
+                if (string.IsNullOrWhiteSpace(searchTerm))
                 {
                     return new List<BaseItemDto>();
                 }
 
-                var userIdGuid = Guid.Parse(userId);
+                if (!TryGetUserIdGuid(out var userIdGuid))
+                {
+                    return new List<BaseItemDto>();
+                }
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.SearchTerm = searchTerm;
                     config.QueryParameters.Limit = MediaConstants.LARGE_QUERY_LIMIT;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                        DefaultImageTypes;
                     config.QueryParameters.Recursive = true;
 
                     if (includeItemTypes?.Length > 0)
@@ -789,21 +728,18 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetPersonItems", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userIdGuid))
                 {
                     return new List<BaseItemDto>();
                 }
-
-                var userIdGuid = Guid.Parse(userId);
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.PersonIds = new[] { (Guid?)new Guid(personId) };
                     config.QueryParameters.Recursive = true;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                        DefaultImageTypes;
 
                     if (includeItemTypes?.Length > 0)
                     {
@@ -840,13 +776,10 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("GetLatestMedia", ErrorCategory.Media);
             try
             {
-                var userId = _userProfileService.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                if (!TryGetUserIdGuid(out var userIdGuid))
                 {
                     return new List<BaseItemDto>();
                 }
-
-                var userIdGuid = Guid.Parse(userId);
                 var response = await _apiClient.Items.Latest.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
@@ -864,22 +797,15 @@ namespace Gelatinarm.Services
                         }
                     }
 
-                    if (!string.IsNullOrEmpty(parentId))
+                    if (!string.IsNullOrEmpty(parentId) && TryGetItemGuid(parentId, out var parentGuid))
                     {
-                        if (Guid.TryParse(parentId, out var parentGuid))
-                        {
-                            config.QueryParameters.ParentId = parentGuid;
-                        }
-                        else
-                        {
-                            Logger?.LogWarning($"Invalid parent ID format: {parentId}");
-                        }
+                        config.QueryParameters.ParentId = parentGuid;
                     }
 
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = new[] { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.Fields = DefaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        new[] { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+                        DefaultImageTypes;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response ?? new List<BaseItemDto>();

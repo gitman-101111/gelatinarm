@@ -84,13 +84,9 @@ namespace Gelatinarm.ViewModels
                     {
                         await LoadCollectionFromDtoAsync(dto, _loadCts.Token);
                     }
-                    else if (parameter is string guidString && Guid.TryParse(guidString, out var itemId))
+                    else if (TryGetGuidFromParameter(parameter, out var itemId))
                     {
                         await LoadCollectionByIdAsync(itemId, _loadCts.Token);
-                    }
-                    else if (parameter is Guid guid)
-                    {
-                        await LoadCollectionByIdAsync(guid, _loadCts.Token);
                     }
                 }
                 finally
@@ -214,7 +210,7 @@ namespace Gelatinarm.ViewModels
             }
 
             var context = CreateErrorContext("LoadCollectionImage", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

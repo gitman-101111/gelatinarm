@@ -30,22 +30,10 @@ namespace Gelatinarm.Views
         {
             if (ViewModel is IInitializableViewModel initViewModel)
             {
-                // If we have a parameter, use it (normal navigation)
-                if (parameter != null)
+                var resolvedParameter = ResolveNavigationParameter(parameter);
+                if (resolvedParameter != null)
                 {
-                    await initViewModel.InitializeAsync(parameter);
-                }
-                // If no parameter, check if we have a saved parameter from navigation service (back navigation)
-                else
-                {
-                    var savedParameter = GetSavedNavigationParameter();
-
-                    if (savedParameter != null)
-                    {
-                        var logger = Logger;
-                        logger?.LogInformation("Using saved navigation parameter for back navigation");
-                        await initViewModel.InitializeAsync(savedParameter);
-                    }
+                    await initViewModel.InitializeAsync(resolvedParameter);
                 }
             }
         }

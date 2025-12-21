@@ -49,6 +49,7 @@ namespace Gelatinarm.Views
         protected INavigationService NavigationService { get; private set; }
 
         // Services commonly used across pages
+        protected IDialogService DialogService { get; private set; }
         protected IErrorHandlingService ErrorHandlingService { get; private set; }
         protected IPreferencesService PreferencesService { get; private set; }
         protected IUserProfileService UserProfileService { get; private set; }
@@ -57,32 +58,44 @@ namespace Gelatinarm.Views
         {
             try
             {
-                var services = App.Current?.Services;
-                if (services != null)
+                Logger = ResolveLogger();
+
+                // Get common services
+                NavigationService = GetService<INavigationService>();
+                DialogService = GetService<IDialogService>();
+                ErrorHandlingService = GetService<IErrorHandlingService>();
+                PreferencesService = GetService<IPreferencesService>();
+                UserProfileService = GetService<IUserProfileService>();
+
+                if (Logger == null &&
+                    NavigationService == null &&
+                    DialogService == null &&
+                    ErrorHandlingService == null &&
+                    PreferencesService == null &&
+                    UserProfileService == null)
                 {
-                    var loggerGenericType = typeof(ILogger<>).MakeGenericType(_loggerType);
-                    Logger = services.GetService(loggerGenericType) as ILogger;
-
-                    // Get common services
-                    NavigationService = services.GetService<INavigationService>();
-                    ErrorHandlingService = services.GetService<IErrorHandlingService>();
-                    PreferencesService = services.GetService<IPreferencesService>();
-                    UserProfileService = services.GetService<IUserProfileService>();
-
-                    // Configure basic controller support
-                    ControllerInputHelper.ConfigurePageForController(this, null, Logger);
-
-                    // Initialize ViewModel if specified
-                    InitializeViewModel();
-
-                    _servicesInitialized = true;
+                    return;
                 }
+
+                // Configure basic controller support
+                ControllerInputHelper.ConfigurePageForController(this, null, Logger);
+
+                // Initialize ViewModel if specified
+                InitializeViewModel();
+
+                _servicesInitialized = true;
             }
             catch (Exception ex)
             {
                 // Services not ready yet, will try again in OnNavigatedTo
                 Debug.WriteLine($"BasePage: Services not ready in constructor: {ex.Message}");
             }
+        }
+
+        private ILogger ResolveLogger()
+        {
+            var loggerGenericType = typeof(ILogger<>).MakeGenericType(_loggerType);
+            return GetService(loggerGenericType) as ILogger;
         }
 
         #region Lifecycle Methods
@@ -333,7 +346,12 @@ namespace Gelatinarm.Views
         /// </summary>
         protected T GetService<T>() where T : class
         {
-            return App.Current?.Services?.GetService<T>();
+            return ServiceLocator.GetService<T>();
+        }
+
+        protected object GetService(Type serviceType)
+        {
+            return ServiceLocator.GetService(serviceType);
         }
 
         /// <summary>
@@ -341,8 +359,7 @@ namespace Gelatinarm.Views
         /// </summary>
         protected T GetRequiredService<T>() where T : class
         {
-            return App.Current?.Services?.GetRequiredService<T>() ??
-                   throw new InvalidOperationException($"Service {typeof(T).Name} not found");
+            return ServiceLocator.GetRequiredService<T>();
         }
 
         #endregion
@@ -368,14 +385,19 @@ namespace Gelatinarm.Views
             {
                 try
                 {
-                    ViewModel = GetRequiredService(ViewModelType);
+                    ViewModel = GetService(ViewModelType);
+                    if (ViewModel == null)
+                    {
+                        Logger?.LogWarning($"{GetType().Name}: ViewModel {ViewModelType.Name} not available yet");
+                        return;
+                    }
+
                     DataContext = ViewModel;
                     Logger?.LogInformation($"{GetType().Name}: ViewModel {ViewModelType.Name} initialized");
                 }
                 catch (Exception ex)
                 {
                     Logger?.LogError(ex, $"Failed to initialize ViewModel {ViewModelType.Name}");
-                    throw;
                 }
             }
         }
@@ -385,8 +407,7 @@ namespace Gelatinarm.Views
         /// </summary>
         private object GetRequiredService(Type serviceType)
         {
-            return App.Current?.Services?.GetRequiredService(serviceType) ??
-                   throw new InvalidOperationException($"Service {serviceType.Name} not found");
+            return ServiceLocator.GetRequiredService(serviceType);
         }
 
         #endregion
@@ -407,6 +428,13 @@ namespace Gelatinarm.Views
             }
 
             // Use NavigationService for consistent navigation handling
+            if (NavigationService?.IsNavigating == true)
+            {
+                Logger?.LogInformation($"BasePage: Back requested during navigation on {GetType().Name}, ignoring");
+                e.Handled = true;
+                return;
+            }
+
             if (NavigationService?.CanGoBack == true)
             {
                 e.Handled = true;
@@ -474,6 +502,25 @@ namespace Gelatinarm.Views
         protected object GetSavedNavigationParameter()
         {
             return NavigationService?.GetLastNavigationParameter();
+        }
+
+        /// <summary>
+        ///     Resolve a navigation parameter, falling back to saved back navigation state when needed.
+        /// </summary>
+        protected object ResolveNavigationParameter(object parameter)
+        {
+            if (parameter != null)
+            {
+                return parameter;
+            }
+
+            var savedParameter = GetSavedNavigationParameter();
+            if (savedParameter != null)
+            {
+                Logger?.LogInformation("Using saved navigation parameter for back navigation");
+            }
+
+            return savedParameter;
         }
 
         #endregion

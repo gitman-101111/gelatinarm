@@ -257,15 +257,21 @@ namespace Gelatinarm.ViewModels
                     throw new InvalidOperationException("Media discovery service is not available");
                 }
 
-                // Ensure user profile is loaded
-                if (string.IsNullOrEmpty(_userProfileService.CurrentUserId))
+                var userGuid = _userProfileService.GetCurrentUserGuid();
+                if (!userGuid.HasValue)
                 {
-                    // User profile not loaded, attempting to load
                     var profileLoaded = await _userProfileService.LoadUserProfileAsync(cancellationToken)
                         .ConfigureAwait(false);
                     if (!profileLoaded)
                     {
                         _logger?.LogError("Failed to load user profile");
+                        return;
+                    }
+
+                    userGuid = _userProfileService.GetCurrentUserGuid();
+                    if (!userGuid.HasValue)
+                    {
+                        _logger?.LogError("User profile loaded without a user ID");
                         return;
                     }
                 }
@@ -547,7 +553,7 @@ namespace Gelatinarm.ViewModels
         private void OnContinueWatchingItemClick(BaseItemDto item)
         {
             var context = CreateErrorContext("ContinueWatchingItemClick", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -584,7 +590,7 @@ namespace Gelatinarm.ViewModels
         private void OnMovieItemClick(BaseItemDto item)
         {
             var context = CreateErrorContext("MovieItemClick", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -621,7 +627,7 @@ namespace Gelatinarm.ViewModels
         private void OnTVShowItemClick(BaseItemDto item)
         {
             var context = CreateErrorContext("TVShowItemClick", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -669,7 +675,7 @@ namespace Gelatinarm.ViewModels
         public void RefreshData()
         {
             var context = CreateErrorContext("RefreshData", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -697,26 +703,6 @@ namespace Gelatinarm.ViewModels
             return $"MainViewModel_{key}";
         }
 
-        private async Task<string> GetCurrentUserIdAsync()
-        {
-            var context = CreateErrorContext("GetCurrentUserId", ErrorCategory.User);
-            try
-            {
-                if (_userProfileService == null)
-                {
-                    _logger?.LogError("UserProfileService is null");
-                    return null;
-                }
-
-                await Task.CompletedTask;
-                return _userProfileService.CurrentUserId;
-            }
-            catch (Exception ex)
-            {
-                return await ErrorHandler.HandleErrorAsync<string>(ex, context, null);
-            }
-        }
-
         private async Task UpdateUIAsync(Action action)
         {
             if (CoreApplication.MainView?.CoreWindow?.Dispatcher == null)
@@ -728,7 +714,7 @@ namespace Gelatinarm.ViewModels
             await RunOnUIThreadAsync(() =>
             {
                 var context = CreateErrorContext("UpdateUI", ErrorCategory.User);
-                AsyncHelper.FireAndForget(async () =>
+                FireAndForget(async () =>
                 {
                     try
                     {
@@ -836,7 +822,7 @@ namespace Gelatinarm.ViewModels
         private void OnContinueWatchingItemsChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             var context = CreateErrorContext("ContinueWatchingItemsChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -853,7 +839,7 @@ namespace Gelatinarm.ViewModels
         private void OnLatestMoviesChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             var context = CreateErrorContext("LatestMoviesChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -870,7 +856,7 @@ namespace Gelatinarm.ViewModels
         private void OnLatestTVShowsChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             var context = CreateErrorContext("LatestTVShowsChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -887,7 +873,7 @@ namespace Gelatinarm.ViewModels
         private void OnRecentlyAddedChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             var context = CreateErrorContext("RecentlyAddedChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -904,7 +890,7 @@ namespace Gelatinarm.ViewModels
         private void OnRecommendedChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             var context = CreateErrorContext("RecommendedChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

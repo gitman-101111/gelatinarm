@@ -77,7 +77,7 @@ Test these Xbox-specific scenarios:
 - **Controller Navigation**: All features accessible via gamepad
 - **10-foot UI**: Text readable from typical viewing distance
 - **Focus Management**: Clear focus indicators on all screens
-- **System Integration**: Quick Resume, background audio
+- **System Integration**: Quick Resume, background audio, background exit when video-only
 - **Memory Constraints**: Stay within 3GB limit (Xbox One)
 
 ## Test Scenarios

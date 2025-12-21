@@ -27,7 +27,6 @@ namespace Gelatinarm.Views
         SearchPage : BasePage, INotifyPropertyChanged // INotifyPropertyChanged for local properties
     {
         private readonly JellyfinApiClient _apiClient;
-        private readonly INavigationService _navigationService;
         private readonly Guid? _userIdGuid;
         private readonly IUserProfileService _userProfileService;
         private BaseItemKind[] _currentFilter;
@@ -65,22 +64,8 @@ namespace Gelatinarm.Views
 
             try
             {
-                // Check if App.Current is available
-                if (App.Current == null)
-                {
-                    throw new InvalidOperationException("App.Current is null");
-                }
-
-                // Check if Services is available
-                if (App.Current.Services == null)
-                {
-                    throw new InvalidOperationException("App.Current.Services is null");
-                }
                 _apiClient = GetRequiredService<JellyfinApiClient>();
                 _userProfileService = UserProfileService; // Use from BasePage
-                _navigationService = NavigationService; // Use from BasePage
-
-
                 try
                 {
                     ControllerInputHelper.ConfigurePageForController(this, SearchBox, Logger);
@@ -516,7 +501,7 @@ namespace Gelatinarm.Views
                     UpdateFilterButtons();
                     if (!string.IsNullOrEmpty(_lastSearchTerm))
                     {
-                        AsyncHelper.FireAndForget(() => PerformSearch(_lastSearchTerm), Logger, GetType());
+                        FireAndForget(() => PerformSearch(_lastSearchTerm));
                     }
                 }
             }
@@ -900,38 +885,13 @@ namespace Gelatinarm.Views
                     // Re-run the search with the filter applied
                     if (!string.IsNullOrEmpty(_lastSearchTerm))
                     {
-                        AsyncHelper.FireAndForget(() => PerformSearch(_lastSearchTerm), Logger, GetType());
+                        FireAndForget(() => PerformSearch(_lastSearchTerm));
                     }
                 }
             }
             catch (Exception ex)
             {
                 Logger?.LogError(ex, "Error in ShowMoreButton_Click");
-            }
-        }
-
-        private void NavigateToItemDetails(BaseItemDto baseItemDto)
-        {
-            try
-            {
-                if (baseItemDto == null)
-                {
-                    Logger?.LogWarning("NavigateToItemDetails: Item is null");
-                    return;
-                }
-
-                if (_navigationService == null)
-                {
-                    Logger?.LogError("NavigationService is null");
-                    return;
-                }
-
-                // Navigate to item details using NavigationService
-                _navigationService.NavigateToItemDetails(baseItemDto);
-            }
-            catch (Exception ex)
-            {
-                Logger?.LogError(ex, "Error navigating to item details");
             }
         }
 

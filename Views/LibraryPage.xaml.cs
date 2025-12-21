@@ -13,7 +13,6 @@ using Gelatinarm.Services;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -34,6 +33,7 @@ namespace Gelatinarm.Views
         private readonly Dictionary<FilterItem, bool> _tempFilterStates = new();
 
         private readonly IUnifiedDeviceService _unifiedDeviceService;
+        private readonly IMusicPlayerService _musicPlayerService;
 
 
         public LibraryPage() : base(typeof(LibraryPage))
@@ -59,6 +59,7 @@ namespace Gelatinarm.Views
             }
 #endif
             _unifiedDeviceService = GetService<IUnifiedDeviceService>();
+            _musicPlayerService = GetService<IMusicPlayerService>();
             _apiClient = GetRequiredService<JellyfinApiClient>();
 
             SetupXboxNavigation();
@@ -196,7 +197,7 @@ namespace Gelatinarm.Views
                         $"LibraryPage - Before NavigateToDetailsPage - BackStack count: {Frame.BackStackDepth}");
                 }
 
-                NavigationService.NavigateToItemDetails(baseItem);
+                NavigateToItemDetails(baseItem);
 
                 // Log back stack after navigation
                 if (Frame != null)
@@ -771,10 +772,9 @@ namespace Gelatinarm.Views
                     Logger.LogInformation($"Starting shuffle playback with {result.Items.Count} songs");
 
                     // Use MusicPlayerService for music playback
-                    var musicPlayerService = App.Current.Services.GetService<IMusicPlayerService>();
-                    if (musicPlayerService != null)
+                    if (_musicPlayerService != null)
                     {
-                        await musicPlayerService.PlayItems(result.Items.ToList()).ConfigureAwait(false);
+                        await _musicPlayerService.PlayItems(result.Items.ToList()).ConfigureAwait(false);
                     }
                     else
                     {
@@ -797,10 +797,9 @@ namespace Gelatinarm.Views
                     var shuffledItems = allMusicItems.OrderBy(x => random.Next()).ToList();
 
                     // Use MusicPlayerService for music playback
-                    var musicPlayerService = GetService<IMusicPlayerService>();
-                    if (musicPlayerService != null)
+                    if (_musicPlayerService != null)
                     {
-                        await musicPlayerService.PlayItems(shuffledItems).ConfigureAwait(false);
+                        await _musicPlayerService.PlayItems(shuffledItems).ConfigureAwait(false);
                     }
                     else
                     {
@@ -841,10 +840,9 @@ namespace Gelatinarm.Views
                     }
 
                     // Use MusicPlayerService for music playback
-                    var musicPlayerService = GetService<IMusicPlayerService>();
-                    if (musicPlayerService != null)
+                    if (_musicPlayerService != null)
                     {
-                        await musicPlayerService.PlayItems(instantMixItems).ConfigureAwait(false);
+                        await _musicPlayerService.PlayItems(instantMixItems).ConfigureAwait(false);
                     }
                     else
                     {

@@ -3,12 +3,12 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
 using Windows.UI.Core;
@@ -26,18 +26,23 @@ namespace Gelatinarm.Views
     /// </summary>
     public sealed partial class MediaPlayerPage : BasePage
     {
-        private readonly IDialogService _dialogService;
-
+        private readonly IEpisodeQueueService _episodeQueueService;
         private readonly INavigationStateService _navigationStateService;
+        private readonly IMusicPlayerService _musicPlayerService;
+        private readonly IPreferencesService _preferencesService;
         private volatile int _controlVisibilityCounter = 0;
         private DispatcherTimer _controlVisibilityTimer;
         private volatile int _isDisposing = 0; // 0 = not disposing, 1 = disposing
+        private volatile bool _isInBackground;
         private MediaPlaybackState? _stateBeforeFocusLost;
 
         public MediaPlayerPage() : base(typeof(MediaPlayerPage))
         {
-            InitializeComponent(); _navigationStateService = GetRequiredService<INavigationStateService>();
-            _dialogService = GetRequiredService<IDialogService>();
+            InitializeComponent();
+            _navigationStateService = GetRequiredService<INavigationStateService>();
+            _episodeQueueService = GetService<IEpisodeQueueService>();
+            _musicPlayerService = GetService<IMusicPlayerService>();
+            _preferencesService = GetService<IPreferencesService>();
 
             // Wire up MediaPlayerElement
             ViewModel.MediaPlayerElement = MediaPlayer;
@@ -57,7 +62,46 @@ namespace Gelatinarm.Views
         private async void ShowError(string message)
         {
             // Show error using DialogService
-            await _dialogService.ShowErrorAsync("Playback Error", message);
+            if (DialogService != null)
+            {
+                await DialogService.ShowErrorAsync("Playback Error", message);
+            }
+        }
+
+        private async Task ExecuteTrackChangeAsync<TTrack>(
+            string label,
+            TTrack selectedTrack,
+            Func<TTrack, string> displaySelector,
+            IAsyncRelayCommand<TTrack> command,
+            Flyout flyout)
+        {
+            if (selectedTrack == null)
+            {
+                return;
+            }
+
+            Logger?.LogInformation($"{label}List_ItemClick - Selected {label.ToLower()}: {displaySelector(selectedTrack)}");
+
+            // Debug logging
+            Logger?.LogInformation($"ViewModel is null: {ViewModel == null}");
+            Logger?.LogInformation($"Change{label}Command is null: {command == null}");
+
+            if (command == null)
+            {
+                Logger?.LogError($"Cannot execute {label.ToLower()} change - ViewModel or Command is null");
+                return;
+            }
+
+            var canExecute = command.CanExecute(selectedTrack);
+            Logger?.LogInformation($"Change{label}Command.CanExecute returned: {canExecute}");
+
+            if (!canExecute)
+            {
+                return;
+            }
+
+            await command.ExecuteAsync(selectedTrack);
+            flyout?.Hide();
         }
 
         #endregion
@@ -103,10 +147,9 @@ namespace Gelatinarm.Views
                 try
                 {
                     // Stop mini player if it's playing
-                    var musicPlayerService = GetService<IMusicPlayerService>();
-                    if (musicPlayerService != null && musicPlayerService.IsPlaying)
+                    if (_musicPlayerService != null && _musicPlayerService.IsPlaying)
                     {
-                        musicPlayerService.Stop();
+                        _musicPlayerService.Stop();
                         Logger.LogInformation("Stopped MusicPlayer before starting video playback");
                     }
 
@@ -186,10 +229,9 @@ namespace Gelatinarm.Views
                     await ViewModel.InitializeAsync(playbackParams);
 
                     // Apply video stretch mode from preferences
-                    var preferencesService = App.Current.Services.GetService<IPreferencesService>();
-                    if (preferencesService != null)
+                    if (_preferencesService != null)
                     {
-                        var appPrefs = await preferencesService.GetAppPreferencesAsync();
+                        var appPrefs = await _preferencesService.GetAppPreferencesAsync();
                         if (appPrefs != null && MediaPlayer != null)
                         {
                             MediaPlayer.Stretch = appPrefs.VideoStretchMode == "UniformToFill"
@@ -215,11 +257,10 @@ namespace Gelatinarm.Views
                             episodeFromContinueWatching.Type == BaseItemDto_Type.Episode &&
                             episodeFromContinueWatching.SeriesId.HasValue)
                         {
-                            var episodeQueueService = App.Current.Services.GetService<IEpisodeQueueService>();
-                            if (episodeQueueService != null)
+                            if (_episodeQueueService != null)
                             {
                                 var (queue, startIndex, success) =
-                                    await episodeQueueService.BuildContinueWatchingQueueAsync(
+                                    await _episodeQueueService.BuildContinueWatchingQueueAsync(
                                         episodeFromContinueWatching);
                                 if (success && queue != null)
                                 {
@@ -580,7 +621,7 @@ namespace Gelatinarm.Views
         private void OnSkipButtonBecameAvailable(object sender, SkipSegmentType segmentType)
         {
             // Focus the appropriate skip button when it becomes available
-            AsyncHelper.FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(() =>
+            FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(() =>
             {
                 Button buttonToFocus = null;
 
@@ -646,7 +687,7 @@ namespace Gelatinarm.Views
             if (sender is Button button && button.Visibility == Visibility.Visible && !ViewModel.IsPaused)
             {
                 // Small delay to ensure button is fully rendered and layout has stabilized
-                AsyncHelper.FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(async () =>
+                FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(async () =>
                 {
                     // Wait a bit to ensure button is fully rendered
                     await Task.Delay(100);
@@ -690,9 +731,8 @@ namespace Gelatinarm.Views
             try
             {
                 // Defensive check for disposal
-                if (_isDisposing == 1 || CustomControlsOverlay == null || InfoOverlay == null)
+                if (!CanToggleControls("show"))
                 {
-                    Logger?.LogWarning("Cannot show controls - page is being disposed or controls are null");
                     return;
                 }
 
@@ -703,7 +743,8 @@ namespace Gelatinarm.Views
                 InfoOverlay.Opacity = 1.0;
 
                 Logger?.LogInformation(
-                    $"Showing controls (skipFocus={skipFocus}, updateMediaController={updateMediaController}, clearSkipFlagAfterDelay={clearSkipFlagAfterDelay})"); ViewModel.AreControlsVisible = true;
+                    $"Showing controls (skipFocus={skipFocus}, updateMediaController={updateMediaController}, clearSkipFlagAfterDelay={clearSkipFlagAfterDelay})");
+                ViewModel.AreControlsVisible = true;
 
                 // Enable XY focus navigation for analog stick when controls are visible
                 XYFocusKeyboardNavigation = XYFocusKeyboardNavigationMode.Enabled;
@@ -735,21 +776,7 @@ namespace Gelatinarm.Views
                 if (!skipFocus)
                 {
                     // When paused, prioritize focus on custom play/pause button
-                    if (ViewModel.IsPaused && CustomPlayPauseButton != null)
-                    {
-                        CustomPlayPauseButton.Focus(FocusState.Programmatic);
-                        Logger?.LogInformation("Set focus to custom play/pause button");
-                    }
-                    // Otherwise focus on first available button
-                    else if (ViewModel.AreControlsVisible)
-                    {
-                        var firstButton = GetFirstFocusableButton();
-                        if (firstButton != null)
-                        {
-                            firstButton.Focus(FocusState.Programmatic);
-                            Logger?.LogInformation($"Set focus to {firstButton.Name}");
-                        }
-                    }
+                    FocusPrimaryControlButton();
                 }
             }
             catch (Exception ex)
@@ -768,9 +795,8 @@ namespace Gelatinarm.Views
             try
             {
                 // Defensive check for disposal
-                if (_isDisposing == 1 || CustomControlsOverlay == null || InfoOverlay == null)
+                if (!CanToggleControls("hide"))
                 {
-                    Logger?.LogWarning("Cannot hide controls - page is being disposed or controls are null");
                     return;
                 }
 
@@ -778,7 +804,8 @@ namespace Gelatinarm.Views
                 CustomControlsOverlay.Visibility = Visibility.Collapsed;
                 InfoOverlay.Visibility = Visibility.Collapsed;
 
-                Logger?.LogInformation("Hiding controls"); ViewModel.AreControlsVisible = false;
+                Logger?.LogInformation("Hiding controls");
+                ViewModel.AreControlsVisible = false;
 
                 // Disable XY focus navigation when controls are hidden to prevent analog stick navigation
                 XYFocusKeyboardNavigation = XYFocusKeyboardNavigationMode.Disabled;
@@ -790,35 +817,7 @@ namespace Gelatinarm.Views
                     Logger?.LogInformation("Notified MediaControllerService of visibility change to false");
                 }
 
-                // Check for visible overlay buttons and set focus appropriately
-                Button visibleOverlayButton = null;
-
-                // Priority order for overlay buttons
-                if (SkipIntroButtonOverlay?.Visibility == Visibility.Visible)
-                {
-                    visibleOverlayButton = SkipIntroButtonOverlay;
-                }
-                else if (SkipOutroButtonOverlay?.Visibility == Visibility.Visible)
-                {
-                    visibleOverlayButton = SkipOutroButtonOverlay;
-                }
-                else if (NextEpisodeButtonOverlay?.Visibility == Visibility.Visible)
-                {
-                    visibleOverlayButton = NextEpisodeButtonOverlay;
-                }
-
-                if (visibleOverlayButton != null)
-                {
-                    // Set focus to the visible overlay button
-                    var focusResult = visibleOverlayButton.Focus(FocusState.Programmatic);
-                    Logger?.LogInformation($"Controls hidden, set focus to overlay button {visibleOverlayButton.Name}: {focusResult}");
-                }
-                else
-                {
-                    // No overlay buttons visible, safe to move focus to MediaPlayer
-                    var focusResult = MediaPlayer?.Focus(FocusState.Programmatic);
-                    Logger?.LogInformation($"Controls hidden, MediaPlayer focus result: {focusResult}");
-                }
+                FocusOverlayOrPlayer();
             }
             catch (Exception ex)
             {
@@ -900,6 +899,71 @@ namespace Gelatinarm.Views
             return null;
         }
 
+        private void FocusPrimaryControlButton()
+        {
+            if (ViewModel?.IsPaused == true && CustomPlayPauseButton != null)
+            {
+                CustomPlayPauseButton.Focus(FocusState.Programmatic);
+                Logger?.LogInformation("Set focus to custom play/pause button");
+                return;
+            }
+
+            if (ViewModel?.AreControlsVisible == true)
+            {
+                var firstButton = GetFirstFocusableButton();
+                if (firstButton != null)
+                {
+                    firstButton.Focus(FocusState.Programmatic);
+                    Logger?.LogInformation($"Set focus to {firstButton.Name}");
+                }
+            }
+        }
+
+        private Button GetVisibleOverlayButton()
+        {
+            if (SkipIntroButtonOverlay?.Visibility == Visibility.Visible)
+            {
+                return SkipIntroButtonOverlay;
+            }
+
+            if (SkipOutroButtonOverlay?.Visibility == Visibility.Visible)
+            {
+                return SkipOutroButtonOverlay;
+            }
+
+            if (NextEpisodeButtonOverlay?.Visibility == Visibility.Visible)
+            {
+                return NextEpisodeButtonOverlay;
+            }
+
+            return null;
+        }
+
+        private void FocusOverlayOrPlayer()
+        {
+            var visibleOverlayButton = GetVisibleOverlayButton();
+            if (visibleOverlayButton != null)
+            {
+                var focusResult = visibleOverlayButton.Focus(FocusState.Programmatic);
+                Logger?.LogInformation($"Controls hidden, set focus to overlay button {visibleOverlayButton.Name}: {focusResult}");
+                return;
+            }
+
+            var mediaFocusResult = MediaPlayer?.Focus(FocusState.Programmatic);
+            Logger?.LogInformation($"Controls hidden, MediaPlayer focus result: {mediaFocusResult}");
+        }
+
+        private bool CanToggleControls(string action)
+        {
+            if (_isDisposing == 1 || CustomControlsOverlay == null || InfoOverlay == null)
+            {
+                Logger?.LogWarning($"Cannot {action} controls - page is being disposed or controls are null");
+                return false;
+            }
+
+            return true;
+        }
+
 
         private void ResetControlVisibilityTimer()
         {
@@ -917,7 +981,7 @@ namespace Gelatinarm.Views
                 Interlocked.Increment(ref _controlVisibilityCounter);
 
                 // Get user preferences for hide delay
-                var preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
+                var preferencesService = _preferencesService ?? GetRequiredService<IPreferencesService>();
                 var preferences = await preferencesService.GetAppPreferencesAsync();
 
                 // Check if configured delay has passed
@@ -966,30 +1030,12 @@ namespace Gelatinarm.Views
         {
             if (e.ClickedItem is AudioTrack selectedAudio)
             {
-                Logger?.LogInformation($"AudioList_ItemClick - Selected audio: {selectedAudio.DisplayName}");
-
-                // Debug logging
-                Logger?.LogInformation($"ViewModel is null: {ViewModel == null}");
-                Logger?.LogInformation($"ChangeAudioTrackCommand is null: {ViewModel?.ChangeAudioTrackCommand == null}");
-
-                // Execute the ChangeAudioTrack command
-                if (ViewModel?.ChangeAudioTrackCommand != null)
-                {
-                    var canExecute = ViewModel.ChangeAudioTrackCommand.CanExecute(selectedAudio);
-                    Logger?.LogInformation($"ChangeAudioTrackCommand.CanExecute returned: {canExecute}");
-
-                    if (canExecute)
-                    {
-                        await ViewModel.ChangeAudioTrackCommand.ExecuteAsync(selectedAudio);
-
-                        // Close the flyout after selection
-                        AudioFlyout.Hide();
-                    }
-                }
-                else
-                {
-                    Logger?.LogError("Cannot execute audio track change - ViewModel or Command is null");
-                }
+                await ExecuteTrackChangeAsync(
+                    "Audio",
+                    selectedAudio,
+                    audio => audio.DisplayName,
+                    ViewModel?.ChangeAudioTrackCommand,
+                    AudioFlyout);
             }
         }
 
@@ -997,30 +1043,12 @@ namespace Gelatinarm.Views
         {
             if (e.ClickedItem is SubtitleTrack selectedSubtitle)
             {
-                Logger?.LogInformation($"SubtitlesList_ItemClick - Selected subtitle: {selectedSubtitle.DisplayTitle}");
-
-                // Debug logging
-                Logger?.LogInformation($"ViewModel is null: {ViewModel == null}");
-                Logger?.LogInformation($"ChangeSubtitleCommand is null: {ViewModel?.ChangeSubtitleCommand == null}");
-
-                // Execute the ChangeSubtitle command
-                if (ViewModel?.ChangeSubtitleCommand != null)
-                {
-                    var canExecute = ViewModel.ChangeSubtitleCommand.CanExecute(selectedSubtitle);
-                    Logger?.LogInformation($"ChangeSubtitleCommand.CanExecute returned: {canExecute}");
-
-                    if (canExecute)
-                    {
-                        await ViewModel.ChangeSubtitleCommand.ExecuteAsync(selectedSubtitle);
-
-                        // Close the flyout after selection
-                        SubtitlesFlyout.Hide();
-                    }
-                }
-                else
-                {
-                    Logger?.LogError("Cannot execute subtitle change - ViewModel or Command is null");
-                }
+                await ExecuteTrackChangeAsync(
+                    "Subtitle",
+                    selectedSubtitle,
+                    subtitle => subtitle.DisplayTitle,
+                    ViewModel?.ChangeSubtitleCommand,
+                    SubtitlesFlyout);
             }
         }
 
@@ -1090,7 +1118,7 @@ namespace Gelatinarm.Views
                 // Toggle favorite status
                 if (ViewModel.CurrentItem?.Id != null)
                 {
-                    var userDataService = App.Current.Services.GetRequiredService<IUserDataService>();
+                    var userDataService = GetRequiredService<IUserDataService>();
                     var isFavorite = ViewModel.CurrentItem.UserData?.IsFavorite ?? false;
                     var itemId = ViewModel.CurrentItem.Id.Value;
 
@@ -1243,6 +1271,15 @@ namespace Gelatinarm.Views
 
         private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            if (_isInBackground &&
+                (e.PropertyName == nameof(ViewModel.IsBuffering) ||
+                 e.PropertyName == nameof(ViewModel.IsPaused) ||
+                 e.PropertyName == nameof(ViewModel.IsPlaying)))
+            {
+                Logger?.LogDebug($"Skipping UI updates while in background for {e.PropertyName}");
+                return;
+            }
+
             // Handle any UI-specific updates based on ViewModel changes
             switch (e.PropertyName)
             {
@@ -1340,7 +1377,7 @@ namespace Gelatinarm.Views
                 }
 
                 // Get user preferences
-                var preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
+                var preferencesService = _preferencesService ?? GetRequiredService<IPreferencesService>();
                 var preferences = await preferencesService.GetAppPreferencesAsync();
                 var pauseOnFocusLoss = preferences?.PauseOnFocusLoss ?? false;
 
@@ -1392,41 +1429,61 @@ namespace Gelatinarm.Views
         {
             try
             {
-                if (MediaPlayer?.MediaPlayer?.PlaybackSession == null)
-                {
-                    return;
-                }
-
                 Logger?.LogInformation($"Window visibility changed: Visible={e.Visible}");
-
-                if (!e.Visible)
-                {
-                    // Window is being hidden/minimized
-                    if (MediaPlayer?.MediaPlayer?.PlaybackSession == null)
-                    {
-                        return;
-                    }
-                    var currentState = MediaPlayer.MediaPlayer.PlaybackSession.PlaybackState;
-
-                    if (currentState == MediaPlaybackState.Playing)
-                    {
-                        _stateBeforeFocusLost = currentState;
-                        MediaPlayer.MediaPlayer.Pause();
-                        Logger?.LogInformation("Paused video due to window becoming hidden");
-                    }
-                }
-                else if (_stateBeforeFocusLost == MediaPlaybackState.Playing)
-                {
-                    // Window is visible again and we were playing before
-                    MediaPlayer.MediaPlayer.Play();
-                    Logger?.LogInformation("Resumed video after window became visible");
-                    _stateBeforeFocusLost = null;
-                }
+                FireAndForget(() => HandleAppBackgroundChangedAsync(!e.Visible), "HandleAppBackgroundChanged");
             }
             catch (Exception ex)
             {
                 Logger?.LogError(ex, "Error in Window_VisibilityChanged handler");
             }
+        }
+
+        public Task HandleAppBackgroundChangedAsync(bool isInBackground)
+        {
+            if (_isDisposing == 1 || _isInBackground == isInBackground)
+            {
+                return Task.CompletedTask;
+            }
+
+            _isInBackground = isInBackground;
+
+            if (isInBackground)
+            {
+                Logger?.LogInformation("App entered background - pausing playback and stopping timers");
+                _controlVisibilityTimer?.Stop();
+                ViewModel?.HandleAppBackgroundChanged(true);
+
+                if (MediaPlayer?.MediaPlayer?.PlaybackSession != null)
+                {
+                    var currentState = MediaPlayer.MediaPlayer.PlaybackSession.PlaybackState;
+                    if (currentState == MediaPlaybackState.Playing)
+                    {
+                        _stateBeforeFocusLost = currentState;
+                        MediaPlayer.MediaPlayer.Pause();
+                        Logger?.LogInformation("Paused video due to app entering background");
+                    }
+                }
+            }
+            else
+            {
+                Logger?.LogInformation("App leaving background - resuming timers");
+                ViewModel?.HandleAppBackgroundChanged(false);
+
+                if (_stateBeforeFocusLost == MediaPlaybackState.Playing)
+                {
+                    MediaPlayer?.MediaPlayer?.Play();
+                    Logger?.LogInformation("Resumed video after app returned to foreground");
+                }
+
+                _stateBeforeFocusLost = null;
+
+                if (ViewModel?.IsPlaying == true)
+                {
+                    ResetControlVisibilityTimer();
+                }
+            }
+
+            return Task.CompletedTask;
         }
 
         #endregion
@@ -1439,10 +1496,9 @@ namespace Gelatinarm.Views
         {
             try
             {
-                var dialogService = GetService<IDialogService>();
-                if (dialogService != null)
+                if (DialogService != null)
                 {
-                    var result = await dialogService.ShowConfirmationAsync(
+                    var result = await DialogService.ShowConfirmationAsync(
                         "Playback Error",
                         "The video stream became corrupted at this position. This is a known issue when resuming certain videos. " +
                         "Would you like to restart playback from the beginning?");

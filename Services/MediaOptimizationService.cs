@@ -667,7 +667,7 @@ namespace Gelatinarm.Services
 
             if (IsOptimizationEnabled)
             {
-                AsyncHelper.FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(() =>
+                FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(() =>
                 {
                     OptimizationStateChanged?.Invoke(this,
                         new OptimizationStateChangedEventArgs

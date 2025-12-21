@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using Gelatinarm.Services;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Xaml.Controls;
 
@@ -29,26 +28,15 @@ namespace Gelatinarm.Views
         {
             if (ViewModel != null)
             {
-                // If we have a parameter, use it (normal navigation)
-                if (parameter != null)
+                var resolvedParameter = ResolveNavigationParameter(parameter);
+                if (resolvedParameter != null)
                 {
-                    await ViewModel.InitializeAsync(parameter);
+                    await ViewModel.InitializeAsync(resolvedParameter);
                 }
-                // If no parameter, check if we have a saved parameter from navigation service (back navigation)
-                else
+                else if (ViewModel.CurrentItem != null)
                 {
-                    var savedParameter = GetSavedNavigationParameter();
-
-                    if (savedParameter != null)
-                    {
-                        Logger?.LogInformation("Using saved navigation parameter for back navigation");
-                        await ViewModel.InitializeAsync(savedParameter);
-                    }
-                    else if (ViewModel.CurrentItem != null)
-                    {
-                        Logger?.LogInformation("No navigation parameter on MovieDetailsPage, refreshing current item");
-                        await ViewModel.RefreshAsync();
-                    }
+                    Logger?.LogInformation("No navigation parameter on MovieDetailsPage, refreshing current item");
+                    await ViewModel.RefreshAsync();
                 }
 
                 // Focus on Play/Resume button after content loads
@@ -64,8 +52,7 @@ namespace Gelatinarm.Views
         {
             if (e.ClickedItem is BaseItemDto item)
             {
-                var navigationService = App.Current.Services.GetRequiredService<INavigationService>();
-                navigationService.Navigate(typeof(MovieDetailsPage), item);
+                NavigationService.Navigate(typeof(MovieDetailsPage), item);
             }
         }
 

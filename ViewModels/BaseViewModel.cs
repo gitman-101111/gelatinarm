@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
@@ -27,7 +28,7 @@ namespace Gelatinarm.ViewModels
         {
             Logger = logger;
             DisposalCts = new CancellationTokenSource();
-            ErrorHandler = App.Current?.Services?.GetService(typeof(IErrorHandlingService)) as IErrorHandlingService;
+            ErrorHandler = GetService<IErrorHandlingService>();
         }
 
         /// <summary>
@@ -111,6 +112,70 @@ namespace Gelatinarm.ViewModels
         protected async Task RunOnUIThreadAsync(Action action)
         {
             await UIHelper.RunOnUIThreadAsync(action, logger: Logger);
+        }
+
+        protected void FireAndForget(Func<Task> asyncAction, [CallerMemberName] string memberName = "")
+        {
+            AsyncHelper.FireAndForget(asyncAction, Logger, GetType(), memberName);
+        }
+
+        protected bool TryGetGuidFromParameter(object parameter, out Guid guid)
+        {
+            guid = Guid.Empty;
+            if (parameter is Guid guidValue)
+            {
+                guid = guidValue;
+                return true;
+            }
+
+            if (parameter is string guidString && Guid.TryParse(guidString, out guidValue))
+            {
+                guid = guidValue;
+                return true;
+            }
+
+            return false;
+        }
+
+        protected MainViewModel GetMainViewModel()
+        {
+            return GetService<MainViewModel>();
+        }
+
+        protected void ClearMainViewModelCache(string context)
+        {
+            var mainViewModel = GetMainViewModel();
+            if (mainViewModel == null)
+            {
+                Logger?.LogDebug("MainViewModel not available to clear cache {Context}", context);
+                return;
+            }
+
+            mainViewModel.ClearCache();
+            if (string.IsNullOrWhiteSpace(context))
+            {
+                Logger?.LogInformation("Cleared MainViewModel cache");
+            }
+            else
+            {
+                Logger?.LogInformation("Cleared MainViewModel cache {Context}", context);
+            }
+        }
+
+        protected T GetService<T>() where T : class
+        {
+            return ServiceLocator.GetService<T>();
+        }
+
+        protected T GetRequiredService<T>() where T : class
+        {
+            var service = GetService<T>();
+            if (service == null)
+            {
+                throw new InvalidOperationException($"Service {typeof(T).Name} not found");
+            }
+
+            return service;
         }
 
         /// <summary>

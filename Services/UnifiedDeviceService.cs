@@ -224,7 +224,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
 
                 return "Xbox Device";
@@ -295,7 +295,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
 
                 return ConnectionType.Unknown;
@@ -353,7 +353,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
             }
         }
@@ -379,7 +379,7 @@ namespace Gelatinarm.Services
                             }
                             else
                             {
-                                AsyncHelper.FireAndForget(async () =>
+                                FireAndForget(async () =>
                                     await ErrorHandler.HandleErrorAsync(ex, context, false));
                             }
                         }
@@ -532,7 +532,7 @@ namespace Gelatinarm.Services
                     }
                     else
                     {
-                        AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                        FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                     }
                 }
             }
@@ -554,7 +554,7 @@ namespace Gelatinarm.Services
                     }
                     else
                     {
-                        AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                        FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                     }
                 }
             }
@@ -572,7 +572,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
             }
         }
@@ -580,7 +580,7 @@ namespace Gelatinarm.Services
         private void OnAdvancedColorInfoChanged(DisplayInformation sender, object args)
         {
             var context = CreateErrorContext("OnAdvancedColorInfoChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -602,7 +602,7 @@ namespace Gelatinarm.Services
         private void OnDefaultAudioRenderDeviceChanged(object sender, DefaultAudioRenderDeviceChangedEventArgs args)
         {
             var context = CreateErrorContext("OnDefaultAudioRenderDeviceChanged");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -882,7 +882,7 @@ namespace Gelatinarm.Services
         private void AddGamepadLogic(Gamepad g)
         {
             var context = CreateErrorContext("AddGamepadLogic");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -907,7 +907,7 @@ namespace Gelatinarm.Services
         private void RemoveGamepadLogic(Gamepad g)
         {
             var context = CreateErrorContext("RemoveGamepadLogic");
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -1178,7 +1178,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
             }
         }
@@ -1245,7 +1245,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
             }
         }
@@ -1266,7 +1266,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
             }
         }
@@ -1329,7 +1329,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    AsyncHelper.FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
+                    FireAndForget(async () => await ErrorHandler.HandleErrorAsync(ex, context, false));
                 }
 
                 return "jellyfin-xbox-" + Environment.MachineName.GetHashCode().ToString("X8");

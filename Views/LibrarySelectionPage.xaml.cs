@@ -5,7 +5,6 @@ using Gelatinarm.Constants;
 using Gelatinarm.Services;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -21,9 +20,8 @@ namespace Gelatinarm.Views
         {
             InitializeComponent();
 
-            var serviceProvider = ((App)Application.Current).Services;
-            ViewModel = serviceProvider.GetRequiredService<LibrarySelectionViewModel>();
-            _navigationService = serviceProvider.GetRequiredService<INavigationService>();
+            ViewModel = GetRequiredService<LibrarySelectionViewModel>();
+            _navigationService = GetRequiredService<INavigationService>();
             // Logger is initialized in BasePage
         }
 

@@ -12,7 +12,8 @@ This document describes the established coding patterns in the Gelatinarm codeba
 7. [Service Architecture Pattern](#service-architecture-pattern)
 8. [Controller Input Pattern](#controller-input-pattern)
 9. [Commit and Pull Request Guidelines](#commit-and-pull-request-guidelines)
-10. [Temporary Workarounds](#temporary-workarounds)
+10. [Playback Resume Strategy](#playback-resume-strategy)
+11. [ID Parsing Helpers](#id-parsing-helpers)
 
 ## Error Handling Pattern
 
@@ -69,6 +70,12 @@ private async Task LoadDataAsync()
         await ErrorHandler.HandleErrorAsync(ex, context, showUserMessage: true);
     }
 }
+
+// Fire-and-forget helper for background tasks
+FireAndForget(async () =>
+{
+    await _service.RefreshAsync();
+});
 
 // Using the built-in LoadDataCoreAsync pattern
 protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
@@ -151,6 +158,19 @@ NavigationService.Navigate(typeof(SearchPage));
 2. **Always use NavigationService methods**
 3. **Media items use NavigateToItemDetails**
 4. **MusicPlayer handled automatically for audio**
+5. **Back navigation parameter recovery**: use `BasePage.ResolveNavigationParameter(parameter)` in `InitializeViewModelAsync`
+
+#### Back Navigation Parameter Handling
+```csharp
+protected override async Task InitializeViewModelAsync(object parameter)
+{
+    var resolvedParameter = ResolveNavigationParameter(parameter);
+    if (resolvedParameter != null)
+    {
+        await ViewModel.InitializeAsync(resolvedParameter);
+    }
+}
+```
 
 ### Removed Anti-Patterns
 ```csharp
@@ -581,8 +601,8 @@ feat: Add subtitle track selection in media player
 fix: Resolve playback resume position on HLS streams
 
 Resume position was being ignored for HLS content.
-Applied workaround to detect manifest offset and adjust
-seek position accordingly.
+Added manifest offset tracking to align seek position
+with the server-created HLS manifest.
 
 docs: Update API reference for MediaPlaybackService
 ```
@@ -640,57 +660,43 @@ How to test these changes:
 - **Controller Support**: Does it work with gamepad navigation?
 - **Memory Usage**: Does it respect Xbox memory limits?
 
-## Temporary Workarounds
+## Playback Resume Strategy
 
-### HLS Resume Workaround
+### HLS Resume Handling
 
 #### Overview
-The application includes workarounds for HLS (HTTP Live Streaming) resume functionality due to current Jellyfin server behavior where the server doesn't honor StartTimeTicks for HLS streams. The system implements a robust tiered resume strategy with adaptive retry logic and tolerance thresholds to compensate for these limitations.
+HLS resume handling remains more defensive than DirectPlay because some servers can ignore StartTimeTicks for HLS streams. The current strategy uses a tiered resume flow with verification and manifest-offset tracking. The intent is to keep HLS and DirectPlay behavior aligned, only falling back when needed.
 
 #### Tiered Resume Approach
 1. **Tier 1**: Server-side resume via StartTimeTicks in PlaybackInfo request
 2. **Tier 2**: Client-side seek if server starts at position 0
-3. **Tier 3**: Manifest offset tracking for dynamic HLS manifests
+3. **Tier 3**: Manifest offset tracking for dynamic HLS manifests (when detected)
 
 #### Adaptive Configuration
-- **Retry Delays**: 5 seconds for HLS (allows transcoding time), 1 second for direct play
-- **Position Tolerance**: 10 seconds for HLS (accounts for segment boundaries), 5 seconds for direct play
-- **Max Attempts**: 8 for HLS, 5 for direct play
-- **Verification**: Ensures playback is advancing before accepting position
+- **Retry Delays**: tuned for HLS vs DirectPlay (transcoding time vs immediate start)
+- **Position Tolerance**: larger for HLS to account for segment/keyframe alignment
+- **Verification**: ensures playback is advancing before accepting the resume position
 
 #### Implementation Locations
-All HLS-specific implementations are marked with `HLS WORKAROUND` comments for easy identification:
+Key components for HLS resume handling:
+- **Services/PlaybackResumeCoordinator.cs**: shared resume state machine for HLS and DirectPlay
+- **Services/PlaybackSourceResolver.cs**: stream type selection and policy application
+- **Services/PlaybackResumeModels.cs**: resume policies, retry config, and verification helpers
+- **ViewModels/MediaPlayerViewModel.cs**: HLS manifest offset application and seek behavior
+- **Helpers/ResumeFlowCoordinator.cs**: resume acceptance, completion reporting, and logging
+- **Helpers/ResumeRetryCoordinator.cs**: consistent retry loop and delay/tolerance handling
+- **Helpers/PlaybackStateOrchestrator.cs**: normalized playback state transitions
+- **Helpers/BufferingStateCoordinator.cs**: buffering start/end detection and timeout triggers
+- **Helpers/SeekCompletionCoordinator.cs**: seek completion logging and validation
 
-**PlaybackControlService.cs:**
-- Line 468-473: Enhanced resume logic routing to `ApplyHlsResumePosition()`
-- Line 674+: HLS-specific resume implementation
-- Line 763-778: Manifest offset detection and tracking
-- Line 119: HlsManifestOffset property (internal setter)
+#### Manifest Offset Handling
+Manifest offset is used when the server creates a new HLS manifest at a different position (for example, large backward seeks or track switches). It is tracked in `Helpers/PlaybackSessionState.cs`, surfaced via `PlaybackControlService.HlsManifestOffset`, and applied in `ViewModels/MediaPlayerViewModel.cs` for correct position reporting.
 
-**MediaPlayerViewModel.cs:**
-- Line 399-444: Backward seek handling for HLS manifests
-- Line 133-155: Position property includes HLS offset
-- Line 71-76: HLS tracking variables for manifest changes
-
-**ServiceInterfaces.cs:**
-- Line 529: HlsManifestOffset property in IPlaybackControlService interface
-
-#### Removing HLS Workarounds
-When server implementation properly handles HLS resume:
-
-1. Search for all `HLS WORKAROUND` comments in the codebase
-2. In PlaybackControlService.cs:
-   - Remove HLS-specific routing (lines 468-473)
-   - Remove `ApplyHlsResumePosition()` method
-   - Remove HlsManifestOffset property
-3. In MediaPlayerViewModel.cs:
-   - Remove backward seek HLS handling
-   - Simplify Position getter to return just `_position`
-   - Remove HLS tracking variables
-4. In ServiceInterfaces.cs:
-   - Remove HlsManifestOffset from interface
-
-The tiered resume approach ensures that if the server begins honoring StartTimeTicks properly, client-side workarounds will not be triggered automatically.
+#### Confirming StartTimeTicks Behavior
+Use the existing resume logs:
+- **StartTimeTicks sent**: `[RESUME-STRATEGY] StartTimeTicks sent to server`.
+- **Client seek usage**: `[HLS-RESUME] Seeking from ...` indicates client-side correction was needed.
+- **Immediate acceptance**: `[HLS-RESUME] Already at resume position ...` suggests the server honored the resume or alignment was within tolerance.
 
 ## Summary
 
@@ -709,3 +715,39 @@ When implementing new features:
 - Use centralized services
 - Follow established conventions
 - Avoid creating duplicate functionality
+
+## ID Parsing Helpers
+
+Use the shared helpers to avoid repeated Guid parsing and error logging:
+- **Services/BaseService.cs**: `TryGetUserIdGuid(...)` and `TryGetItemGuid(...)`
+- **ViewModels/BaseViewModel.cs**: `TryGetGuidFromParameter(...)`
+
+Prefer these helpers in new code so ID validation and logging remain consistent.
+
+## MainViewModel Cache Helper
+
+When the app needs to clear stale home data (login, logout, server switch), use the shared helpers instead of re-implementing the null checks and logs:
+- **ViewModels/BaseViewModel.cs**: `ClearMainViewModelCache(...)`
+- **Services/BaseService.cs**: `ClearMainViewModelCache(...)`
+
+## Fire-and-Forget Helper
+
+Use the base helpers instead of calling `AsyncHelper.FireAndForget` directly:
+- **ViewModels/BaseViewModel.cs**: `FireAndForget(...)`
+- **Views/BasePage.cs**: `FireAndForget(...)`
+- **Services/BaseService.cs**: `FireAndForget(...)`
+
+## Service Resolution Helper
+
+For files that do not inherit from BasePage/BaseViewModel/BaseService, use the shared helper to reduce repeated service provider boilerplate:
+- **Helpers/ServiceLocator.cs**: `GetService<T>()` and `GetRequiredService<T>()`
+  - Also available: `GetService(Type)` and `GetRequiredService(Type)` for dynamic service resolution.
+
+Controls that inherit from BaseControl should prefer:
+- **Controls/BaseControl.cs**: `GetService<T>()` and `GetRequiredService<T>()`
+
+When a page/control uses the same service in multiple handlers, cache it once in the constructor or `OnServicesInitialized(...)` to avoid repeated lookups.
+
+Pages inheriting from BasePage can also use:
+- **Views/BasePage.cs**: `DialogService` for standard error/confirmation dialogs
+- **Views/BasePage.cs**: `GetService<T>()`, `GetRequiredService<T>()`, and `GetService(Type)` for shared service resolution

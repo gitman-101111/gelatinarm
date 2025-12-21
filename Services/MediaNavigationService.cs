@@ -393,11 +393,8 @@ namespace Gelatinarm.Services
                     }
                 }
 
-                // Get user ID
-                var userIdStr = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userIdStr, out var userIdGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userIdGuid))
                 {
-                    Logger.LogWarning("Invalid user ID");
                     return null;
                 }
 
@@ -434,11 +431,8 @@ namespace Gelatinarm.Services
                     return null;
                 }
 
-                // Get user ID
-                var userIdStr = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userIdStr, out var userIdGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userIdGuid))
                 {
-                    Logger.LogWarning("Invalid user ID");
                     return null;
                 }
 
@@ -513,11 +507,8 @@ namespace Gelatinarm.Services
                 Logger.LogInformation(
                     $"Refilling shuffled episode queue. Current queue size: {_shuffledEpisodeQueue.Count}");
 
-                // Get user ID
-                var userIdStr = _userProfileService.CurrentUserId;
-                if (!Guid.TryParse(userIdStr, out var userIdGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out var userIdGuid))
                 {
-                    Logger.LogWarning("Invalid user ID for queue refill");
                     return;
                 }
 

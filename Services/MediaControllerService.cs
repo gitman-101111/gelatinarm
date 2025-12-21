@@ -34,6 +34,7 @@ namespace Gelatinarm.Services
 
         private readonly CoreDispatcher _dispatcher;
         private bool _areControlsVisible = false;
+        private DateTimeOffset _lastSkipInputUtc = DateTimeOffset.MinValue;
         private Dictionary<ControllerButton, MediaAction> _buttonMapping;
         private Gamepad _currentGamepad;
         private MediaPlayer _mediaPlayer;
@@ -95,6 +96,11 @@ namespace Gelatinarm.Services
             // Check if button has a mapping
             if (_buttonMapping.TryGetValue(button, out var action))
             {
+                if (action == MediaAction.Rewind || action == MediaAction.FastForward)
+                {
+                    _lastSkipInputUtc = DateTimeOffset.UtcNow;
+                }
+
                 // Some actions should work regardless of control visibility
                 // ShowInfo toggles controls, ShowStats just overlays stats without taking focus
                 if (action == MediaAction.ShowInfo ||
@@ -175,15 +181,36 @@ namespace Gelatinarm.Services
             // When controls are visible, only certain buttons should still work
             if (_areControlsVisible)
             {
+                var now = DateTimeOffset.UtcNow;
+                var allowSkipWhileVisible = now - _lastSkipInputUtc <= TimeSpan.FromSeconds(1);
+
                 // Special case: triggers should work even with controls visible for quick skips
                 if (key == VirtualKey.GamepadLeftTrigger)
                 {
+                    _lastSkipInputUtc = now;
                     ActionWithParameterTriggered?.Invoke(this, (MediaAction.Rewind, 600));
                     return true;
                 }
                 if (key == VirtualKey.GamepadRightTrigger)
                 {
+                    _lastSkipInputUtc = now;
                     ActionWithParameterTriggered?.Invoke(this, (MediaAction.FastForward, 600));
+                    return true;
+                }
+
+                // Allow D-pad left/right to continue skipping briefly after a recent skip
+                if (allowSkipWhileVisible &&
+                    (key == VirtualKey.GamepadDPadLeft || key == VirtualKey.Left))
+                {
+                    _lastSkipInputUtc = now;
+                    ActionTriggered?.Invoke(this, MediaAction.Rewind);
+                    return true;
+                }
+                if (allowSkipWhileVisible &&
+                    (key == VirtualKey.GamepadDPadRight || key == VirtualKey.Right))
+                {
+                    _lastSkipInputUtc = now;
+                    ActionTriggered?.Invoke(this, MediaAction.FastForward);
                     return true;
                 }
 
@@ -210,12 +237,14 @@ namespace Gelatinarm.Services
             // Controls are hidden - handle trigger inputs
             if (key == VirtualKey.GamepadLeftTrigger)
             {
+                _lastSkipInputUtc = DateTimeOffset.UtcNow;
                 ActionWithParameterTriggered?.Invoke(this, (MediaAction.Rewind, 600));
                 return true;
             }
 
             if (key == VirtualKey.GamepadRightTrigger)
             {
+                _lastSkipInputUtc = DateTimeOffset.UtcNow;
                 ActionWithParameterTriggered?.Invoke(this, (MediaAction.FastForward, 600));
                 return true;
             }
@@ -265,13 +294,6 @@ namespace Gelatinarm.Services
             _currentGamepad = null;
             _mediaPlayer = null;
             _buttonMapping = null;
-        }
-
-        private void TriggerActionWithParameter(MediaAction action, object parameter)
-        {
-            ActionWithParameterTriggered?.Invoke(this, (action, parameter));
-            // Also trigger the regular event for compatibility
-            ActionTriggered?.Invoke(this, action);
         }
 
         private void Gamepad_GamepadAdded(object sender, Gamepad e)

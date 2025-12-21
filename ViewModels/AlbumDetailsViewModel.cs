@@ -109,13 +109,9 @@ namespace Gelatinarm.ViewModels
                     {
                         await LoadAlbumFromDtoAsync(dto, _loadCts.Token);
                     }
-                    else if (parameter is string guidString && Guid.TryParse(guidString, out var itemId))
+                    else if (TryGetGuidFromParameter(parameter, out var itemId))
                     {
                         await LoadAlbumByIdAsync(itemId, _loadCts.Token);
-                    }
-                    else if (parameter is Guid guid)
-                    {
-                        await LoadAlbumByIdAsync(guid, _loadCts.Token);
                     }
                 }
                 finally

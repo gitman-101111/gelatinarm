@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Gelatinarm.Models;
 using Jellyfin.Sdk;
@@ -19,10 +15,8 @@ namespace Gelatinarm.Services
     public class SkipSegmentService : BaseService, ISkipSegmentService
     {
         private const double INTRO_BUFFER_TIME_SECONDS = 2.0;
-        private readonly IAuthenticationService _authenticationService;
         private readonly IPreferencesService _preferencesService;
         private readonly JellyfinApiClient _sdkClient;
-        private readonly IHttpClientFactory _httpClientFactory;
         private BaseItemDto _currentItem;
         private bool _hasAutoSkippedIntro = false;
         private bool _hasAutoSkippedOutro = false;
@@ -37,15 +31,10 @@ namespace Gelatinarm.Services
         public SkipSegmentService(
             JellyfinApiClient sdkClient,
             IPreferencesService preferencesService,
-            IAuthenticationService authenticationService,
-            IHttpClientFactory httpClientFactory,
             ILogger<SkipSegmentService> logger) : base(logger)
         {
             _sdkClient = sdkClient ?? throw new ArgumentNullException(nameof(sdkClient));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
-            _authenticationService =
-                authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
-            _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         }
 
         public event EventHandler SegmentAvailabilityChanged;
@@ -56,8 +45,10 @@ namespace Gelatinarm.Services
             _mediaPlayer = mediaPlayer ?? throw new ArgumentNullException(nameof(mediaPlayer));
             _currentItem = item ?? throw new ArgumentNullException(nameof(item));
 
-            _preferences = await _preferencesService.GetAppPreferencesAsync(); _hasAutoSkippedIntro = false;
-            _hasAutoSkippedOutro = false; if (item.Id.HasValue)
+            _preferences = await _preferencesService.GetAppPreferencesAsync();
+            _hasAutoSkippedIntro = false;
+            _hasAutoSkippedOutro = false;
+            if (item.Id.HasValue)
             {
                 await LoadSegmentsAsync(item.Id.Value.ToString());
             }
@@ -74,60 +65,34 @@ namespace Gelatinarm.Services
                 _outroStartTime = null;
                 _outroEndTime = null;
 
-                if (!Guid.TryParse(itemId, out var itemGuid))
+                if (!TryGetItemGuid(itemId, out var itemGuid))
                 {
-                    Logger.LogWarning($"Invalid item ID: {itemId}");
                     return;
                 }
 
-                // Fetch media segments from API
-                // Using custom HTTP request as MediaSegments is not in the standard SDK
-                var httpClient = _httpClientFactory.CreateClient("JellyfinClient");
-                var serverUrl = _authenticationService.ServerUrl;
-
-                // Add authorization header for this request
-                if (!string.IsNullOrEmpty(_authenticationService.AccessToken))
+                Logger.LogInformation($"Fetching media segments for item: {itemId}");
+                var segmentsResponse = await _sdkClient.MediaSegments[itemGuid].GetAsync(config =>
                 {
-                    httpClient.DefaultRequestHeaders.Remove("Authorization");
-                    httpClient.DefaultRequestHeaders.Add("Authorization",
-                        $"MediaBrowser Token=\"{_authenticationService.AccessToken}\"");
-                }
-
-                // MediaSegments endpoint requires the intro detection plugin
-                var segmentsUrl = $"{serverUrl}/MediaSegments/{itemGuid}";
-                Logger.LogInformation($"Fetching media segments from: {segmentsUrl}");
-
-                var response = await httpClient.GetAsync(segmentsUrl);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    Logger.LogWarning($"MediaSegments API returned {response.StatusCode} for item {itemId}");
-                    if (response.StatusCode == HttpStatusCode.NotFound)
+                    config.QueryParameters.IncludeSegmentTypes = new[]
                     {
-                        Logger.LogInformation(
-                            "MediaSegments endpoint not found - server may not have intro detection plugin installed");
-                    }
-
-                    return;
-                }
-
-                var json = await response.Content.ReadAsStringAsync();
-                Logger.LogDebug($"MediaSegments response: {json}");
-
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var segmentsResponse = JsonSerializer.Deserialize<MediaSegmentsResponse>(json, options);
+                        MediaSegmentType.Intro,
+                        MediaSegmentType.Outro
+                    };
+                }).ConfigureAwait(false);
 
                 if (segmentsResponse?.Items != null && segmentsResponse.Items.Any())
                 {
                     foreach (var segment in segmentsResponse.Items)
                     {
-                        if (segment.Type == "Intro" && segment.StartTicks.HasValue && segment.EndTicks.HasValue)
+                        if (segment.Type == MediaSegmentDto_Type.Intro &&
+                            segment.StartTicks.HasValue && segment.EndTicks.HasValue)
                         {
                             _introStartTime = TimeSpan.FromTicks(segment.StartTicks.Value);
                             _introEndTime = TimeSpan.FromTicks(segment.EndTicks.Value);
                             Logger.LogInformation($"Found intro segment: {_introStartTime} - {_introEndTime}");
                         }
-                        else if (segment.Type == "Outro" && segment.StartTicks.HasValue && segment.EndTicks.HasValue)
+                        else if (segment.Type == MediaSegmentDto_Type.Outro &&
+                                 segment.StartTicks.HasValue && segment.EndTicks.HasValue)
                         {
                             _outroStartTime = TimeSpan.FromTicks(segment.StartTicks.Value);
                             _outroEndTime = TimeSpan.FromTicks(segment.EndTicks.Value);
@@ -298,16 +263,4 @@ namespace Gelatinarm.Services
         }
     }
 
-    // Response classes for MediaSegments API
-    internal class MediaSegmentsResponse
-    {
-        public List<MediaSegment> Items { get; set; }
-    }
-
-    internal class MediaSegment
-    {
-        public string Type { get; set; }
-        public long? StartTicks { get; set; }
-        public long? EndTicks { get; set; }
-    }
 }

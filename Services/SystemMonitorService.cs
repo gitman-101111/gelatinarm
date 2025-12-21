@@ -133,7 +133,6 @@ namespace Gelatinarm.Services
     public class SystemMonitorService : BaseService, ISystemMonitorService, IMemoryMonitor, INetworkMonitor, IDisposable
     {
         private const ulong MEMORY_THRESHOLD_LOW = 1024 * 1024 * 1024;
-        private const ulong MEMORY_THRESHOLD_CRITICAL = 512 * 1024 * 1024;
         private const double BANDWIDTH_THRESHOLD_LOW = 5_000_000;
 
         private readonly TimeSpan _bandwidthTestInterval =

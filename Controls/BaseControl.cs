@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
+using Gelatinarm.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.ApplicationModel;
@@ -33,6 +34,8 @@ namespace Gelatinarm.Controls
         /// </summary>
         protected IErrorHandlingService ErrorHandler { get; private set; }
 
+        protected IServiceProvider Services { get; private set; }
+
         /// <summary>
         ///     Indicates whether the control is in design mode
         /// </summary>
@@ -57,8 +60,10 @@ namespace Gelatinarm.Controls
                 var app = Application.Current as App;
                 if (app?.Services != null)
                 {
+                    Services = app.Services;
                     var loggerType = typeof(ILogger<>).MakeGenericType(GetType());
-                    Logger = app.Services.GetService(loggerType) as ILogger; ErrorHandler = app.Services.GetService<IErrorHandlingService>();
+                    Logger = Services.GetService(loggerType) as ILogger ?? ServiceLocator.GetService(loggerType) as ILogger;
+                    ErrorHandler = GetService<IErrorHandlingService>();
 
                     // Allow derived classes to get additional services
                     OnServicesInitialized(app.Services);
@@ -84,6 +89,22 @@ namespace Gelatinarm.Controls
         protected virtual void OnServicesInitialized(IServiceProvider services)
         {
             // Derived classes can override to get their specific services
+        }
+
+        protected T GetService<T>() where T : class
+        {
+            return Services?.GetService(typeof(T)) as T ?? ServiceLocator.GetService<T>();
+        }
+
+        protected T GetRequiredService<T>() where T : class
+        {
+            var service = GetService<T>();
+            if (service == null)
+            {
+                throw new InvalidOperationException($"Service {typeof(T).Name} not found");
+            }
+
+            return service;
         }
 
 

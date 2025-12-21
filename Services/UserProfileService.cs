@@ -43,9 +43,8 @@ namespace Gelatinarm.Services
                 return null;
             }
 
-            if (!Guid.TryParse(userIdString, out var userIdGuid))
+            if (!TryParseUserGuid(userIdString, out var userIdGuid))
             {
-                Logger?.LogWarning($"Invalid user ID format: {userIdString}");
                 return null;
             }
 
@@ -98,9 +97,8 @@ namespace Gelatinarm.Services
                 return null;
             }
 
-            if (!Guid.TryParse(userId, out var userGuid))
+            if (!TryParseUserGuid(userId, out var userGuid))
             {
-                Logger.LogWarning($"Invalid user ID format: {userId}");
                 return null;
             }
 
@@ -152,6 +150,18 @@ namespace Gelatinarm.Services
         {
             _currentUser = null;
             Logger.LogInformation("User data cleared");
+        }
+
+        private bool TryParseUserGuid(string userId, out Guid userGuid)
+        {
+            userGuid = Guid.Empty;
+            if (!Guid.TryParse(userId, out userGuid))
+            {
+                Logger?.LogWarning($"Invalid user ID format: {userId}");
+                return false;
+            }
+
+            return true;
         }
     }
 }

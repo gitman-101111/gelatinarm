@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
@@ -26,6 +25,11 @@ namespace Gelatinarm.Helpers
         private static ILogger _logger;
         private static readonly SemaphoreSlim _initializationSemaphore = new SemaphoreSlim(1, 1);
         private static volatile bool _isInitialized = false;
+
+        private static T GetService<T>() where T : class
+        {
+            return ServiceLocator.GetService<T>();
+        }
 
         private static async Task EnsureInitializedAsync()
         {
@@ -48,12 +52,12 @@ namespace Gelatinarm.Helpers
         {
             try
             {
-                _logger = App.Current.Services?.GetService<ILogger<BaseService>>();
-                _cacheManager = App.Current.Services?.GetService<ICacheManagerService>();
+                _logger = GetService<ILogger<BaseService>>();
+                _cacheManager = GetService<ICacheManagerService>();
 
                 // Initialize and register the file-based cache provider for images
                 var imageCacheProvider = new FileCacheProvider(
-                    App.Current.Services?.GetService<ILogger<FileCacheProvider>>(),
+                    GetService<ILogger<FileCacheProvider>>(),
                     "ImageCache"
                 );
                 await imageCacheProvider.InitializeAsync();
@@ -160,10 +164,7 @@ namespace Gelatinarm.Helpers
         {
             try
             {
-                var apiClient = App.Current.Services.GetService<JellyfinApiClient>();
-                var authService = App.Current.Services.GetService<IAuthenticationService>();
-
-                if (apiClient == null || authService == null)
+                if (!TryGetApiContext(out var apiClient, out var authService))
                 {
                     return null;
                 }
@@ -196,12 +197,7 @@ namespace Gelatinarm.Helpers
                 var url = uri.ToString();
 
                 // Add API key for authentication if available since BitmapImage doesn't use SDK headers
-                var accessToken = authService.AccessToken;
-                if (!string.IsNullOrEmpty(accessToken))
-                {
-                    var separator = url.Contains("?") ? "&" : "?";
-                    url = $"{url}{separator}api_key={Uri.EscapeDataString(accessToken)}";
-                }
+                url = UrlHelper.AppendApiKey(url, authService.AccessToken);
 
                 return url;
             }
@@ -333,7 +329,7 @@ namespace Gelatinarm.Helpers
             try
             {
                 // Get HttpClient from factory to avoid socket exhaustion
-                var httpClientFactory = App.Current.Services?.GetService<IHttpClientFactory>();
+                var httpClientFactory = GetService<IHttpClientFactory>();
                 if (httpClientFactory == null)
                 {
                     _logger?.LogError("HttpClientFactory not available");
@@ -383,5 +379,12 @@ namespace Gelatinarm.Helpers
         }
 
         #endregion
+
+        private static bool TryGetApiContext(out JellyfinApiClient apiClient, out IAuthenticationService authService)
+        {
+            apiClient = GetService<JellyfinApiClient>();
+            authService = GetService<IAuthenticationService>();
+            return apiClient != null && authService != null;
+        }
     }
 }

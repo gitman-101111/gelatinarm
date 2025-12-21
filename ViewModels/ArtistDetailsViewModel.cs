@@ -85,13 +85,9 @@ namespace Gelatinarm.ViewModels
                     {
                         await LoadArtistFromDtoAsync(dto, _loadCts.Token);
                     }
-                    else if (parameter is string guidString && Guid.TryParse(guidString, out var itemId))
+                    else if (TryGetGuidFromParameter(parameter, out var itemId))
                     {
                         await LoadArtistByIdAsync(itemId, _loadCts.Token);
-                    }
-                    else if (parameter is Guid guid)
-                    {
-                        await LoadArtistByIdAsync(guid, _loadCts.Token);
                     }
                 }
                 finally
@@ -187,7 +183,7 @@ namespace Gelatinarm.ViewModels
             }
 
             var context = CreateErrorContext("LoadArtistImage", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -255,7 +251,7 @@ namespace Gelatinarm.ViewModels
                             Albums.Add(albumWithTracks);
 
                             // Load tracks for each album asynchronously
-                            AsyncHelper.FireAndForget(async () =>
+                            FireAndForget(async () =>
                                 await LoadAlbumTracksAsync(albumWithTracks, CancellationToken.None));
                         }
                     });

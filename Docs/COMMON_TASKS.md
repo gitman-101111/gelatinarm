@@ -132,7 +132,7 @@ var savedParam = GetSavedNavigationParameter();
 
 ### Fire and Forget Operations
 ```csharp
-// Use AsyncHelper.FireAndForget (per coding standards)
+// Use the base helper (BasePage/BaseViewModel/BaseService)
 FireAndForget(async () => await LoadDataAsync(), "LoadData");
 ```
 
@@ -559,7 +559,7 @@ await UIHelper.RunOnUIThreadAsync(() =>
 ### Fire-and-Forget Pattern (Use Sparingly)
 ```csharp
 // For non-critical UI updates only
-AsyncHelper.FireAndForget(UIHelper.RunOnUIThreadAsync(() => 
+FireAndForget(() => UIHelper.RunOnUIThreadAsync(() =>
 {
     // Update progress indicator
     ProgressBar.Value = progress;
@@ -697,4 +697,3 @@ var stopwatch = Stopwatch.StartNew();
 // Operation
 Logger?.LogInformation($"Operation took {stopwatch.ElapsedMilliseconds}ms");
 ```
-

@@ -188,12 +188,7 @@ namespace Gelatinarm.Services
                 Logger.LogInformation("Cleared all caches when switching servers");
 
                 // Also clear MainViewModel collections since it's a singleton
-                var mainViewModel = App.Current.Services.GetService(typeof(MainViewModel)) as MainViewModel;
-                if (mainViewModel != null)
-                {
-                    mainViewModel.ClearCache();
-                    Logger.LogInformation("Cleared MainViewModel collections when switching servers");
-                }
+                ClearMainViewModelCache("when switching servers");
             }
 
             ServerUrl = serverUrl;

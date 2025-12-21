@@ -53,7 +53,7 @@ namespace Gelatinarm.ViewModels
                 mediaOptimizationService); ResetSettingsCommand = new RelayCommand(ResetSettings);
 
             // Call InitializeAsync without await from constructor for async initialization
-            AsyncHelper.FireAndForget(() => InitializeAsync(), Logger, GetType());
+            FireAndForget(() => InitializeAsync());
         }
 
         // Child ViewModels
@@ -93,7 +93,9 @@ namespace Gelatinarm.ViewModels
                 PlaybackSettings.InitializeAsync()
             };
 
-            await Task.WhenAll(tasks).ConfigureAwait(false); var preferencesService = App.Current.Services.GetService<IPreferencesService>();
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+
+            var preferencesService = GetService<IPreferencesService>();
             if (preferencesService != null)
             {
                 var appPrefs = await preferencesService.GetAppPreferencesAsync().ConfigureAwait(false);

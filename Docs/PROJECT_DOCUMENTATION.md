@@ -53,12 +53,12 @@ Page (UWP Framework)
 
 ### BasePage Features
 - **Automatic ViewModel initialization** via `ViewModelType` property
-- **Service resolution helpers**: `GetService<T>()`, `GetRequiredService<T>()`
+- **Service resolution helpers**: `GetService<T>()`, `GetRequiredService<T>()`, `GetService(Type)`
 - **Built-in services as properties**: Logger, NavigationService, ErrorHandlingService, PreferencesService, UserProfileService
 - **Standard lifecycle management**: OnNavigatedTo/From, OnPageLoaded/Unloaded
 - **Controller input support**: Automatic setup via ControllerInputHelper
 - **Error handling integration**: Error handling via ErrorHandler property and CreateErrorContext method
-- **Navigation helpers**: NavigateToItemDetails, GetSavedNavigationParameter
+- **Navigation helpers**: NavigateToItemDetails, GetSavedNavigationParameter, ResolveNavigationParameter
 
 ## File Directory Reference
 
@@ -79,7 +79,7 @@ Each view represents a screen in the application:
 - **SearchPage** - Search across all media
 - **FavoritesPage** - Display user's favorite items
 - **SettingsPage** - Application configuration
-- **MediaPlayerPage** - Video/audio playback screen
+- **MediaPlayerPage** - Video/audio playback screen (Next Episode, Episodes for TV queues)
 - **MovieDetailsPage** - Movie information and actions
 - **SeasonDetailsPage** - TV show season with episodes
 - **AlbumDetailsPage** - Music album information
@@ -93,7 +93,7 @@ Each view represents a screen in the application:
 ### ViewModels/ (Business Logic)
 Each ViewModel corresponds to a View and handles its logic:
 
-- **BaseViewModel** - Common functionality for all ViewModels
+- **BaseViewModel** - Common functionality for all ViewModels (includes `FireAndForget` helper for background tasks)
 - **MainViewModel** - Fetches and manages home screen content
 - **LoginViewModel** - Handles authentication logic
 - **ServerSelectionViewModel** - Server discovery and connection
@@ -149,7 +149,11 @@ Services provide reusable functionality across the application:
 - **ImageLoadingService** - Image loading with retry logic
 
 #### Playback Support
-- **PlaybackControlService** - Media control operations, resume handling with HLS workarounds, adaptive retry logic and segment boundary tolerance
+- **PlaybackControlService** - Playback setup, stream selection, and restart flow
+- **PlaybackSourceResolver** - Selects playback source and resolves streaming strategy
+- **PlaybackResumeCoordinator** - Centralized resume strategy across stream types
+- **PlaybackResumeModels** - Resume policies, retry config, and verification helpers
+- **PlaybackRestartService** - Restart handling for track/subtitle changes with resume carry-over
 - **PlaybackQueueService** - Playback queue management
 - **SubtitleService** - Subtitle track handling
 - **SkipSegmentService** - Intro/outro skip functionality
@@ -193,7 +197,7 @@ Services provide reusable functionality across the application:
 - **MediaPlayerConverters** - Media player specific conversions
 
 ### Helpers/ (Utility Functions)
-- **AsyncHelper** - Asynchronous operation helpers
+- **AsyncHelper** - Async helper used by base-class `FireAndForget` wrappers
 - **ImageHelper** - Image processing utilities
 - **MediaPlaybackHelper** - Media playback utility functions
 - **NetworkHelper** - Network-related utilities
@@ -201,6 +205,12 @@ Services provide reusable functionality across the application:
 - **RetryHelper** - Network retry logic
 - **TimeFormattingHelper** - Time formatting utilities
 - **UIHelper** - UI helper functions
+- **ServiceLocator** - Shared service resolution for non-injected classes
+- **PlaybackStateOrchestrator** - Unified playback state transitions for the UI
+- **BufferingStateCoordinator** - Buffering lifecycle and timeout logic
+- **ResumeFlowCoordinator** - Resume acceptance and completion reporting
+- **ResumeRetryCoordinator** - Retry scheduling and tolerance evaluation
+- **SeekCompletionCoordinator** - Seek completion logging and validation
 
 ### Constants/ (Application Values)
 - **BrandingConstants** - Application identity
@@ -241,6 +251,10 @@ App Launch
 2. **Deep Links**: Detail pages can navigate to other detail pages
 3. **Player Return**: MediaPlayerPage returns to the originating page
 4. **Navigation Stack**: Cleaned when MediaPlayerPage accumulates or circular navigation detected
+
+## App Lifecycle Notes
+- **Backgrounding**: When the app enters background, it saves state and exits unless music is playing.
+- **Music Playback**: MusicPlayerService continues playback when allowed by OS; video playback is stopped/paused on background transitions.
 
 ## Server Communication
 

@@ -292,7 +292,43 @@ namespace Gelatinarm.Services
                 if (metadataFile != null)
                 {
                     var json = await FileIO.ReadTextAsync(metadataFile);
-                    var metadata = JsonSerializer.Deserialize<Dictionary<string, CacheMetadata>>(json);
+                    if (string.IsNullOrWhiteSpace(json))
+                    {
+                        _logger.LogWarning("Cache metadata file is empty, resetting metadata");
+                        lock (_metadataLock)
+                        {
+                            _metadata.Clear();
+                        }
+                        await SaveMetadataAsync();
+                        return;
+                    }
+
+                    Dictionary<string, CacheMetadata> metadata;
+                    try
+                    {
+                        metadata = JsonSerializer.Deserialize<Dictionary<string, CacheMetadata>>(json);
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Invalid cache metadata JSON, resetting metadata");
+                        lock (_metadataLock)
+                        {
+                            _metadata.Clear();
+                        }
+                        await SaveMetadataAsync();
+                        return;
+                    }
+
+                    if (metadata == null)
+                    {
+                        _logger.LogWarning("Cache metadata JSON returned null, resetting metadata");
+                        lock (_metadataLock)
+                        {
+                            _metadata.Clear();
+                        }
+                        await SaveMetadataAsync();
+                        return;
+                    }
 
                     lock (_metadataLock)
                     {

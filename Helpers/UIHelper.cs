@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Windows.ApplicationModel.Core;
 using Windows.UI.Core;
+using Windows.UI.Xaml;
 
 namespace Gelatinarm.Helpers
 {
@@ -17,7 +18,7 @@ namespace Gelatinarm.Helpers
         public static async Task RunOnUIThreadAsync(Action action, CoreDispatcher dispatcher = null,
             ILogger logger = null)
         {
-            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher;
+            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher ?? Window.Current?.Dispatcher;
 
             if (dispatcher == null)
             {
@@ -44,7 +45,7 @@ namespace Gelatinarm.Helpers
         public static async Task<T> RunOnUIThreadAsync<T>(Func<T> func, CoreDispatcher dispatcher = null,
             ILogger logger = null)
         {
-            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher;
+            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher ?? Window.Current?.Dispatcher;
 
             if (dispatcher == null)
             {
@@ -77,7 +78,7 @@ namespace Gelatinarm.Helpers
         public static async Task RunOnUIThreadAsync(Func<Task> asyncAction, CoreDispatcher dispatcher = null,
             ILogger logger = null)
         {
-            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher;
+            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher ?? Window.Current?.Dispatcher;
 
             if (dispatcher == null)
             {
@@ -110,7 +111,7 @@ namespace Gelatinarm.Helpers
         public static async Task<T> RunOnUIThreadAsync<T>(Func<Task<T>> asyncFunc, CoreDispatcher dispatcher = null,
             ILogger logger = null)
         {
-            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher;
+            dispatcher ??= CoreApplication.MainView?.CoreWindow?.Dispatcher ?? Window.Current?.Dispatcher;
 
             if (dispatcher == null)
             {

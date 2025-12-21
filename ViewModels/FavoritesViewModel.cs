@@ -62,7 +62,7 @@ namespace Gelatinarm.ViewModels
                 if (SetProperty(ref _currentFilter, value))
                 {
                     // UpdateEmptyState might modify UI properties, so ensure it runs on UI thread
-                    AsyncHelper.FireAndForget(async () => await RunOnUIThreadAsync(() => UpdateEmptyState()));
+                    FireAndForget(async () => await RunOnUIThreadAsync(() => UpdateEmptyState()));
                 }
             }
         }
@@ -102,8 +102,8 @@ namespace Gelatinarm.ViewModels
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var userIdString = _userProfileService.CurrentUserId;
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userIdGuid))
+            var userIdGuid = _userProfileService.GetCurrentUserGuid();
+            if (!userIdGuid.HasValue)
             {
                 throw new InvalidOperationException("Invalid or missing user ID");
             }
@@ -112,7 +112,7 @@ namespace Gelatinarm.ViewModels
 
             var result = await _apiClient.Items.GetAsync(config =>
             {
-                config.QueryParameters.UserId = userIdGuid;
+                config.QueryParameters.UserId = userIdGuid.Value;
                 config.QueryParameters.IsFavorite = true;
                 config.QueryParameters.Recursive = true;
                 config.QueryParameters.SortBy = new[] { ItemSortBy.SortName };
@@ -207,7 +207,7 @@ namespace Gelatinarm.ViewModels
         private void UpdateEmptyState()
         {
             var context = CreateErrorContext("UpdateEmptyState", ErrorCategory.User);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {

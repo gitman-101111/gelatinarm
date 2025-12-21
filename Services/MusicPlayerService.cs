@@ -158,7 +158,7 @@ namespace Gelatinarm.Services
         public void Stop()
         {
             var context = CreateErrorContext("Stop", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -221,7 +221,7 @@ namespace Gelatinarm.Services
         public void Play()
         {
             var context = CreateErrorContext("Play", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -239,7 +239,7 @@ namespace Gelatinarm.Services
         public void Pause()
         {
             var context = CreateErrorContext("Pause", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -262,7 +262,7 @@ namespace Gelatinarm.Services
         public void SkipNext()
         {
             var context = CreateErrorContext("SkipNext", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -290,7 +290,7 @@ namespace Gelatinarm.Services
         public void SkipPrevious()
         {
             var context = CreateErrorContext("SkipPrevious", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -328,7 +328,7 @@ namespace Gelatinarm.Services
         public void CycleRepeatMode()
         {
             var context = CreateErrorContext("CycleRepeatMode", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -350,7 +350,7 @@ namespace Gelatinarm.Services
         public void ToggleShuffleMode()
         {
             var context = CreateErrorContext("ToggleShuffleMode", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -372,7 +372,7 @@ namespace Gelatinarm.Services
         public void SetShuffle(bool enabled)
         {
             var context = CreateErrorContext("SetShuffle", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -453,7 +453,7 @@ namespace Gelatinarm.Services
         public void ToggleRepeatMode()
         {
             var context = CreateErrorContext("ToggleRepeatMode", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -773,7 +773,7 @@ namespace Gelatinarm.Services
             FireAndForgetSafe(() => StopPlaybackReporting(), "StopPlaybackReporting");
 
             var context = CreateErrorContext("OnMediaEnded", ErrorCategory.Media);
-            AsyncHelper.FireAndForget(async () =>
+            FireAndForget(async () =>
             {
                 try
                 {
@@ -1019,8 +1019,7 @@ namespace Gelatinarm.Services
                     // Add API key for authentication since MediaSource.CreateFromUri doesn't use SDK headers
                     if (!string.IsNullOrEmpty(accessToken))
                     {
-                        var separator = mediaUrl.Contains("?") ? "&" : "?";
-                        mediaUrl = $"{mediaUrl}{separator}api_key={Uri.EscapeDataString(accessToken)}";
+                        mediaUrl = UrlHelper.AppendApiKey(mediaUrl, accessToken);
                     }
 
                     Logger.LogInformation("Using universal HLS endpoint for audio transcoding");
@@ -1419,8 +1418,7 @@ namespace Gelatinarm.Services
                         // Add API key for authentication since MediaSource.CreateFromUri doesn't use SDK headers
                         if (!string.IsNullOrEmpty(accessToken))
                         {
-                            var separator = mediaUrl.Contains("?") ? "&" : "?";
-                            mediaUrl = $"{mediaUrl}{separator}api_key={Uri.EscapeDataString(accessToken)}";
+                            mediaUrl = UrlHelper.AppendApiKey(mediaUrl, accessToken);
                         }
 
                         Logger.LogInformation($"Universal endpoint URL: {mediaUrl}");
