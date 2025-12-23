@@ -60,19 +60,16 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 |-------|-------------------|----------------------|-------|
 | **H.264/AVC** | ✅ Direct Play | ✅ Full | Hardware accelerated, all profiles |
 | **H.265/HEVC** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X only |
-| **VP9** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X only, up to 10-bit |
+| **VP9** | ✅ Direct Play | ✅ Full | Hardware accelerated |
 | **VP8** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **AV1** | ✅ Direct Play* | ✅ Limited | *Xbox Series S/X only, up to 4K@60fps |
 | **MPEG-1** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **MPEG-2** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **MPEG-4 Part 2** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **VC-1/WMV9** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **WMV 7/8** | ✅ Direct Play | ✅ Supported | All Xbox models |
+| **VC-1** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **Motion JPEG** | ✅ Direct Play | ✅ Supported | All Xbox models |
 | **H.263** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **MS-MPEG4 v3** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **Theora** | ✅ Direct Play | ✅ Supported | MKV/WebM containers only |
-| **VP6** | ✅ Direct Play | ✅ Supported | FLV container only |
+| **DV** | ✅ Direct Play | ✅ Supported | All Xbox models |
 
 ### HDR Format Support
 
@@ -95,16 +92,14 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 | **ALAC** | ✅ Direct Play | ✅ Full | Apple Lossless |
 | **PCM/LPCM** | ✅ Direct Play | ✅ Full | Uncompressed audio |
 | **WMA/WMA Pro** | ✅ Direct Play | ✅ Full | All variants |
-| **ADPCM** | ✅ Direct Play | ✅ Full | Microsoft ADPCM |
-| **AMR-NB/WB** | ✅ Direct Play | ✅ Full | Adaptive Multi-Rate |
-| **AC3 (DD)** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X only |
-| **E-AC3 (DD+)** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X with Atmos |
-| **DTS** | ❌ Transcoded | ❌ Decode | Not supported for Direct Play |
-| **DTS-HD/DTS:X** | ❌ Transcoded | ❌ Decode | Not supported for Direct Play |
-| **TrueHD/Atmos** | ❌ Transcoded | ❌ Decode | Not supported for Direct Play |
-| **Opus** | ✅ Direct Play | ✅ Full | WebM/Matroska containers |
-| **Vorbis** | ✅ Direct Play | ✅ Full | Ogg/WebM containers |
-| **MP2** | ✅ Direct Play | ✅ Full | MPEG containers only |
+| **WMA Voice** | ✅ Direct Play | ✅ Full | Voice codecs |
+| **G.711 (A-law/µ-law)** | ✅ Direct Play | ✅ Full | Telephony PCM |
+| **GSM 6.10** | ✅ Direct Play | ✅ Full | Telephony codec |
+| **IMA ADPCM** | ✅ Direct Play | ✅ Full | Adaptive differential PCM |
+| **MS ADPCM** | ✅ Direct Play | ✅ Full | Microsoft ADPCM |
+| **AMR-NB** | ✅ Direct Play | ✅ Full | Adaptive Multi-Rate (narrowband) |
+| **AC3 (DD)** | ✅ Direct Play | ✅ Full | Dolby Digital |
+| **MPEG-1/2 Audio** | ✅ Direct Play | ✅ Full | MP2 in MPEG containers |
 
 ## 4K Playback on Xbox
 
@@ -133,7 +128,7 @@ Direct play support for all common containers:
 - **MPEG**: TS, M2TS, MTS, MPG, MPEG, VOB
 - **Legacy**: AVI, FLV
 - **Mobile**: 3GP, 3G2
-- **Audio**: MP3, AAC, FLAC, OGG, OGA, OPUS, WAV, ALAC
+- **Audio**: MP3, AAC, FLAC, WAV, ALAC, WMA, AMR
 
 ### Supported Subtitle Formats
 - **SRT** - Most compatible, external and embedded

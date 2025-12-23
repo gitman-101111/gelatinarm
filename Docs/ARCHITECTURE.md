@@ -328,8 +328,8 @@ The project suppresses certain compiler warnings that are either benign or unavo
 - **Adaptive Bitrate**: MediaOptimizationService selects quality
 - **Buffer Management**: 30 second buffer for smooth playback
 - **Codec Priority**: Direct Play > Direct Stream > Transcode
-- **Video Codecs**: H.264, H.265/HEVC, VP9, VP8, AV1 (Series S/X), MPEG-2, VC-1
-- **Audio**: AAC, MP3, FLAC, AC3/EAC3, DTS passthrough
+- **Video Codecs**: H.264, H.265/HEVC, VP9, AV1 (Series S/X)
+- **Audio**: AAC, MP3, FLAC, ALAC, AC3, PCM, WMA
 - **HDR Support**:
   - Xbox One S/X: HDR10, HDR10+, HLG
   - Xbox Series S/X: HDR10, HDR10+, HLG, Dolby Vision Profile 8.1

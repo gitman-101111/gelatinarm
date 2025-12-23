@@ -167,8 +167,8 @@ namespace Gelatinarm.Services
         public bool SupportsMP3 => _codecSupport.GetValueOrDefault("MP3", true);
         public bool SupportsFLAC => _codecSupport.GetValueOrDefault("FLAC", true);
         public bool SupportsALAC => _codecSupport.GetValueOrDefault("ALAC", false);
-        public bool SupportsOGG => _codecSupport.GetValueOrDefault("OGG", true);
-        public bool SupportsOPUS => _codecSupport.GetValueOrDefault("OPUS", true);
+        public bool SupportsOGG => _codecSupport.GetValueOrDefault("OGG", false);
+        public bool SupportsOPUS => _codecSupport.GetValueOrDefault("OPUS", false);
         public bool SupportsAC3 => _codecSupport.GetValueOrDefault("AC3", false);
         public bool SupportsEAC3 => _codecSupport.GetValueOrDefault("EAC3", false);
         public bool SupportsDTS => _codecSupport.GetValueOrDefault("DTS", false);
@@ -730,14 +730,21 @@ namespace Gelatinarm.Services
                     _codecSupport["ALAC"] = true; // Apple Lossless (ALAC)
                     _codecSupport["WMA"] = true; // WMA 1/2/3
                     _codecSupport["WMA-Pro"] = true; // WMA Pro
+                    _codecSupport["WMA-Voice"] = true; // WMA Voice
                     _codecSupport["PCM"] = true; // LPCM
                     _codecSupport["AC3"] = true; // AC3 (Dolby Digital)
                     _codecSupport["AMR-NB"] = true; // AMR-NB
+                    _codecSupport["G711"] = true; // G.711 A-law/u-law
+                    _codecSupport["GSM"] = true; // GSM 6.10
+                    _codecSupport["IMA-ADPCM"] = true; // IMA ADPCM
+                    _codecSupport["MS-ADPCM"] = true; // MS ADPCM
+                    _codecSupport["MPEG-Audio"] = true; // MPEG-1/2 audio
 
-                    // Note: Microsoft docs don't list these, but they're commonly supported
-                    _codecSupport["EAC3"] = true; // Dolby Digital Plus (common on streaming)
-                    _codecSupport["OPUS"] = true; // Opus (used in WebM)
-                    _codecSupport["VORBIS"] = true; // Vorbis (used in WebM/OGG)
+                    // Not listed in Microsoft Xbox codec docs
+                    _codecSupport["EAC3"] = false;
+                    _codecSupport["OPUS"] = false;
+                    _codecSupport["VORBIS"] = false;
+                    _codecSupport["OGG"] = false;
 
                     // Advanced audio codecs - not listed in MS docs, so conservative
                     _codecSupport["DTS"] = false; // DTS not officially listed
@@ -757,7 +764,9 @@ namespace Gelatinarm.Services
                     _codecSupport["MP3"] = true;
                     _codecSupport["FLAC"] = true;
                     _codecSupport["PCM"] = true;
-                    _codecSupport["VORBIS"] = true;
+                    _codecSupport["VORBIS"] = false;
+                    _codecSupport["OGG"] = false;
+                    _codecSupport["OPUS"] = false;
 
                     // Advanced audio codecs typically need specific hardware
                     _codecSupport["AC3"] = false;
@@ -777,7 +786,7 @@ namespace Gelatinarm.Services
                 Logger.LogInformation(
                     $"Audio Codecs: AAC={_codecSupport.GetValueOrDefault("AAC")}, MP3={_codecSupport.GetValueOrDefault("MP3")}, FLAC={_codecSupport.GetValueOrDefault("FLAC")}, ALAC={_codecSupport.GetValueOrDefault("ALAC")}, AC3={_codecSupport.GetValueOrDefault("AC3")}");
                 Logger.LogInformation(
-                    $"Audio Features: DolbyAtmos={SupportsDolbyAtmos}, EAC3={_codecSupport.GetValueOrDefault("EAC3")}, OPUS={_codecSupport.GetValueOrDefault("OPUS")}, Vorbis={_codecSupport.GetValueOrDefault("VORBIS")}");
+                    $"Audio Codecs (WMA): WMA={_codecSupport.GetValueOrDefault("WMA")}, WMA-Pro={_codecSupport.GetValueOrDefault("WMA-Pro")}, WMA-Voice={_codecSupport.GetValueOrDefault("WMA-Voice")}");
             }
             catch (Exception ex)
             {
@@ -972,15 +981,12 @@ namespace Gelatinarm.Services
                 "h264",        // H.264/AVC - all Xbox models
                 "mpeg2video",  // MPEG-2 - all Xbox models
                 "mpeg4",       // MPEG-4 Part 2 - all Xbox models  
-                "msmpeg4v3",   // MS-MPEG4 v3 - all Xbox models
                 "vc1",         // VC-1/WVC1 - all Xbox models
-                "wmv3",        // Windows Media Video 9 - all Xbox models
-                "wmv2",        // Windows Media Video 8 - all Xbox models
-                "wmv1",        // Windows Media Video 7 - all Xbox models
                 "mjpeg",       // Motion JPEG - all Xbox models
                 "vp8",         // VP8 - all Xbox models
                 "mpeg1video",  // MPEG-1 - all Xbox models
-                "h263"         // H.263 - all Xbox models
+                "h263",        // H.263 - all Xbox models
+                "dv"           // DV - all Xbox models
             };
 
             if (SupportsHEVC)
@@ -1038,9 +1044,6 @@ namespace Gelatinarm.Services
                 "m4a",         // MPEG-4 Audio
                 "aac",         // Advanced Audio Coding
                 "flac",        // Free Lossless Audio Codec
-                "ogg",         // Ogg container
-                "oga",         // Ogg Audio
-                "opus",        // Opus audio
                 "wma",         // Windows Media Audio
                 "wav",         // Waveform Audio
                 "alac"         // Apple Lossless
@@ -1076,7 +1079,18 @@ namespace Gelatinarm.Services
 
         public IEnumerable<string> GetSupportedVideoCodecs()
         {
-            var c = new List<string> { "h264" };
+            var c = new List<string>
+            {
+                "h264",
+                "mpeg1video",
+                "mpeg2video",
+                "mpeg4",
+                "vc1",
+                "h263",
+                "mjpeg",
+                "dv",
+                "vp8"
+            };
             if (SupportsHEVC)
             {
                 c.Add("hevc");
@@ -1099,6 +1113,34 @@ namespace Gelatinarm.Services
         {
             var audioCodecs = new List<string> { "pcm" }; // PCM is always supported
 
+            if (SupportsHardwareAcceleration)
+            {
+                audioCodecs.AddRange(new[]
+                {
+                    "aac",
+                    "mp3",
+                    "flac",
+                    "alac",
+                    "ac3",
+                    "wma",
+                    "wmap",
+                    "amr",
+                    "amrnb",
+                    "g711",
+                    "g711a",
+                    "g711u",
+                    "gsm",
+                    "gsm610",
+                    "ima_adpcm",
+                    "ms_adpcm",
+                    "adpcm_ima",
+                    "adpcm_ms",
+                    "mp2"
+                });
+
+                return audioCodecs;
+            }
+
             if (SupportsAAC)
             {
                 audioCodecs.Add("aac");
@@ -1112,46 +1154,6 @@ namespace Gelatinarm.Services
             if (SupportsFLAC)
             {
                 audioCodecs.Add("flac");
-            }
-
-            if (SupportsALAC)
-            {
-                audioCodecs.Add("alac");
-            }
-
-            if (SupportsOGG)
-            {
-                audioCodecs.Add("vorbis");
-            }
-
-            if (SupportsOPUS)
-            {
-                audioCodecs.Add("opus");
-            }
-
-            if (SupportsAC3)
-            {
-                audioCodecs.Add("ac3");
-            }
-
-            if (SupportsEAC3)
-            {
-                audioCodecs.Add("eac3");
-            }
-
-            if (SupportsDTS)
-            {
-                audioCodecs.Add("dts");
-            }
-
-            if (SupportsTrueHD)
-            {
-                audioCodecs.Add("truehd");
-            }
-
-            if (SupportsDTSHD)
-            {
-                audioCodecs.Add("dts-hd");
             }
 
             return audioCodecs;

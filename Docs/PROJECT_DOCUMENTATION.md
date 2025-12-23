@@ -313,7 +313,7 @@ View ← ViewModel ← Service ← Response Data ←
 - **Media Codecs**: Xbox-specific codec and HDR support
   - Direct Play: H.264, H.265/HEVC (One S/X+), VP9, AV1 (Series S/X)
   - HDR: HDR10 (One S/X+), Dolby Vision Profile 8.1 (Series S/X only)
-  - Audio: AAC, MP3, FLAC, AC3/EAC3 (One S/X+), DTS passthrough
+  - Audio: AAC, MP3, FLAC, ALAC, AC3, PCM, WMA
 
 ### Error Handling
 - **Centralized**: All error handling through ErrorHandlingService

@@ -29,9 +29,9 @@ Gelatinarm uses manual testing rather than automated unit tests because:
    - Run on Local Machine (F5)
 
 2. **Required Test Environment**
-   - Jellyfin server instance (local or remote)
-   - Test media library with various content types:
-     - Movies (various codecs: H.264, H.265/HEVC, VP9, AV1)
+    - Jellyfin server instance (local or remote)
+    - Test media library with various content types:
+      - Movies (various codecs: H.264, H.265/HEVC, VP9, AV1, MPEG-1/2, MPEG-4 Part 2, VC-1, H.263, Motion JPEG, DV)
      - HDR content (HDR10, Dolby Vision Profile 8.1 for Series S/X)
      - TV Shows (with multiple seasons/episodes)
      - Music (albums and individual tracks)
@@ -216,7 +216,7 @@ Test with realistic data volumes:
 - Codec support varies by platform:
   - AV1: Xbox Series S/X only
   - HEVC: Xbox One S/X and Series S/X
-  - AC3/EAC3: Xbox One S/X and Series S/X
+  - AC3: Xbox One S/X and Series S/X
 - Quick Resume behavior only testable on Xbox
 
 ### Testing Gaps

@@ -1076,7 +1076,7 @@ namespace Gelatinarm.Services
                         // If container indicates a direct file format and server might return direct file
                         else if (!string.IsNullOrEmpty(mediaSource.Container))
                         {
-                            var directStreamContainers = new[] { "mp3", "m4a", "aac", "flac", "ogg", "opus", "wav" };
+                            var directStreamContainers = new[] { "mp3", "m4a", "aac", "flac", "alac", "wav", "wma", "amr" };
                             if (directStreamContainers.Contains(mediaSource.Container.ToLower()) &&
                                 mediaSource.SupportsDirectStream == true &&
                                 !mediaUrl.Contains("transcodingProtocol=hls"))
