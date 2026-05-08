@@ -9,6 +9,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:Gelatinarm.Controls"
     mc:Ignorable="d"
+    NavigationCacheMode="Required"
     Background="{StaticResource SystemChromeMediumBrush}">
 
     <Grid>

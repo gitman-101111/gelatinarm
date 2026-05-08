@@ -50,9 +50,9 @@ namespace Gelatinarm.Services
                 {
                     Container = "mp4,m4v,mov,3gp,3g2,fmp4",
                     VideoCodec =
-                        "h264,avc1,avc3,hevc,hev1,hvc1,h265,mpeg4,mp4v,mp4s,m4s2,mp43,mpeg1video,mpeg2video,h263,mjpeg,mjpg,dv",
+                        "h264,avc1,avc3,hevc,hev1,hvc1,h265,vp8,vp80,vp9,vp90,vp09,vc1,wvc1,mpeg4,mp4v,mp4s,m4s2,mp43,mpeg1video,mpeg2video,h263,mjpeg,mjpg",
                     AudioCodec =
-                        "aac,mp4a,mp3,ac3,ac-3,flac,alac,pcm,lpcm,wma,wmap,amr,amrnb,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms"
+                        "aac,mp4a,mp3,ac3,ac-3,alac,amr,amrnb"
                 },
                 new DirectPlayProfile
                 {
@@ -62,28 +62,28 @@ namespace Gelatinarm.Services
                         ? "h264,avc1,avc3,hevc,hev1,hvc1,h265,vp8,vp80,vp9,vp90,vp09,av1,av01,mpeg4,mp4v,vc1,wvc1,mpeg1video,mpeg2video"
                         : "h264,avc1,avc3,hevc,hev1,hvc1,h265,vp8,vp80,vp9,vp90,vp09,mpeg4,mp4v,vc1,wvc1,mpeg1video,mpeg2video",
                     AudioCodec =
-                        "aac,mp4a,mp3,ac3,ac-3,flac,alac,pcm,lpcm,wma,wmap,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms,amr,amrnb,mp2"
+                        "aac,mp4a,mp3,ac3,ac-3,flac,alac,pcm,lpcm,mp2"
                 },
                 new DirectPlayProfile
                 {
                     Container = "avi",
                     VideoCodec =
-                        "h264,avc1,avc3,mpeg4,mp4v,mp4s,m4s2,mp43,mpeg1video,mpeg2video,mpg2,mjpeg,mjpg,h263,dv",
+                        "h264,avc1,avc3,vc1,wvc1,mpeg4,mp4v,mp4s,m4s2,mp43,mjpeg,mjpg,h263",
                     AudioCodec =
-                        "mp3,ac3,ac-3,aac,mp4a,pcm,lpcm,wma,flac,alac,g711,g711a,g711u,gsm,gsm610,ima_adpcm,ms_adpcm,adpcm_ima,adpcm_ms,amr,amrnb,mp2"
+                        "mp3,ac3,ac-3"
                 },
                 new DirectPlayProfile
                 {
                     Container = "wmv,asf",
                     VideoCodec = "vc1,wvc1,mpeg4,mp4v",
-                    AudioCodec = "wma,wmap,mp3,ac3,ac-3"
+                    AudioCodec = "wma,wmap,ac3,ac-3"
                 },
                 new DirectPlayProfile
                 {
                     Container = "mpg,mpeg,m2v,ts,m2ts,mts",
-                    VideoCodec = "mpeg1video,mpeg2video,mpg2,h264,avc1,avc3,hevc,hev1,hvc1,h265,vc1,wvc1",
+                    VideoCodec = "mpeg1video,mpeg2video,mpg2,h264,avc1,avc3,hevc,hev1,hvc1,h265",
                     AudioCodec =
-                        "mp3,mp2,aac,mp4a,ac3,ac-3,pcm,lpcm"
+                        "ac3,ac-3,aac,mp4a,mp2"
                 },
                 // Add FLV container support
                 new DirectPlayProfile
@@ -113,11 +113,13 @@ namespace Gelatinarm.Services
                     Container = "mp4",
                     Type = TranscodingProfile_Type.Video,
                     VideoCodec = "h264,hevc",
-                    AudioCodec = "aac,mp3,ac3,flac", // server validates max 40
+                    // Only AAC and AC3 are safe to stream-copy into HLS/MPEG-TS.
+                    // MP3 and FLAC are not valid HLS audio codecs — Xbox's AdaptiveMediaSource
+                    // fails to open manifests that contain them. Any other codec will be
+                    // transcoded to AAC (first in the list) by the server.
+                    AudioCodec = "aac,ac3",
                     Context = TranscodingProfile_Context.Streaming,
                     Protocol = TranscodingProfile_Protocol.Hls,
-                    // Don't set MaxAudioChannels - let server decide based on DirectPlayProfiles
-                    // This allows passthrough of multichannel audio when possible
                     MinSegments = 5,  // Ensure at least 5 segments are ready before playback
                     SegmentLength = 5, // 5-second segments for better seeking precision
                     BreakOnNonKeyFrames = false, // Keep segments on keyframes for stability

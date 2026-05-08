@@ -595,52 +595,19 @@ namespace Gelatinarm.Services
                 {
                     try
                     {
-                        // Create a timeout using Task.Delay
-                        using var cts = new CancellationTokenSource();
-                        var progressTask = _apiClient.Sessions.Playing.Progress.PostAsync(progressInfo);
-                        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS), cts.Token);
-
-                        // Wait for either completion or timeout
-                        var completedTask = await Task.WhenAny(progressTask, timeoutTask).ConfigureAwait(false);
-
-                        if (completedTask == timeoutTask)
-                        {
-                            // Timeout occurred - but keep waiting for the actual request to complete
-                            // This prevents starting new requests while the old one is still running
-                            Logger.LogDebug("Progress report timed out - waiting for completion to avoid overlapping requests");
-
-                            // Continue waiting for the actual progress task to complete (no additional timeout)
-                            // This ensures we don't start a new request while this one is still pending
-                            try
-                            {
-                                await progressTask.ConfigureAwait(false);
-                                Logger.LogDebug("Timed-out progress report eventually completed");
-                            }
-                            catch
-                            {
-                                // Ignore errors from timed-out request
-                                Logger.LogDebug("Timed-out progress report eventually failed");
-                            }
-                            return;
-                        }
-
-                        // Cancel the timeout since we completed
-                        cts.Cancel();
-
-                        // Await the progress task to get any exceptions
-                        await progressTask.ConfigureAwait(false);
-
-                        var position = TimeSpan.FromTicks(positionTicks);
+                        using var cts = new CancellationTokenSource(
+                            TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS));
+                        await _apiClient.Sessions.Playing.Progress.PostAsync(progressInfo, cancellationToken: cts.Token)
+                            .ConfigureAwait(false);
                         Logger.LogDebug(
-                            $"Reported playback progress at {position:hh\\:mm\\:ss} for {_currentItem.Name}");
+                            $"Reported playback progress at {TimeSpan.FromTicks(positionTicks):hh\\:mm\\:ss} for {_currentItem.Name}");
                     }
                     catch (OperationCanceledException)
                     {
-                        Logger.LogDebug("Progress report cancelled");
+                        Logger.LogDebug("Progress report timed out or was cancelled");
                     }
                     catch (Exception ex)
                     {
-                        // Log other exceptions but don't let them break progress reporting
                         Logger.LogDebug(ex, "Failed to report progress - will retry on next interval");
                     }
                 });

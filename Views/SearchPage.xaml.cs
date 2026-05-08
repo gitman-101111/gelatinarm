@@ -175,6 +175,28 @@ namespace Gelatinarm.Views
             }
         }
 
+        protected override async Task OnNavigatedBackAsync()
+        {
+            // Re-subscribe click events cleaned up in CleanupResources so cached results remain interactive
+            if (GroupedResultsPanel != null)
+            {
+                foreach (var child in GroupedResultsPanel.Children)
+                {
+                    if (child is ListView listView)
+                    {
+                        listView.ItemClick -= ListView_ItemClick;
+                        listView.ItemClick += ListView_ItemClick;
+                    }
+                    else if (child is Button button && button.Content?.ToString()?.StartsWith("Show all") == true)
+                    {
+                        button.Click -= ShowMoreButton_Click;
+                        button.Click += ShowMoreButton_Click;
+                    }
+                }
+            }
+            await Task.CompletedTask;
+        }
+
         protected override async Task InitializePageAsync(object parameter)
         {
             // Check if we have navigation parameters

@@ -412,8 +412,25 @@ namespace Gelatinarm.Views
 
                     _navigationStateService.ClearPlaybackSession();
 
-                    // Always navigate forward with the updated parameter to ensure correct state
-                    NavigationService.Navigate(session.OriginatingPage, navigationParameter);
+                    // Forward-navigate to the originating page. This pushes MediaPlayerPage onto
+                    // the back stack, so we must remove it immediately so "B" from the destination
+                    // doesn't return the user here.
+                    var backStackCountBefore = Frame?.BackStack?.Count ?? 0;
+                    if (NavigationService.Navigate(session.OriginatingPage, navigationParameter))
+                    {
+                        if (Frame?.BackStack?.Count > backStackCountBefore)
+                        {
+                            for (int i = Frame.BackStack.Count - 1; i >= 0; i--)
+                            {
+                                if (Frame?.BackStack?[i].SourcePageType == typeof(MediaPlayerPage))
+                                {
+                                    Frame.BackStack.RemoveAt(i);
+                                    Logger.LogInformation($"Removed MediaPlayerPage from back stack at index {i} after returning to {session.OriginatingPage.Name}");
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     return;
                 }

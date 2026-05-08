@@ -246,8 +246,6 @@ namespace Gelatinarm.ViewModels
             // Clear previous state
             ClearState();
 
-            BaseItemDto targetEpisode = null;
-
             var context = CreateErrorContext("InitializeSeason");
             try
             {
@@ -273,7 +271,7 @@ namespace Gelatinarm.ViewModels
                             NavigationSourceParameterForBack = episodeNavParam.OriginalSourceParameter;
                         }
 
-                        await HandleItemNavigationAsync(episodeNavParam.Episode, targetEpisode);
+                        await HandleItemNavigationAsync(episodeNavParam.Episode);
                     }
                     else if (parameter is MediaPlaybackParams playbackParams)
                     {
@@ -325,7 +323,7 @@ namespace Gelatinarm.ViewModels
                     {
                         Logger?.LogInformation(
                             $"SeasonDetailsViewModel.InitializeAsync - Received BaseItemDto: {item.Name} (Type: {item.Type}, Id: {item.Id})");
-                        await HandleItemNavigationAsync(item, targetEpisode);
+                        await HandleItemNavigationAsync(item);
                     }
                     else if (TryGetGuidFromParameter(parameter, out var itemGuid))
                     {
@@ -336,7 +334,7 @@ namespace Gelatinarm.ViewModels
 
                         if (loadedItem != null)
                         {
-                            await HandleItemNavigationAsync(loadedItem, targetEpisode);
+                            await HandleItemNavigationAsync(loadedItem);
                         }
                     }
                     else
@@ -370,7 +368,7 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        private async Task HandleItemNavigationAsync(BaseItemDto item, BaseItemDto targetEpisode)
+        private async Task HandleItemNavigationAsync(BaseItemDto item)
         {
             Logger?.LogInformation($"HandleItemNavigationAsync called with item type: {item.Type}, Name: {item.Name}");
 
@@ -381,36 +379,42 @@ namespace Gelatinarm.ViewModels
             }
             else if (item.Type == BaseItemDto_Type.Episode)
             {
-                targetEpisode = item;
                 Logger?.LogInformation($"Episode navigation - SeasonId: {item.SeasonId}, SeriesId: {item.SeriesId}");
 
                 if (item.SeasonId.HasValue)
                 {
                     Logger?.LogInformation($"Loading season data for season ID: {item.SeasonId.Value}");
-                    var response = await ApiClient.Items[item.SeasonId.Value].GetAsync(config =>
+                    var seasonResponse = await ApiClient.Items[item.SeasonId.Value].GetAsync(config =>
                     {
                         config.QueryParameters.UserId = UserIdGuid.Value;
                     }, _loadingCts.Token);
 
-                    CurrentSeason = response;
+                    CurrentSeason = seasonResponse;
                     if (CurrentSeason != null)
                     {
                         Logger?.LogInformation($"Season loaded: {CurrentSeason.Name}");
-                        await LoadSeasonDataAsync();
 
-                        // Small delay to ensure UI is ready, especially for shows with many seasons
-                        await Task.Delay(100);
-
-                        await SelectSpecificEpisodeAsync(targetEpisode);
-
-                        // Ensure UI is properly updated on UI thread
-                        await RunOnUIThreadAsync(() =>
+                        // Fetch fresh episode data to get the authoritative UserData (watched status,
+                        // playback position). The navigation parameter may be stale — fetching here
+                        // synchronously guarantees we display accurate state without any timed retries.
+                        BaseItemDto freshEpisode = item;
+                        if (item.Id.HasValue)
                         {
-                            OnPropertyChanged(nameof(IsEpisodesListVisible));
-                            OnPropertyChanged(nameof(IsSeriesPosterVisible));
-                            OnPropertyChanged(nameof(IsEpisodeThumbnailVisible));
-                            OnPropertyChanged(nameof(IsSeriesNameVisible));
-                        });
+                            try
+                            {
+                                var refreshed = await ApiClient.Items[item.Id.Value].GetAsync(config =>
+                                {
+                                    config.QueryParameters.UserId = UserIdGuid.Value;
+                                }, _loadingCts.Token);
+                                if (refreshed != null) freshEpisode = refreshed;
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger?.LogWarning(ex, "Failed to refresh episode data, using cached version");
+                            }
+                        }
+
+                        await LoadSeasonDataAsync(freshEpisode);
                     }
                     else
                     {
@@ -453,7 +457,7 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        private async Task LoadSeasonDataAsync()
+        private async Task LoadSeasonDataAsync(BaseItemDto episodeToSelect = null)
         {
             var context = CreateErrorContext("LoadSeasonData");
             try
@@ -494,20 +498,43 @@ namespace Gelatinarm.ViewModels
                     await LoadEpisodesAsync();
 
                     Logger?.LogInformation($"Episodes loaded: {Episodes.Count} episodes");
-                    Logger?.LogInformation(
-                        $"Current visibility states - EpisodesList: {IsEpisodesListVisible}, SeriesPoster: {IsSeriesPosterVisible}, EpisodeThumbnail: {IsEpisodeThumbnailVisible}");
 
                     if (Episodes.Any())
                     {
-                        var firstEpisode = Episodes.FirstOrDefault();
-                        if (firstEpisode != null)
+                        // Determine which episode to select: the requested one (by ID) or the first
+                        BaseItemDto target = null;
+                        var targetIndex = 0;
+                        if (episodeToSelect?.Id != null)
                         {
-                            await RunOnUIThreadAsync(async () =>
+                            targetIndex = Episodes.ToList().FindIndex(ep => ep.Id == episodeToSelect.Id);
+                            if (targetIndex >= 0)
                             {
-                                SelectedEpisodeIndex = 0;
-                                await SelectEpisodeAsync(firstEpisode);
-                            });
-                            Logger?.LogInformation($"Selected first episode: {firstEpisode.Name}");
+                                target = Episodes[targetIndex];
+                                // Apply fresh UserData from the caller to the list episode instance
+                                if (episodeToSelect.UserData != null)
+                                {
+                                    target.UserData = episodeToSelect.UserData;
+                                }
+                            }
+                            else
+                            {
+                                Logger?.LogWarning($"Target episode '{episodeToSelect.Name}' not found in list; selecting first");
+                                targetIndex = 0;
+                            }
+                        }
+
+                        if (target == null)
+                        {
+                            target = Episodes.FirstOrDefault();
+                            targetIndex = 0;
+                        }
+
+                        if (target != null)
+                        {
+                            await RunOnUIThreadAsync(() => SelectedEpisodeIndex = targetIndex);
+                            await SelectEpisodeAsync(target);
+                            await RunOnUIThreadAsync(() => IsInitialLoadComplete = true);
+                            Logger?.LogInformation($"Selected episode: {target.Name}");
                         }
                     }
                     else
@@ -518,13 +545,7 @@ namespace Gelatinarm.ViewModels
                 finally
                 {
                     Logger?.LogInformation("LoadSeasonDataAsync completed - Setting IsLoading = false");
-                    // Ensure UI property updates happen on UI thread
-                    await RunOnUIThreadAsync(async () =>
-                    {
-                        // Small delay to ensure UI updates properly
-                        await Task.Delay(50);
-                        IsLoading = false;
-                    });
+                    await RunOnUIThreadAsync(() => IsLoading = false);
                 }
             }
             catch (Exception ex)
@@ -670,71 +691,118 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        private async Task SelectEpisodeAsync(BaseItemDto episode, bool setFocus = false)
+        private async Task SelectEpisodeAsync(BaseItemDto episode)
         {
-            if (episode == null)
-            {
-                return;
-            }
+            if (episode == null) return;
 
             Logger?.LogInformation($"SelectEpisodeAsync called for episode: {episode.Name}");
 
-            SelectedEpisode = episode;
-            EpisodeTitle = episode.Name;
-            EpisodeNumber = $"Episode {episode.IndexNumber}";
-            EpisodeOverview = episode.Overview ?? "No overview available.";
+            // Compute all derived values off the UI thread
+            var episodeTitle = episode.Name;
+            var episodeNumber = $"Episode {episode.IndexNumber}";
+            var episodeOverview = episode.Overview ?? "No overview available.";
 
-            // Handle air date
+            string airDate = null;
+            var isAirDateVisible = false;
+            var isAirDateSeparatorVisible = false;
             if (episode.PremiereDate.HasValue)
             {
-                AirDate = episode.PremiereDate.Value.ToString("MMM d, yyyy");
-                IsAirDateVisible = true;
-                IsAirDateSeparatorVisible = true;
-            }
-            else
-            {
-                IsAirDateVisible = false;
-                IsAirDateSeparatorVisible = false;
+                airDate = episode.PremiereDate.Value.ToString("MMM d, yyyy");
+                isAirDateVisible = true;
+                isAirDateSeparatorVisible = true;
             }
 
-            // Handle runtime
+            string runtime = null;
+            var isRuntimeVisible = false;
+            var isRuntimeSeparatorVisible = false;
             if (episode.RunTimeTicks.HasValue)
             {
-                Runtime = $"{(int)TimeSpan.FromTicks(episode.RunTimeTicks.Value).TotalMinutes} min";
-                IsRuntimeVisible = true;
-                IsRuntimeSeparatorVisible = episode.PremiereDate.HasValue;
-            }
-            else
-            {
-                IsRuntimeVisible = false;
-                IsRuntimeSeparatorVisible = false;
+                runtime = $"{(int)TimeSpan.FromTicks(episode.RunTimeTicks.Value).TotalMinutes} min";
+                isRuntimeVisible = true;
+                isRuntimeSeparatorVisible = episode.PremiereDate.HasValue;
             }
 
-            // Handle resolution
+            string resolution = null;
+            var isResolutionVisible = false;
+            var isResolutionSeparatorVisible = false;
             if (episode.MediaStreams?.Any(ms => ms.Type == MediaStream_Type.Video) == true)
             {
                 var videoStream = episode.MediaStreams.FirstOrDefault(ms => ms.Type == MediaStream_Type.Video);
                 if (videoStream?.Height != null)
                 {
-                    Resolution = GetResolutionText(videoStream.Height.Value);
-                    IsResolutionVisible = true;
-                    IsResolutionSeparatorVisible = IsAirDateVisible || IsRuntimeVisible;
+                    resolution = GetResolutionText(videoStream.Height.Value);
+                    isResolutionVisible = true;
+                    isResolutionSeparatorVisible = isAirDateVisible || isRuntimeVisible;
                 }
-                else
-                {
-                    IsResolutionVisible = false;
-                    IsResolutionSeparatorVisible = false;
-                }
+            }
+
+            // Fetch thumbnail off the UI thread
+            ImageSource thumbnailSource = null;
+            try
+            {
+                thumbnailSource = await ImageHelper.GetImageSourceAsync(episode, "Primary", 400, 225).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger?.LogWarning(ex, "Failed to load episode thumbnail for '{0}'", episode.Name);
+            }
+
+            // Compute button states
+            var userData = episode.UserData;
+            var playbackTicks = userData?.PlaybackPositionTicks ?? 0;
+            var playedPercentage = userData?.PlayedPercentage ?? 0;
+            var isPlayed = userData?.Played == true;
+            var hasProgress = playbackTicks > 0 || playedPercentage > 0;
+            var isBelowWatchedThreshold = playedPercentage > 0 && playedPercentage < MediaConstants.WATCHED_PERCENTAGE_THRESHOLD;
+
+            bool isPlayButtonVisible, isResumeButtonVisible, isPlayFromBeginningButtonVisible, isProgressVisible;
+            double watchProgressPercentage;
+            if (!isPlayed && (hasProgress || isBelowWatchedThreshold))
+            {
+                isPlayButtonVisible = false;
+                isResumeButtonVisible = true;
+                isPlayFromBeginningButtonVisible = true;
+                isProgressVisible = playedPercentage > 0;
+                watchProgressPercentage = playedPercentage > 0 ? playedPercentage : 0;
             }
             else
             {
-                IsResolutionVisible = false;
-                IsResolutionSeparatorVisible = false;
+                isPlayButtonVisible = true;
+                isResumeButtonVisible = false;
+                isPlayFromBeginningButtonVisible = false;
+                isProgressVisible = false;
+                watchProgressPercentage = 0;
             }
-            await LoadEpisodeThumbnailAsync(episode);
 
-            UpdateButtonStates(episode);
-            PlayButtonText = "Play";
+            var markWatchedText = isPlayed ? "Mark Unwatched" : "Mark Watched";
+
+            // Commit all UI changes atomically on the UI thread
+            await RunOnUIThreadAsync(() =>
+            {
+                SelectedEpisode = episode;
+                EpisodeTitle = episodeTitle;
+                EpisodeNumber = episodeNumber;
+                EpisodeOverview = episodeOverview;
+                AirDate = airDate;
+                IsAirDateVisible = isAirDateVisible;
+                IsAirDateSeparatorVisible = isAirDateSeparatorVisible;
+                Runtime = runtime;
+                IsRuntimeVisible = isRuntimeVisible;
+                IsRuntimeSeparatorVisible = isRuntimeSeparatorVisible;
+                Resolution = resolution;
+                IsResolutionVisible = isResolutionVisible;
+                IsResolutionSeparatorVisible = isResolutionSeparatorVisible;
+                EpisodeThumbnail = thumbnailSource;
+                IsShuffleButtonVisible = false;
+                IsMarkWatchedButtonVisible = true;
+                IsPlayButtonVisible = isPlayButtonVisible;
+                IsResumeButtonVisible = isResumeButtonVisible;
+                IsPlayFromBeginningButtonVisible = isPlayFromBeginningButtonVisible;
+                WatchProgressPercentage = watchProgressPercentage;
+                IsProgressVisible = isProgressVisible;
+                MarkWatchedText = markWatchedText;
+                PlayButtonText = "Play";
+            });
         }
 
         private void UpdateButtonStates(BaseItemDto episode)
@@ -820,31 +888,6 @@ namespace Gelatinarm.ViewModels
                 1920,
                 1080
             );
-        }
-
-        private async Task LoadEpisodeThumbnailAsync(BaseItemDto episode)
-        {
-            var context = CreateErrorContext("LoadEpisodeThumbnail", ErrorCategory.Media);
-            try
-            {
-                var imageSource = await ImageHelper.GetImageSourceAsync(episode, "Primary", 400, 225)
-                    .ConfigureAwait(false);
-                await RunOnUIThreadAsync(() => EpisodeThumbnail = imageSource);
-            }
-            catch (Exception ex)
-            {
-                if (ErrorHandler != null)
-                {
-                    context.Source = context.Source ?? GetType().Name;
-                    await ErrorHandler.HandleErrorAsync(ex, context, false);
-                }
-                else
-                {
-                    Logger?.LogError(ex, $"Error in {GetType().Name}.{context?.Operation}");
-                    ErrorMessage = ex.Message;
-                    IsError = true;
-                }
-            }
         }
 
         private async Task LoadSeriesPosterAsync(BaseItemDto series)
@@ -994,61 +1037,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        private async Task SelectSpecificEpisodeAsync(BaseItemDto targetEpisode)
-        {
-            var context = CreateErrorContext("SelectSpecificEpisode", ErrorCategory.User);
-            try
-            {
-                Logger?.LogInformation(
-                    $"SelectSpecificEpisodeAsync - targetEpisode: {targetEpisode?.Name} (Id: {targetEpisode?.Id})");
-                Logger?.LogInformation($"SelectSpecificEpisodeAsync - Episodes count: {Episodes?.Count ?? 0}");
-
-                if (targetEpisode == null || !Episodes.Any())
-                {
-                    return;
-                }
-
-                var episodeIndex = Episodes.ToList().FindIndex(ep => ep.Id == targetEpisode.Id);
-                Logger?.LogInformation($"SelectSpecificEpisodeAsync - Found episode at index: {episodeIndex}");
-
-                if (episodeIndex >= 0)
-                {
-                    var listEpisode = Episodes[episodeIndex];
-                    if (targetEpisode.UserData != null && listEpisode.UserData == null)
-                    {
-                        listEpisode.UserData = targetEpisode.UserData;
-                    }
-
-                    await RunOnUIThreadAsync(() =>
-                    {
-                        SelectedEpisodeIndex = episodeIndex;
-                        // Force property change notification to ensure UI updates
-                        OnPropertyChanged(nameof(SelectedEpisodeIndex));
-                    });
-                    await SelectEpisodeAsync(listEpisode, true);
-
-                    Logger?.LogInformation($"SelectSpecificEpisodeAsync - Set SelectedEpisodeIndex to: {episodeIndex}");
-
-                    // Signal that initial episode selection is complete
-                    IsInitialLoadComplete = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                if (ErrorHandler != null)
-                {
-                    context.Source = context.Source ?? GetType().Name;
-                    await ErrorHandler.HandleErrorAsync(ex, context, false);
-                }
-                else
-                {
-                    Logger?.LogError(ex, $"Error in {GetType().Name}.{context?.Operation}");
-                    ErrorMessage = ex.Message;
-                    IsError = true;
-                }
-            }
-        }
-
         public async Task RefreshEpisodesWatchedStatusAsync()
         {
             var context = CreateErrorContext("RefreshEpisodesWatchedStatus");
@@ -1138,7 +1126,7 @@ namespace Gelatinarm.ViewModels
                         {
                             SelectedEpisodeIndex = i;
                         });
-                        await SelectEpisodeAsync(episode, true);
+                        await SelectEpisodeAsync(episode);
                         return;
                     }
                 }
@@ -1200,7 +1188,7 @@ namespace Gelatinarm.ViewModels
         {
             if (episode != null)
             {
-                await SelectEpisodeAsync(episode, true);
+                await SelectEpisodeAsync(episode);
             }
         }
 
@@ -1260,31 +1248,50 @@ namespace Gelatinarm.ViewModels
                 }
                 else if (SelectedEpisode?.Id != null)
                 {
-                    // Toggle episode watched status
-                    var isWatched = SelectedEpisode.UserData?.Played ?? false;
+                    // Capture the reference now so a concurrent selection change can't affect us.
+                    var episodeToUpdate = SelectedEpisode;
+                    var isWatched = episodeToUpdate.UserData?.Played ?? false;
                     var newWatchedStatus = !isWatched;
 
-                    await UserDataService.ToggleWatchedAsync(SelectedEpisode.Id.Value, newWatchedStatus, UserIdGuid);
+                    var updatedData = await UserDataService.ToggleWatchedAsync(episodeToUpdate.Id.Value, newWatchedStatus, UserIdGuid);
 
-                    if (SelectedEpisode.UserData == null)
+                    if (episodeToUpdate.UserData == null)
                     {
-                        SelectedEpisode.UserData = new UserItemDataDto();
+                        episodeToUpdate.UserData = new UserItemDataDto();
                     }
 
-                    SelectedEpisode.UserData.Played = newWatchedStatus;
-                    SelectedEpisode.UserData.PlayedPercentage = newWatchedStatus ? 100 : 0;
+                    if (updatedData != null)
+                    {
+                        // Use the authoritative server response so PlaybackPositionTicks is
+                        // correctly zeroed when marking unwatched (otherwise UpdateButtonStates
+                        // sees stale ticks > 0 and shows Resume instead of Play).
+                        episodeToUpdate.UserData.Played = updatedData.Played;
+                        episodeToUpdate.UserData.PlayedPercentage = updatedData.PlayedPercentage;
+                        episodeToUpdate.UserData.PlaybackPositionTicks = updatedData.PlaybackPositionTicks;
+                    }
+                    else
+                    {
+                        // Fallback: server response unavailable, update locally.
+                        episodeToUpdate.UserData.Played = newWatchedStatus;
+                        episodeToUpdate.UserData.PlayedPercentage = newWatchedStatus ? 100 : 0;
+                        // Also clear ticks when unwatching so Resume doesn't appear incorrectly.
+                        if (!newWatchedStatus)
+                        {
+                            episodeToUpdate.UserData.PlaybackPositionTicks = 0;
+                        }
+                    }
 
-                    UpdateButtonStates(SelectedEpisode);
+                    UpdateButtonStates(episodeToUpdate);
 
                     // Find the episode in the list and trigger update
-                    var episodeIndex = Episodes.IndexOf(SelectedEpisode);
+                    var episodeIndex = Episodes.IndexOf(episodeToUpdate);
                     if (episodeIndex >= 0)
                     {
                         // Store current selection before update
                         var currentSelectedIndex = SelectedEpisodeIndex;
 
                         // Replace the item in the collection to trigger UI update
-                        Episodes[episodeIndex] = SelectedEpisode;
+                        Episodes[episodeIndex] = episodeToUpdate;
 
                         // Restore selection after update to prevent focus loss
                         if (currentSelectedIndex >= 0 && currentSelectedIndex < Episodes.Count)

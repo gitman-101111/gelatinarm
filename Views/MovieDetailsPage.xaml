@@ -150,15 +150,21 @@
                                        VerticalAlignment="Center" />
                         </StackPanel>
 
-                        <TextBlock Text="{x:Bind ViewModel.Overview, Mode=OneWay}"
-                                   FontSize="14"
-                                   LineHeight="20"
-                                   Foreground="White"
-                                   TextWrapping="Wrap"
-                                   TextTrimming="WordEllipsis"
-                                   MaxWidth="700"
-                                   Height="80"
-                                   Margin="{StaticResource HeaderMargin}" />
+                        <StackPanel Margin="{StaticResource HeaderMargin}" MaxWidth="700">
+                            <TextBlock Text="{x:Bind ViewModel.Overview, Mode=OneWay}"
+                                       FontSize="14"
+                                       LineHeight="20"
+                                       Foreground="White"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="WordEllipsis"
+                                       MaxHeight="{x:Bind ViewModel.OverviewMaxHeight, Mode=OneWay}" />
+                            <Button Content="{x:Bind ViewModel.ExpandBioButtonText, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.ToggleBioExpansionCommand}"
+                                    Margin="0,8,0,0"
+                                    Visibility="{x:Bind ViewModel.IsExpandBioButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource TextBlockButtonStyle}" />
+                        </StackPanel>
 
                         <!-- Director and Writers -->
                         <Grid Margin="0,16,0,0" MaxWidth="700">

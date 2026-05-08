@@ -62,6 +62,11 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private string _writers;
 
+        [ObservableProperty] private bool _isBioExpanded;
+        [ObservableProperty] private bool _isExpandBioButtonVisible;
+        [ObservableProperty] private string _expandBioButtonText = "Show More";
+        [ObservableProperty] private double _overviewMaxHeight = 80;
+
         public MovieDetailsViewModel(
             ILogger<MovieDetailsViewModel> logger,
             JellyfinApiClient apiClient,
@@ -172,6 +177,20 @@ namespace Gelatinarm.ViewModels
             }
 
             // LoadAdditionalDataAsync started
+
+            // Set up Show More/Less for overview
+            if (!string.IsNullOrEmpty(CurrentItem.Overview) && CurrentItem.Overview.Length > 300)
+            {
+                OverviewMaxHeight = 80;
+                IsExpandBioButtonVisible = true;
+                IsBioExpanded = false;
+                ExpandBioButtonText = "Show More";
+            }
+            else
+            {
+                OverviewMaxHeight = double.PositiveInfinity;
+                IsExpandBioButtonVisible = false;
+            }
 
             // Set year from production year or premiere date
             if (CurrentItem.ProductionYear.HasValue)
@@ -680,6 +699,22 @@ namespace Gelatinarm.ViewModels
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to load version details for {VersionName}", version.Name);
+            }
+        }
+
+        [CommunityToolkit.Mvvm.Input.RelayCommand]
+        private void ToggleBioExpansion()
+        {
+            IsBioExpanded = !IsBioExpanded;
+            if (IsBioExpanded)
+            {
+                OverviewMaxHeight = double.PositiveInfinity;
+                ExpandBioButtonText = "Show Less";
+            }
+            else
+            {
+                OverviewMaxHeight = 80;
+                ExpandBioButtonText = "Show More";
             }
         }
 

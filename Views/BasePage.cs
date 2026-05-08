@@ -130,6 +130,7 @@ namespace Gelatinarm.Views
                 // Handle navigation based on mode
                 if (e.NavigationMode == NavigationMode.Back)
                 {
+                    _hasInitialized = true; // InitializePageAsync ran on first visit; don't repeat on back navigation
                     await OnNavigatedBackAsync();
                 }
                 else if (e.NavigationMode == NavigationMode.New)
