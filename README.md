@@ -248,7 +248,7 @@ Run the following command from the project root:
 
 ```powershell
 cd C:\gelatinarm
-& 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe' `
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe' `
     Gelatinarm.csproj `
     /p:Configuration=Release `
     /p:Platform=x64 `
