@@ -40,6 +40,8 @@ namespace Gelatinarm.Services
         private DateTime _lastPlaybackStartTime = DateTime.MinValue;
         private CancellationTokenSource _playbackCancellationTokenSource;
         private CancellationTokenSource _progressReportCancellationTokenSource;
+        private CancellationTokenSource _transportControlsUpdateCts;
+        private CancellationTokenSource _playbackStatusUpdateCts;
         private Timer _progressReportTimer;
         private bool _isSmtcInitialized = false;
         private bool _isSubscribedToEvents = false;
@@ -200,6 +202,10 @@ namespace Gelatinarm.Services
 
                     // Unsubscribe from events when stopping audio playback
                     UnsubscribeFromEvents();
+
+                    // Notify UI that nothing is playing — OnNowPlayingChanged can't propagate this
+                    // because _playbackCancellationTokenSource is already cancelled above
+                    NowPlayingChanged?.Invoke(this, null);
 
                     // Report playback stopped asynchronously (fire and forget)
                     if (itemId.HasValue && mediaSourceId != null && playSessionId != null)
@@ -488,6 +494,10 @@ namespace Gelatinarm.Services
             // Ensure cancellation token is disposed
             _progressReportCancellationTokenSource?.Dispose();
             _playbackCancellationTokenSource?.Dispose();
+            _transportControlsUpdateCts?.Cancel();
+            _transportControlsUpdateCts?.Dispose();
+            _playbackStatusUpdateCts?.Cancel();
+            _playbackStatusUpdateCts?.Dispose();
 
             // Unwire event handlers
             UnsubscribeFromEvents();
@@ -579,6 +589,9 @@ namespace Gelatinarm.Services
 
         private void OnNowPlayingChanged(object sender, BaseItemDto item)
         {
+            var session = _playbackCancellationTokenSource;
+            if (session == null || session.IsCancellationRequested) return;
+
             NowPlayingChanged?.Invoke(this, item);
 
             if (item != null && IsAudioItem(item))
@@ -626,6 +639,9 @@ namespace Gelatinarm.Services
 
         private void OnMediaOpened(object sender, object args)
         {
+            var session = _playbackCancellationTokenSource;
+            if (session == null || session.IsCancellationRequested) return;
+
             Logger.LogInformation("Media opened successfully");
 
             // Initialize SMTC only when MUSIC starts playing (not for video)
@@ -637,17 +653,12 @@ namespace Gelatinarm.Services
                 _isSmtcInitialized = true;
             }
 
-            // Update system media transport controls (only for music)
+            // Re-apply display on every MediaOpened: the MediaPlayer resets SMTC display when
+            // a new source finishes opening, wiping the info set in OnNowPlayingChanged.
             if (currentItem != null && IsAudioItem(currentItem))
             {
-                FireAndForget(() => UpdateDisplay(currentItem),
-                    "UpdateSystemMediaDisplay");
+                FireAndForget(() => UpdateDisplay(currentItem), "UpdateSystemMediaDisplay");
                 UpdateTransportControlsState();
-                FireAndForget(async () =>
-                {
-                    await Task.Delay(300).ConfigureAwait(false);
-                    UpdateTransportControlsState();
-                }, "UpdateTransportControlsStateDelayed");
 
                 // Start playback reporting
                 FireAndForgetSafe(() => StartPlaybackReporting(), "StartPlaybackReporting");
@@ -749,10 +760,9 @@ namespace Gelatinarm.Services
 
         private void UpdatePlaybackStatus(MediaPlaybackState state)
         {
-            if (_systemMediaTransportControls == null)
-            {
+            var smtc = _systemMediaTransportControls;
+            if (smtc == null)
                 return;
-            }
 
             if ((state == MediaPlaybackState.None || state == MediaPlaybackState.Paused) &&
                 DateTime.UtcNow < _smtcSuppressStoppedUntilUtc)
@@ -761,12 +771,20 @@ namespace Gelatinarm.Services
                 return;
             }
 
+            var newCts = new CancellationTokenSource();
+            var oldCts = Interlocked.Exchange(ref _playbackStatusUpdateCts, newCts);
+            oldCts?.Cancel();
+            oldCts?.Dispose();
+            var token = newCts.Token;
+
             var context = CreateErrorContext("UpdatePlaybackStatus", ErrorCategory.Media);
             FireAndForget(async () =>
             {
                 try
                 {
-                    _systemMediaTransportControls.PlaybackStatus = state switch
+                    await Task.Delay(50, token).ConfigureAwait(false);
+
+                    smtc.PlaybackStatus = state switch
                     {
                         MediaPlaybackState.Playing => MediaPlaybackStatus.Playing,
                         MediaPlaybackState.Paused => MediaPlaybackStatus.Paused,
@@ -776,9 +794,11 @@ namespace Gelatinarm.Services
                         _ => MediaPlaybackStatus.Closed
                     };
 
-                    Logger.LogDebug($"Updated SMTC playback status to: {_systemMediaTransportControls.PlaybackStatus}");
-                    UpdateTransportControlsState();
-                    await Task.CompletedTask;
+                    Logger.LogDebug($"Updated SMTC playback status to: {smtc.PlaybackStatus}");
+                }
+                catch (OperationCanceledException)
+                {
+                    // Debounced — a newer state superseded this one
                 }
                 catch (Exception ex)
                 {
@@ -789,17 +809,16 @@ namespace Gelatinarm.Services
 
         private async Task UpdateDisplay(BaseItemDto item)
         {
-            if (_systemMediaTransportControls == null || item == null)
-            {
+            var smtc = _systemMediaTransportControls;
+            if (smtc == null || item == null)
                 return;
-            }
 
             var context = CreateErrorContext("UpdateDisplay", ErrorCategory.Media);
             try
             {
                 await UIHelper.RunOnUIThreadAsync(async () =>
                 {
-                    var updater = _systemMediaTransportControls.DisplayUpdater;
+                    var updater = smtc.DisplayUpdater;
                     if (updater == null)
                     {
                         Logger.LogWarning("SystemMediaTransportControls.DisplayUpdater returned null");
@@ -825,10 +844,9 @@ namespace Gelatinarm.Services
 
         private void UpdateButtonStates(bool canGoNext, bool canGoPrevious)
         {
-            if (_systemMediaTransportControls == null)
-            {
+            var smtc = _systemMediaTransportControls;
+            if (smtc == null)
                 return;
-            }
 
             var context = CreateErrorContext("UpdateButtonStates", ErrorCategory.Media);
             FireAndForget(async () =>
@@ -837,13 +855,11 @@ namespace Gelatinarm.Services
                 {
                     await UIHelper.RunOnUIThreadAsync(() =>
                     {
-                        if (!_systemMediaTransportControls.IsEnabled)
-                        {
-                            _systemMediaTransportControls.IsEnabled = true;
-                        }
+                        if (!smtc.IsEnabled)
+                            smtc.IsEnabled = true;
 
-                        _systemMediaTransportControls.IsNextEnabled = canGoNext;
-                        _systemMediaTransportControls.IsPreviousEnabled = canGoPrevious;
+                        smtc.IsNextEnabled = canGoNext;
+                        smtc.IsPreviousEnabled = canGoPrevious;
                     }, logger: Logger).ConfigureAwait(false);
 
                     Logger.LogInformation($"Updated transport controls buttons: Next={canGoNext}, Previous={canGoPrevious}");
@@ -858,10 +874,9 @@ namespace Gelatinarm.Services
 
         private void SetShuffleEnabled(bool enabled)
         {
-            if (_systemMediaTransportControls == null)
-            {
+            var smtc = _systemMediaTransportControls;
+            if (smtc == null)
                 return;
-            }
 
             var context = CreateErrorContext("SetShuffleEnabled", ErrorCategory.Media);
             FireAndForget(async () =>
@@ -870,7 +885,7 @@ namespace Gelatinarm.Services
                 {
                     await UIHelper.RunOnUIThreadAsync(() =>
                     {
-                        _systemMediaTransportControls.ShuffleEnabled = enabled;
+                        smtc.ShuffleEnabled = enabled;
                     }, logger: Logger).ConfigureAwait(false);
 
                     Logger.LogInformation($"SMTC shuffle set to: {enabled}");
@@ -885,10 +900,9 @@ namespace Gelatinarm.Services
 
         private void SetRepeatMode(RepeatMode mode)
         {
-            if (_systemMediaTransportControls == null)
-            {
+            var smtc = _systemMediaTransportControls;
+            if (smtc == null)
                 return;
-            }
 
             var context = CreateErrorContext("SetRepeatMode", ErrorCategory.Media);
             FireAndForget(async () =>
@@ -897,7 +911,7 @@ namespace Gelatinarm.Services
                 {
                     await UIHelper.RunOnUIThreadAsync(() =>
                     {
-                        _systemMediaTransportControls.AutoRepeatMode = mode switch
+                        smtc.AutoRepeatMode = mode switch
                         {
                             RepeatMode.None => MediaPlaybackAutoRepeatMode.None,
                             RepeatMode.One => MediaPlaybackAutoRepeatMode.Track,
@@ -906,7 +920,7 @@ namespace Gelatinarm.Services
                         };
                     }, logger: Logger).ConfigureAwait(false);
 
-                    Logger.LogInformation($"SMTC repeat mode set to: {_systemMediaTransportControls.AutoRepeatMode}");
+                    Logger.LogInformation($"SMTC repeat mode set to: {smtc.AutoRepeatMode}");
                     await Task.CompletedTask;
                 }
                 catch (Exception ex)
@@ -918,19 +932,18 @@ namespace Gelatinarm.Services
 
         private void ClearDisplay()
         {
-            if (_systemMediaTransportControls == null)
-            {
+            var smtc = _systemMediaTransportControls;
+            if (smtc == null)
                 return;
-            }
 
             var context = CreateErrorContext("ClearDisplay", ErrorCategory.Media);
             FireAndForget(async () =>
             {
                 try
                 {
-                    _systemMediaTransportControls.DisplayUpdater.ClearAll();
-                    _systemMediaTransportControls.PlaybackStatus = MediaPlaybackStatus.Closed;
-                    _systemMediaTransportControls.DisplayUpdater.Update();
+                    smtc.DisplayUpdater.ClearAll();
+                    smtc.PlaybackStatus = MediaPlaybackStatus.Closed;
+                    smtc.DisplayUpdater.Update();
                     Logger.LogInformation("Cleared System Media Transport Controls display");
                     await Task.CompletedTask;
                 }
@@ -974,7 +987,7 @@ namespace Gelatinarm.Services
             AutoRepeatModeChangeRequestedEventArgs args)
         {
             Logger.LogInformation($"SMTC Repeat mode change requested: {args.RequestedAutoRepeatMode}");
-            _systemMediaTransportControls.AutoRepeatMode = args.RequestedAutoRepeatMode;
+            sender.AutoRepeatMode = args.RequestedAutoRepeatMode;
             OnRepeatModeChangeRequested(this, args.RequestedAutoRepeatMode);
         }
 
@@ -1133,11 +1146,20 @@ namespace Gelatinarm.Services
                 return;
             }
 
+            // Cancel any in-flight callbacks from the previous session before subscribing
+            _playbackCancellationTokenSource?.Cancel();
+            _playbackCancellationTokenSource?.Dispose();
+            _playbackCancellationTokenSource = new CancellationTokenSource();
+
             // Subscribe to events when starting audio playback
             SubscribeToEvents();
 
             // Ensure MediaControlService has a MediaPlayer for audio playback
             await EnsureMediaPlayerInitializedAsync().ConfigureAwait(false);
+
+            // Apply LUFS-based volume normalization if enabled in settings
+            await _mediaOptimizationService.ApplyNormalizationAsync(
+                _mediaControlService.MediaPlayer, item.NormalizationGain).ConfigureAwait(false);
 
 
             // Stop any existing playback reporting
@@ -1581,31 +1603,43 @@ namespace Gelatinarm.Services
 
         private void UpdateTransportControlsState()
         {
-            try
+            var newCts = new CancellationTokenSource();
+            var oldCts = Interlocked.Exchange(ref _transportControlsUpdateCts, newCts);
+            oldCts?.Cancel();
+            oldCts?.Dispose();
+            var token = newCts.Token;
+
+            FireAndForget(async () =>
             {
-                var queue = _queueService.Queue;
-                var currentIndex = _queueService.CurrentQueueIndex;
-                var isRepeatAll = _mediaControlService.RepeatMode == RepeatMode.All;
-                var isShuffleMode = _queueService.IsShuffleMode;
+                try
+                {
+                    await Task.Delay(75, token).ConfigureAwait(false);
 
-                // Update next/previous button states based on queue position and repeat mode
-                var shouldEnableNext = (currentIndex >= 0 && currentIndex < queue.Count - 1) || isRepeatAll ||
-                                       (isShuffleMode && queue.Count > 1);
-                var shouldEnablePrevious = currentIndex > 0 || isRepeatAll || (isShuffleMode && queue.Count > 1);
+                    var queue = _queueService.Queue;
+                    var currentIndex = _queueService.CurrentQueueIndex;
+                    var isRepeatAll = _mediaControlService.RepeatMode == RepeatMode.All;
+                    var isShuffleMode = _queueService.IsShuffleMode;
 
-                UpdateButtonStates(shouldEnableNext, shouldEnablePrevious);
+                    var shouldEnableNext = (currentIndex >= 0 && currentIndex < queue.Count - 1) || isRepeatAll ||
+                                           (isShuffleMode && queue.Count > 1);
+                    var shouldEnablePrevious = currentIndex > 0 || isRepeatAll || (isShuffleMode && queue.Count > 1);
 
-                // Ensure shuffle and repeat states are maintained
-                SetShuffleEnabled(isShuffleMode);
-                SetRepeatMode(_mediaControlService.RepeatMode);
+                    UpdateButtonStates(shouldEnableNext, shouldEnablePrevious);
+                    SetShuffleEnabled(isShuffleMode);
+                    SetRepeatMode(_mediaControlService.RepeatMode);
 
-                Logger.LogInformation(
-                    $"Updated transport controls: Next={shouldEnableNext}, Previous={shouldEnablePrevious}, Shuffle={isShuffleMode}, Repeat={_mediaControlService.RepeatMode}, QueueIndex={currentIndex}/{queue.Count}");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Failed to update transport controls state");
-            }
+                    Logger.LogInformation(
+                        $"Updated transport controls: Next={shouldEnableNext}, Previous={shouldEnablePrevious}, Shuffle={isShuffleMode}, Repeat={_mediaControlService.RepeatMode}, QueueIndex={currentIndex}/{queue.Count}");
+                }
+                catch (OperationCanceledException)
+                {
+                    // Debounced — a newer update superseded this one
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to update transport controls state");
+                }
+            });
         }
 
         private async Task StartPlaybackReporting()

@@ -305,6 +305,27 @@ namespace Gelatinarm.Services
                         Logger.LogInformation("Removed previous MediaPlayerPage from back stack after episode-to-episode navigation");
                     }
                 }
+                else if (pageType != typeof(MediaPlayerPage) &&
+                         _frame.BackStack.Count > 0 &&
+                         _frame.BackStack[_frame.BackStack.Count - 1].SourcePageType == typeof(MediaPlayerPage))
+                {
+                    // Leaving MediaPlayerPage for a non-player page: remove it from the back stack.
+                    // There is no "return to stopped video" UX worth preserving.
+                    _frame.BackStack.RemoveAt(_frame.BackStack.Count - 1);
+                    Logger.LogInformation("Removed MediaPlayerPage from back stack after leaving playback");
+
+                    // After MediaPlayerPage is removed, check whether the new back-stack top is the same
+                    // page type as our destination and represents the same series context (e.g. two
+                    // SeasonDetailsPage entries for the same show). Collapse the duplicate so the user
+                    // doesn't have to press Back through a page they've already seen.
+                    if (_frame.BackStack.Count > 0 &&
+                        _frame.BackStack[_frame.BackStack.Count - 1].SourcePageType == pageType &&
+                        IsSameNavigationContext(_frame.BackStack[_frame.BackStack.Count - 1].Parameter, parameter))
+                    {
+                        _frame.BackStack.RemoveAt(_frame.BackStack.Count - 1);
+                        Logger.LogInformation($"Collapsed duplicate {pageType.Name} from back stack (same series context)");
+                    }
+                }
 
                 // Keep navigation history size reasonable
                 if (_navigationHistory.Count > UIConstants.MAX_BACK_STACK_DEPTH * 2)
@@ -672,6 +693,18 @@ namespace Gelatinarm.Services
         public (Type pageType, object parameter) GetLastNavigation()
         {
             return (_lastNavigatedPageType, _lastNavigationParameter);
+        }
+
+        private bool IsSameNavigationContext(object paramA, object paramB)
+        {
+            if (paramA is BaseItemDto itemA && paramB is BaseItemDto itemB)
+            {
+                if (itemA.Id == itemB.Id) return true;
+                var seriesIdA = itemA.SeriesId ?? itemA.Id;
+                var seriesIdB = itemB.SeriesId ?? itemB.Id;
+                return seriesIdA.HasValue && seriesIdA == seriesIdB;
+            }
+            return false;
         }
 
         #endregion

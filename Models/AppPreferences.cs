@@ -25,6 +25,7 @@ namespace Gelatinarm.Models
 
         // === Audio & Subtitle Preferences ===
         public int DefaultSubtitleStreamIndex { get; set; } = -1;
+        public bool AudioNormalizationEnabled { get; set; } = false;
 
         // === Network & Streaming ===
         public bool EnableDirectPlay { get; set; } = true; // Allow direct play when format is compatible

@@ -419,8 +419,6 @@ namespace Gelatinarm.Services
         Task ConfigureForXboxAsync(MediaPlayer player, MediaSourceInfo mediaSourceInfo);
         Task ResetEnhancementsAsync(MediaPlayer player);
 
-        // Audio Enhancement Settings
-        void SetNightMode(bool enabled);
         Task StartOptimizationAsync();
         Task StopOptimizationAsync();
         int GetOptimalBitrate();
@@ -437,8 +435,10 @@ namespace Gelatinarm.Services
         MediaSource GetCachedMediaSource(string itemId);
         Task ClearOptimizationsAsync();
 
+        // Audio Normalization
+        Task ApplyNormalizationAsync(MediaPlayer player, float? normalizationGainDb);
+
         // Preference Getters (for UI binding)
-        bool GetNightModePreference();
         bool GetSpatialAudioPreference();
         bool GetHDROutputEnabledPreference();
 

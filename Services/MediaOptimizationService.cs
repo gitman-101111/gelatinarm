@@ -32,11 +32,8 @@ namespace Gelatinarm.Services
         private int _currentBandwidthKbps = 0;
         private bool _hdrOutputEnabled = false;
 
-        // Enhancement state
-
         // Optimization state
         private volatile int _isOptimizing = 0; // 0 = not optimizing, 1 = optimizing
-        private bool _nightModeEnabled = false;
         private bool _spatialAudioEnabled = false;
 
         public MediaOptimizationService(
@@ -246,7 +243,6 @@ namespace Gelatinarm.Services
             {
                 // Load enhancement preferences
                 IsEnhancementEnabled = _preferencesService.GetValue(PreferenceConstants.EnableMediaEnhancements, true);
-                _nightModeEnabled = _preferencesService.GetValue(PreferenceConstants.NightModeEnabled, false);
                 _spatialAudioEnabled = _preferencesService.GetValue(PreferenceConstants.SpatialAudioEnabled, false);
                 // HDR is always enabled if the display supports it
                 _hdrOutputEnabled = _deviceService.SupportsHDR;
@@ -323,17 +319,7 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("ApplyAudioEnhancements", ErrorCategory.Media);
             try
             {
-                // Configure audio category for enhancements
-                if (_nightModeEnabled)
-                {
-                    player.AudioCategory = MediaPlayerAudioCategory.Movie;
-                }
-                else
-                {
-                    // Set default category when no enhancements are enabled
-                    // Media category has no compression
-                    player.AudioCategory = MediaPlayerAudioCategory.Media;
-                }
+                player.AudioCategory = MediaPlayerAudioCategory.Media;
 
                 // Apply spatial audio if supported
                 if (_spatialAudioEnabled && _deviceService.IsXboxEnvironment)
@@ -341,13 +327,33 @@ namespace Gelatinarm.Services
                     player.AudioDeviceType = MediaPlayerAudioDeviceType.Multimedia;
                 }
 
-                Logger.LogInformation($"Audio enhancements applied - Night: {_nightModeEnabled}");
+                Logger.LogInformation("Audio enhancements applied");
                 await Task.CompletedTask.ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 await ErrorHandler.HandleErrorAsync(ex, context, false);
             }
+        }
+
+        public async Task ApplyNormalizationAsync(MediaPlayer player, float? normalizationGainDb)
+        {
+            if (player == null)
+                return;
+
+            var prefs = await _preferencesService.GetAppPreferencesAsync().ConfigureAwait(false);
+            if (!prefs.AudioNormalizationEnabled || normalizationGainDb == null)
+            {
+                player.Volume = 1.0;
+                return;
+            }
+
+            // Convert dB gain to linear amplitude and clamp to valid MediaPlayer range.
+            // NormalizationGain is the adjustment required to reach the target loudness level.
+            var linear = Math.Pow(10.0, normalizationGainDb.Value / 20.0);
+            player.Volume = Math.Max(0.0, Math.Min(1.0, linear));
+            Logger.LogInformation(
+                $"[NORMALIZATION] Applied gain {normalizationGainDb:F2} dB → volume {player.Volume:F3}");
         }
 
         public async Task ConfigureForXboxAsync(MediaPlayer player, MediaSourceInfo mediaSourceInfo)
@@ -399,12 +405,6 @@ namespace Gelatinarm.Services
             }
         }
 
-
-        public void SetNightMode(bool enabled)
-        {
-            _nightModeEnabled = enabled;
-            _preferencesService.SetValue(PreferenceConstants.NightModeEnabled, enabled);
-        }
 
         #endregion
 
@@ -633,11 +633,6 @@ namespace Gelatinarm.Services
         #endregion
 
         #region Preference Getters
-
-        public bool GetNightModePreference()
-        {
-            return _nightModeEnabled;
-        }
 
         public bool GetSpatialAudioPreference()
         {

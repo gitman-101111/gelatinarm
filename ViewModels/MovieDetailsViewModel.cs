@@ -38,6 +38,12 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private bool _hasSimilarItems;
 
+        [ObservableProperty] private string _collectionSectionTitle;
+
+        [ObservableProperty] private bool _hasCollectionSiblings;
+
+        [ObservableProperty] private ObservableCollection<BaseItemDto> _collectionSiblings = new();
+
         [ObservableProperty] private string _releaseDate;
 
         [ObservableProperty] private AudioTrack _selectedAudioTrack;
@@ -259,8 +265,8 @@ namespace Gelatinarm.ViewModels
             // Load media streams
             LoadMediaStreams();
 
-            // Load similar movies
-            await LoadSimilarMoviesAsync();
+            // Load similar movies and collection siblings in parallel
+            await Task.WhenAll(LoadSimilarMoviesAsync(), LoadCollectionSiblingsAsync());
 
             // LoadAdditionalDataAsync completed
         }
@@ -376,6 +382,56 @@ namespace Gelatinarm.ViewModels
                         }
 
                         HasSimilarItems = SimilarItems.Count > 0;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                await ErrorHandler.HandleErrorAsync(ex, context, false);
+            }
+        }
+
+        private async Task LoadCollectionSiblingsAsync()
+        {
+            if (CurrentItem?.Id == null || !UserIdGuid.HasValue)
+                return;
+
+            var context = CreateErrorContext("LoadCollectionSiblings");
+            try
+            {
+                var ancestors = await ApiClient.Items[CurrentItem.Id.Value].Ancestors.GetAsync(config =>
+                {
+                    config.QueryParameters.UserId = UserIdGuid.Value;
+                });
+
+                var collection = ancestors?.FirstOrDefault(a => a.Type == BaseItemDto_Type.BoxSet);
+                if (collection?.Id == null)
+                    return;
+
+                var response = await ApiClient.Items.GetAsync(config =>
+                {
+                    config.QueryParameters.ParentId = collection.Id.Value;
+                    config.QueryParameters.UserId = UserIdGuid.Value;
+                    config.QueryParameters.Fields = new[] { ItemFields.PrimaryImageAspectRatio };
+                    config.QueryParameters.SortBy = new[] { ItemSortBy.ProductionYear };
+                });
+
+                await RunOnUIThreadAsync(() =>
+                {
+                    CollectionSiblings.Clear();
+
+                    if (response?.Items != null)
+                    {
+                        foreach (var item in response.Items.Where(i => i.Id != CurrentItem.Id))
+                        {
+                            CollectionSiblings.Add(item);
+                        }
+                    }
+
+                    if (CollectionSiblings.Count > 0)
+                    {
+                        CollectionSectionTitle = $"More from {collection.Name}";
+                        HasCollectionSiblings = true;
                     }
                 });
             }

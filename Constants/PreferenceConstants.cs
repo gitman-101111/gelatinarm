@@ -28,7 +28,6 @@ namespace Gelatinarm.Constants
 
         // MediaEnhancementService specific keys
         public const string EnableMediaEnhancements = "EnableMediaEnhancements";
-        public const string NightModeEnabled = "NightModeEnabled";
         public const string SpatialAudioEnabled = "SpatialAudioEnabled";
 
         // PreferencesService internal file/storage keys (for SaveAsync/LoadAsync)

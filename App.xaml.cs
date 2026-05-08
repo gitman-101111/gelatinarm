@@ -877,33 +877,43 @@ namespace Gelatinarm
                                 }
                                 else
                                 {
-                                    try
-                                    {
-                                        var sessionTask = authService.RestoreLastSessionAsync();
-                                        var timeoutTask = Task.Delay(RetryConstants.SESSION_RESTORE_TIMEOUT_MS);
-                                        var completedTask = await Task.WhenAny(sessionTask, timeoutTask);
+                                    // Navigate immediately — token looks valid from stored credentials
+                                    navigationService.Navigate(typeof(MainPage), e.Arguments);
 
-                                        if (completedTask == timeoutTask)
-                                        {
-                                            navigationService.Navigate(typeof(ServerSelectionPage), e.Arguments);
-                                        }
-                                        else
-                                        {
-                                            var sessionRestored = await sessionTask;
-                                            if (sessionRestored)
-                                            {
-                                                navigationService.Navigate(typeof(MainPage), e.Arguments);
-                                            }
-                                            else
-                                            {
-                                                navigationService.Navigate(typeof(ServerSelectionPage), e.Arguments);
-                                            }
-                                        }
-                                    }
-                                    catch (Exception)
+                                    // Validate token in background; redirect to login only if actually invalid
+                                    var launchArgs = e.Arguments;
+                                    var capturedNavService = navigationService;
+                                    var capturedAuthService = authService;
+                                    _ = Task.Run(async () =>
                                     {
-                                        navigationService.Navigate(typeof(ServerSelectionPage), e.Arguments);
-                                    }
+                                        try
+                                        {
+                                            var sessionTask = capturedAuthService.RestoreLastSessionAsync();
+                                            var timeoutTask = Task.Delay(RetryConstants.SESSION_RESTORE_TIMEOUT_MS);
+                                            var completedTask = await Task.WhenAny(sessionTask, timeoutTask).ConfigureAwait(false);
+
+                                            if (completedTask == timeoutTask)
+                                            {
+                                                // Server slow or unreachable — not a confirmed invalid token.
+                                                // Leave the user on MainPage; content requests will surface their own errors.
+                                                return;
+                                            }
+
+                                            await sessionTask.ConfigureAwait(false);
+
+                                            // A 401 is the only case that clears the token (via ClearInvalidCredentials).
+                                            // Any other failure (network error, exception) leaves it intact — don't redirect.
+                                            if (string.IsNullOrEmpty(capturedAuthService.AccessToken))
+                                            {
+                                                await UIHelper.RunOnUIThreadAsync(() =>
+                                                    capturedNavService.Navigate(typeof(ServerSelectionPage), launchArgs));
+                                            }
+                                        }
+                                        catch (Exception)
+                                        {
+                                            // Transient error — not a confirmed revocation. Don't redirect.
+                                        }
+                                    });
                                 }
                             }
                             catch (Exception)

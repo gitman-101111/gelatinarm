@@ -278,167 +278,83 @@ namespace Gelatinarm.ViewModels
 
                 // Loading data for user
 
-                // Batch API calls into priority groups
-                // Priority 1: Continue Watching and Next Up (most important for user engagement)
-                var priority1Tasks = new List<Task<object>>(2); // Always 2 tasks
-
-                var getContinueWatchingTask = GetOrFetchCachedAsync(
-                    "ContinueWatching",
-                    async () => await BaseService.RetryAsync(
-                        () => _mediaDiscoveryService.GetContinueWatchingAsync(20, cancellationToken),
-                        _logger,
-                        2,
-                        TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                        cancellationToken,
-                        nameof(_mediaDiscoveryService.GetContinueWatchingAsync)).ConfigureAwait(false),
-                    cancellationToken);
-                priority1Tasks.Add(getContinueWatchingTask);
-
-                var getNextUpTask = GetOrFetchCachedAsync(
-                    "NextUp",
-                    async () => await BaseService.RetryAsync(
-                        () => _mediaDiscoveryService.GetNextUpAsync(cancellationToken),
-                        _logger,
-                        2,
-                        TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                        cancellationToken,
-                        nameof(_mediaDiscoveryService.GetNextUpAsync)).ConfigureAwait(false),
-                    cancellationToken);
-                priority1Tasks.Add(getNextUpTask);
-
-                // Wait for priority 1 to complete
-                await Task.WhenAll(priority1Tasks).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Priority 2: Latest content
-                var priority2Tasks = new List<Task<object>>(3); // Always 3 tasks
-
-                var getLatestMoviesTask = GetOrFetchCachedAsync(
-                    "LatestMovies",
-                    async () => await BaseService.RetryAsync(
-                        () => _mediaDiscoveryService.GetLatestMoviesAsync(20, cancellationToken),
-                        _logger,
-                        2,
-                        TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                        cancellationToken,
-                        nameof(_mediaDiscoveryService.GetLatestMoviesAsync)).ConfigureAwait(false),
-                    cancellationToken);
-                priority2Tasks.Add(getLatestMoviesTask);
-
-                var getLatestShowsTask = GetOrFetchCachedAsync(
-                    "LatestShows",
-                    async () => await BaseService.RetryAsync(
-                        () => _mediaDiscoveryService.GetLatestShowsAsync(20, cancellationToken),
-                        _logger,
-                        2,
-                        TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                        cancellationToken,
-                        nameof(_mediaDiscoveryService.GetLatestShowsAsync)).ConfigureAwait(false),
-                    cancellationToken);
-                priority2Tasks.Add(getLatestShowsTask);
-
-                var getRecentlyAddedTask = GetOrFetchCachedAsync(
-                    "RecentlyAdded",
-                    async () => await BaseService.RetryAsync(
-                        () => _mediaDiscoveryService.GetRecentlyAddedAsync(20, cancellationToken),
-                        _logger,
-                        2,
-                        TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                        cancellationToken,
-                        nameof(_mediaDiscoveryService.GetRecentlyAddedAsync)).ConfigureAwait(false),
-                    cancellationToken);
-                priority2Tasks.Add(getRecentlyAddedTask);
-
-                // Wait for priority 2 to complete
-                await Task.WhenAll(priority2Tasks).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Priority 3: Recommendations (can be loaded last)
-                var getRecommendedTask = GetOrFetchCachedAsync(
-                    "Recommended",
-                    async () => await BaseService.RetryAsync(
-                        () => _mediaDiscoveryService.GetRecommendedAsync(20, cancellationToken),
-                        _logger,
-                        2,
-                        TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                        cancellationToken,
-                        nameof(_mediaDiscoveryService.GetRecommendedAsync)).ConfigureAwait(false),
-                    cancellationToken);
-
-                await getRecommendedTask.ConfigureAwait(false);
-
-                cancellationToken.ThrowIfCancellationRequested(); // Check before processing results
-
-                // Get results from completed tasks
-                var continueWatching = await getContinueWatchingTask.ConfigureAwait(false) as IEnumerable<BaseItemDto>;
-                var latestMovies = await getLatestMoviesTask.ConfigureAwait(false) as IEnumerable<BaseItemDto>;
-                var latestTVShows = await getLatestShowsTask.ConfigureAwait(false) as IEnumerable<BaseItemDto>;
-                var recentlyAdded = await getRecentlyAddedTask.ConfigureAwait(false) as IEnumerable<BaseItemDto>;
-                var recommended = await getRecommendedTask.ConfigureAwait(false) as IEnumerable<BaseItemDto>;
-                var nextUp = await getNextUpTask.ConfigureAwait(false) as IEnumerable<BaseItemDto>;
-
-                _logger?.LogInformation(
-                    $"Fetched data - ContinueWatching: {continueWatching?.Count() ?? 0}, Movies: {latestMovies?.Count() ?? 0}, TVShows: {latestTVShows?.Count() ?? 0}");
-
-                await RunOnUIThreadAsync(() =>
-                {
-                    try
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        if (ContinueWatchingItems != null)
+                // Fire all section fetches in parallel; each dispatches its own UI update as soon as data arrives
+                await Task.WhenAll(
+                    FetchAndUpdateAsync("ContinueWatching",
+                        async () => await BaseService.RetryAsync(
+                            () => _mediaDiscoveryService.GetContinueWatchingAsync(20, cancellationToken),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            cancellationToken, nameof(_mediaDiscoveryService.GetContinueWatchingAsync)).ConfigureAwait(false),
+                        items =>
                         {
-                            ContinueWatchingItems.ReplaceAll(continueWatching ?? Enumerable.Empty<BaseItemDto>());
+                            ContinueWatchingItems.ReplaceAll(items);
                             HasContinueWatching = ContinueWatchingItems.Any();
-                            _logger?.LogInformation(
-                                $"Updated ContinueWatching: {ContinueWatchingItems.Count} items, HasContinueWatching: {HasContinueWatching}");
-                        }
-
-                        if (LatestMovies != null)
+                            _logger?.LogInformation($"Updated ContinueWatching: {ContinueWatchingItems.Count} items, HasContinueWatching: {HasContinueWatching}");
+                        },
+                        cancellationToken),
+                    FetchAndUpdateAsync("NextUp",
+                        async () => await BaseService.RetryAsync(
+                            () => _mediaDiscoveryService.GetNextUpAsync(cancellationToken),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            cancellationToken, nameof(_mediaDiscoveryService.GetNextUpAsync)).ConfigureAwait(false),
+                        items =>
                         {
-                            LatestMovies.ReplaceAll(latestMovies ?? Enumerable.Empty<BaseItemDto>());
-                            HasLatestMovies = LatestMovies.Any();
-                            _logger?.LogInformation(
-                                $"Updated LatestMovies: {LatestMovies.Count} items, HasLatestMovies: {HasLatestMovies}");
-                        }
-
-                        if (LatestTVShows != null)
-                        {
-                            LatestTVShows.ReplaceAll(latestTVShows ?? Enumerable.Empty<BaseItemDto>());
-                            HasLatestTVShows = LatestTVShows.Any();
-                            _logger?.LogInformation(
-                                $"Updated LatestTVShows: {LatestTVShows.Count} items, HasLatestTVShows: {HasLatestTVShows}");
-                        }
-
-                        if (RecentlyAdded != null)
-                        {
-                            RecentlyAdded.ReplaceAll(recentlyAdded ?? Enumerable.Empty<BaseItemDto>());
-                            HasRecentlyAdded = RecentlyAdded.Any();
-                            _logger?.LogInformation(
-                                $"Updated RecentlyAdded: {RecentlyAdded.Count} items, HasRecentlyAdded: {HasRecentlyAdded}");
-                        }
-
-                        if (Recommended != null)
-                        {
-                            Recommended.ReplaceAll(recommended ?? Enumerable.Empty<BaseItemDto>());
-                            HasRecommended = Recommended.Any();
-                            _logger?.LogInformation(
-                                $"Updated Recommended: {Recommended.Count} items, HasRecommended: {HasRecommended}");
-                        }
-
-                        if (NextUpItems != null)
-                        {
-                            NextUpItems.ReplaceAll(nextUp ?? Enumerable.Empty<BaseItemDto>());
+                            NextUpItems.ReplaceAll(items);
                             HasNextUp = NextUpItems.Any();
-                            _logger?.LogInformation(
-                                $"Updated NextUpItems: {NextUpItems.Count} items, HasNextUp: {HasNextUp}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogError(ex, "Error updating collections in UI thread");
-                    }
-                });
+                            _logger?.LogInformation($"Updated NextUpItems: {NextUpItems.Count} items, HasNextUp: {HasNextUp}");
+                        },
+                        cancellationToken),
+                    FetchAndUpdateAsync("LatestMovies",
+                        async () => await BaseService.RetryAsync(
+                            () => _mediaDiscoveryService.GetLatestMoviesAsync(20, cancellationToken),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            cancellationToken, nameof(_mediaDiscoveryService.GetLatestMoviesAsync)).ConfigureAwait(false),
+                        items =>
+                        {
+                            LatestMovies.ReplaceAll(items);
+                            HasLatestMovies = LatestMovies.Any();
+                            _logger?.LogInformation($"Updated LatestMovies: {LatestMovies.Count} items, HasLatestMovies: {HasLatestMovies}");
+                        },
+                        cancellationToken),
+                    FetchAndUpdateAsync("LatestShows",
+                        async () => await BaseService.RetryAsync(
+                            () => _mediaDiscoveryService.GetLatestShowsAsync(20, cancellationToken),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            cancellationToken, nameof(_mediaDiscoveryService.GetLatestShowsAsync)).ConfigureAwait(false),
+                        items =>
+                        {
+                            LatestTVShows.ReplaceAll(items);
+                            HasLatestTVShows = LatestTVShows.Any();
+                            _logger?.LogInformation($"Updated LatestTVShows: {LatestTVShows.Count} items, HasLatestTVShows: {HasLatestTVShows}");
+                        },
+                        cancellationToken),
+                    FetchAndUpdateAsync("RecentlyAdded",
+                        async () => await BaseService.RetryAsync(
+                            () => _mediaDiscoveryService.GetRecentlyAddedAsync(20, cancellationToken),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            cancellationToken, nameof(_mediaDiscoveryService.GetRecentlyAddedAsync)).ConfigureAwait(false),
+                        items =>
+                        {
+                            RecentlyAdded.ReplaceAll(items);
+                            HasRecentlyAdded = RecentlyAdded.Any();
+                            _logger?.LogInformation($"Updated RecentlyAdded: {RecentlyAdded.Count} items, HasRecentlyAdded: {HasRecentlyAdded}");
+                        },
+                        cancellationToken),
+                    FetchAndUpdateAsync("Recommended",
+                        async () => await BaseService.RetryAsync(
+                            () => _mediaDiscoveryService.GetRecommendedAsync(20, cancellationToken),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            cancellationToken, nameof(_mediaDiscoveryService.GetRecommendedAsync)).ConfigureAwait(false),
+                        items =>
+                        {
+                            Recommended.ReplaceAll(items);
+                            HasRecommended = Recommended.Any();
+                            _logger?.LogInformation($"Updated Recommended: {Recommended.Count} items, HasRecommended: {HasRecommended}");
+                        },
+                        cancellationToken)
+                ).ConfigureAwait(false);
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // Data loading completed successfully
 
@@ -727,6 +643,32 @@ namespace Gelatinarm.ViewModels
                     }
                 });
             });
+        }
+
+        private async Task FetchAndUpdateAsync(
+            string cacheKey,
+            Func<Task<object>> fetchFunc,
+            Action<IEnumerable<BaseItemDto>> updateAction,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var data = await GetOrFetchCachedAsync(cacheKey, fetchFunc, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var items = data as IEnumerable<BaseItemDto> ?? Enumerable.Empty<BaseItemDto>();
+
+                // RunOnUIThreadAsync dispatches to the UI thread — updateAction must not throw
+                await RunOnUIThreadAsync(() => updateAction(items)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error fetching or updating section {CacheKey}", cacheKey);
+            }
         }
 
         private async Task<object> GetOrFetchCachedAsync(string cacheKey, Func<Task<object>> fetchFunc,

@@ -381,17 +381,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        [RelayCommand]
-        private void NavigateToMediaItem(BaseItemDto item)
-        {
-            if (item == null)
-            {
-                return;
-            }
-
-            NavigationService.NavigateToItemDetails(item);
-        }
-
         protected override void DisposeManaged()
         {
             base.DisposeManaged();

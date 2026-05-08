@@ -78,21 +78,6 @@
 
                 </StackPanel>
 
-                <!-- Audio Settings -->
-                <StackPanel x:Name="AudioSettings" Margin="{StaticResource SectionMargin}">
-                    <TextBlock Text="Audio" Style="{StaticResource SectionHeaderTextStyle}" />
-
-                    <ToggleSwitch Header="Night Mode"
-                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.IsNightModeEnabled, Mode=TwoWay}"
-                                  Style="{StaticResource StandardToggleSwitchStyle}" />
-                    <TextBlock
-                        Text="Reduces the difference between loud and quiet sounds. Perfect for late-night viewing when you don't want explosions to wake others but still need to hear dialogue clearly."
-                        Style="{StaticResource BodyTextBlockStyle}"
-                        Opacity="0.7"
-                        Margin="0,0,0,12"
-                        TextWrapping="Wrap"
-                        FontSize="12" />
-                </StackPanel>
 
                 <!-- Video Settings -->
                 <StackPanel x:Name="VideoSettings" Margin="{StaticResource SectionMargin}">
@@ -197,6 +182,18 @@
                         TextWrapping="Wrap"
                         FontSize="12" />
 
+                    <ToggleSwitch Header="Audio Normalization"
+                                  IsOn="{x:Bind TypedViewModel.PlaybackSettings.AudioNormalizationEnabled, Mode=TwoWay}"
+                                  Style="{StaticResource StandardToggleSwitchStyle}"
+                                  OnContent="Normalize loudness between tracks"
+                                  OffContent="Play at original loudness" />
+                    <TextBlock
+                        Text="Adjusts playback volume using LUFS loudness data from the server so tracks play at a consistent volume. Requires per-track loudness data to be analysed by Jellyfin."
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Opacity="0.7"
+                        Margin="0,0,0,12"
+                        TextWrapping="Wrap"
+                        FontSize="12" />
 
                 </StackPanel>
             </StackPanel>

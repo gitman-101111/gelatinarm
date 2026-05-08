@@ -53,8 +53,6 @@ namespace Gelatinarm.ViewModels
         private CancellationTokenSource _loadLibrariesCts;
         private readonly object _loadLibrariesCtsLock = new object();
 
-        private CancellationTokenSource _loadMoreCts = new();
-
         private string _searchTerm = string.Empty;
 
         private BaseItemDto _selectedLibrary;
@@ -912,7 +910,6 @@ namespace Gelatinarm.ViewModels
             if (!string.IsNullOrWhiteSpace(SearchTerm)) { queryParams["searchTerm"] = SearchTerm; }
 
             ApplySortingToParams(queryParams);
-            ApplySpecialFiltersToParams(queryParams);
             var selectedGenres = Genres.Where(g => g.IsSelected).Select(g => g.Value).ToList();
             if (selectedGenres.Any()) { queryParams["genres"] = string.Join(",", selectedGenres); }
 
@@ -1137,17 +1134,8 @@ namespace Gelatinarm.ViewModels
 
         public async Task ApplyFiltersAsync(bool isFullRefresh = true)
         {
-            var cancelContext = CreateErrorContext("CancelPreviousFilter");
-            try
-            {
-                _applyFiltersCts?.Cancel();
-                _applyFiltersCts?.Dispose();
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                await ErrorHandler.HandleErrorAsync(ex, cancelContext, false);
-            }
+            _applyFiltersCts?.Cancel();
+            _applyFiltersCts?.Dispose();
 
             _applyFiltersCts = new CancellationTokenSource();
             var cancellationToken = _applyFiltersCts.Token;
@@ -1301,18 +1289,8 @@ namespace Gelatinarm.ViewModels
             ErrorMessage = string.Empty;
             Logger.LogInformation($"Loading more items - StartIndex: {_currentStartIndex}");
 
-            var cancelContext = CreateErrorContext("CancelPreviousLoadMore");
-            try
-            {
-                _applyFiltersCts?.Cancel();
-                _applyFiltersCts?.Dispose();
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                await ErrorHandler.HandleErrorAsync(ex, cancelContext, false);
-            }
-
+            _applyFiltersCts?.Cancel();
+            _applyFiltersCts?.Dispose();
             _applyFiltersCts = new CancellationTokenSource();
             var cancellationToken = _applyFiltersCts.Token;
 
@@ -1460,22 +1438,6 @@ namespace Gelatinarm.ViewModels
             // For other library types, the filter is handled by ApplyLibraryTypeRestrictions
         }
 
-        private void ApplyAlphabetFilterToParams(Dictionary<string, string> queryParams)
-        {
-            if (!string.IsNullOrEmpty(CurrentAlphabetFilter))
-            {
-                if (CurrentAlphabetFilter == "#")
-                {
-                    // For numbers and special characters
-                    queryParams["nameStartsWith"] = "0,1,2,3,4,5,6,7,8,9";
-                }
-                else
-                {
-                    queryParams["nameStartsWith"] = CurrentAlphabetFilter;
-                }
-            }
-        }
-
         private void ApplySortingToParams(Dictionary<string, string> queryParams)
         {
             // Apply sorting based on SelectedSortIndex
@@ -1508,29 +1470,7 @@ namespace Gelatinarm.ViewModels
             queryParams["sortOrder"] = IsAscending ? "Ascending" : "Descending";
         }
 
-        private void ApplySpecialFiltersToParams(Dictionary<string, string> queryParams)
-        {
-            // This method can be used for any additional special filters
-            // Currently empty but available for future use
-        }
-
-        private void SetFilter(string filter)
-        {
-            var context = CreateErrorContext("SetFilter", ErrorCategory.User);
-            FireAndForget(async () =>
-            {
-                try
-                {
-                    CurrentFilter = filter ?? "All";
-                    // Don't call ApplyFiltersAsync here - CurrentFilter setter already does it
-                    await Task.CompletedTask;
-                }
-                catch (Exception ex)
-                {
-                    await ErrorHandler.HandleErrorAsync(ex, context, false);
-                }
-            });
-        }
+        private void SetFilter(string filter) => CurrentFilter = filter ?? "All";
 
         private void SetAlphabetFilter(string letter)
         {
@@ -1661,7 +1601,6 @@ namespace Gelatinarm.ViewModels
             DisposeCancellationTokenSource(ref _applyFiltersCts);
             DisposeCancellationTokenSource(ref _loadLibrariesCts);
             DisposeCancellationTokenSource(ref _loadFiltersCts);
-            DisposeCancellationTokenSource(ref _loadMoreCts);
 
             Logger?.LogInformation("LibraryViewModel disposed");
 

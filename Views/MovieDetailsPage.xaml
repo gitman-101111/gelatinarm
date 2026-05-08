@@ -416,6 +416,46 @@
                     </GridView>
                 </ScrollViewer>
             </Grid>
+            <!-- Collection Siblings -->
+            <Grid Margin="{StaticResource HeaderMargin}" Padding="30"
+                  Visibility="{x:Bind ViewModel.HasCollectionSiblings, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0"
+                           Text="{x:Bind ViewModel.CollectionSectionTitle, Mode=OneWay}"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           Margin="{StaticResource StandardControlMargin}" />
+
+                <ScrollViewer Grid.Row="1"
+                              HorizontalScrollMode="Enabled"
+                              VerticalScrollMode="Disabled"
+                              HorizontalScrollBarVisibility="Hidden">
+                    <GridView ItemsSource="{x:Bind ViewModel.CollectionSiblings, Mode=OneWay}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="True"
+                              ItemClick="OnCollectionSiblingClick"
+                              ScrollViewer.HorizontalScrollMode="Disabled"
+                              ScrollViewer.VerticalScrollMode="Disabled"
+                              Padding="0,0,24,0"
+                              TabNavigation="Local">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsStackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemContainerStyle>
+                            <StaticResource ResourceKey="StandardMediaGridViewItemStyle" />
+                        </GridView.ItemContainerStyle>
+                        <GridView.ItemTemplate>
+                            <StaticResource ResourceKey="StandardPosterTemplate" />
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </ScrollViewer>
+            </Grid>
         </ListView>
 
         <!-- Loading State -->

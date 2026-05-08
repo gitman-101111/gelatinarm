@@ -56,6 +56,17 @@ namespace Gelatinarm.Views
         }
 
         /// <summary>
+        ///     Handle click on another movie in the same collection
+        /// </summary>
+        private void OnCollectionSiblingClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is BaseItemDto item)
+            {
+                NavigationService.Navigate(typeof(MovieDetailsPage), item);
+            }
+        }
+
+        /// <summary>
         ///     Handle cast member click
         /// </summary>
         private async void OnCastItemClick(object sender, ItemClickEventArgs e)

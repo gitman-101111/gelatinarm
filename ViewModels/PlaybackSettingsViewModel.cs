@@ -25,7 +25,6 @@ namespace Gelatinarm.ViewModels
 
         #endregion
 
-        private readonly IMediaOptimizationService _mediaOptimizationService;
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
@@ -33,6 +32,7 @@ namespace Gelatinarm.ViewModels
         private string _validationError;
 
         private bool _allowAudioStreamCopy = false;
+        private bool _audioNormalizationEnabled = false;
 
         // Playback settings
         private bool _autoPlayNextEpisode = true;
@@ -42,18 +42,12 @@ namespace Gelatinarm.ViewModels
         private bool _enableDirectPlay = true;
         private bool _pauseOnFocusLoss = false;
         private string _videoStretchMode = "Uniform";
-        // Audio enhancement settings
-        private bool _isNightModeEnabled = false;
 
         public PlaybackSettingsViewModel(
             ILogger<PlaybackSettingsViewModel> logger,
-            IPreferencesService preferencesService,
-            IMediaOptimizationService mediaOptimizationService) : base(logger)
+            IPreferencesService preferencesService) : base(logger)
         {
             PreferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
-            _mediaOptimizationService = mediaOptimizationService ??
-                                        throw new ArgumentNullException(nameof(mediaOptimizationService));
-
         }
 
         #region Properties
@@ -207,10 +201,7 @@ namespace Gelatinarm.ViewModels
                 _enableDirectPlay = appPrefs.EnableDirectPlay;
                 _allowAudioStreamCopy = appPrefs.AllowAudioStreamCopy;
                 _videoStretchMode = appPrefs.VideoStretchMode;
-
-                // Audio enhancement settings - these may not exist in AppPreferences yet
-                // so we'll use default values for now
-                _isNightModeEnabled = false;  // Default to false
+                _audioNormalizationEnabled = appPrefs.AudioNormalizationEnabled;
 
                 // Notify all properties changed
                 OnPropertyChanged(nameof(AutoPlayNextEpisode));
@@ -220,7 +211,7 @@ namespace Gelatinarm.ViewModels
                 OnPropertyChanged(nameof(EnableDirectPlay));
                 OnPropertyChanged(nameof(AllowAudioStreamCopy));
                 OnPropertyChanged(nameof(VideoStretchMode));
-                OnPropertyChanged(nameof(IsNightModeEnabled));
+                OnPropertyChanged(nameof(AudioNormalizationEnabled));
             });
         }
 
@@ -247,7 +238,7 @@ namespace Gelatinarm.ViewModels
             EnableDirectPlay = true;
             AllowAudioStreamCopy = false;
             VideoStretchMode = "Uniform";
-            IsNightModeEnabled = false;
+            AudioNormalizationEnabled = false;
 
             await Task.CompletedTask;
         }
@@ -415,18 +406,16 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        public bool IsNightModeEnabled
+        public bool AudioNormalizationEnabled
         {
-            get => _isNightModeEnabled;
+            get => _audioNormalizationEnabled;
             set
             {
-                if (SetSettingProperty(ref _isNightModeEnabled, value))
+                if (SetSettingProperty(ref _audioNormalizationEnabled, value))
                 {
-                    // Since AppPreferences doesn't have this property yet, just log it
-                    Logger.LogInformation("Night mode setting changed to {Value}", value);
-
-                    // Call MediaOptimizationService if it has night mode methods
-                    _mediaOptimizationService?.SetNightMode(value);
+                    FireAndForget(
+                        () => UpdateAppPreferenceAsync(prefs => prefs.AudioNormalizationEnabled = value,
+                            nameof(AudioNormalizationEnabled)));
                 }
             }
         }

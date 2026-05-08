@@ -26,7 +26,6 @@ namespace Gelatinarm.ViewModels
             JellyfinApiClient apiClient,
             IAuthenticationService authService,
             IPreferencesService preferencesService,
-            IMediaOptimizationService mediaOptimizationService,
             ISystemMonitorService systemMonitorService,
             INavigationService navigationService,
             IDialogService dialogService,
@@ -47,8 +46,7 @@ namespace Gelatinarm.ViewModels
 
             PlaybackSettings = new PlaybackSettingsViewModel(
                 playbackLogger,
-                preferencesService,
-                mediaOptimizationService); ResetSettingsCommand = new RelayCommand(ResetSettings);
+                preferencesService); ResetSettingsCommand = new RelayCommand(ResetSettings);
 
             // Call InitializeAsync without await from constructor for async initialization
             FireAndForget(() => InitializeAsync());
