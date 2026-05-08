@@ -9,9 +9,9 @@
   <Identity
     Name="55770patel4prez.Gelatinarm"
     Publisher="CN=BD829D6A-6C9C-4FBD-BD84-21942C7C081A"
-    Version="1.0.7.0" />
+    Version="1.0.8.0" />
 
-  <mp:PhoneIdentity PhoneProductId="e4f6bc98-fc7b-f53c-e22d-a1c9d87e58b5" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+  <mp:PhoneIdentity PhoneProductId="615213ce-2f26-4983-ab0a-0abb5e8cbc4a" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
 
   <Properties>
     <DisplayName>Gelatinarm</DisplayName>

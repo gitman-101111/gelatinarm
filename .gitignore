@@ -407,4 +407,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
 /jellyfin-sdk-csharp
+/testEnvironments.json
