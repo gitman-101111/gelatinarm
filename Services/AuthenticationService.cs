@@ -20,7 +20,6 @@ namespace Gelatinarm.Services
     {
         private readonly string _resourceName = BrandingConstants.AppName;
         private readonly ICacheManagerService _cacheManagerService;
-        private readonly IUnifiedDeviceService _deviceInfoService;
         private readonly IPreferencesService _preferencesService;
         private readonly JellyfinSdkSettings _sdkSettings;
         private readonly JellyfinApiClient _apiClient;
@@ -28,7 +27,6 @@ namespace Gelatinarm.Services
         public AuthenticationService(
             ILogger<AuthenticationService> logger,
             IPreferencesService preferencesService,
-            IUnifiedDeviceService deviceInfoService,
             ICacheManagerService cacheManagerService,
             JellyfinSdkSettings sdkSettings,
             JellyfinApiClient apiClient) : base(logger)
@@ -37,7 +35,6 @@ namespace Gelatinarm.Services
             Logger?.LogDebug("AuthenticationService: Constructor starting");
 #endif
             _preferencesService = preferencesService;
-            _deviceInfoService = deviceInfoService;
             _cacheManagerService = cacheManagerService;
             _sdkSettings = sdkSettings;
             _apiClient = apiClient;

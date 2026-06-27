@@ -47,7 +47,7 @@ namespace Gelatinarm.Converters.Image
                     }
                 }
 
-                if (!TryGetAuthContext(out var authService, out var serverUrl, out var accessToken))
+                if (!TryGetAuthContext(out _, out var serverUrl, out var accessToken))
                 {
                     return null;
                 }

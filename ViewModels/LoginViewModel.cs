@@ -118,7 +118,6 @@ namespace Gelatinarm.ViewModels
             }
 
             var context = CreateErrorContext("Login", ErrorCategory.Authentication);
-            bool success;
             try
             {
                 // Attempt authentication
@@ -131,17 +130,15 @@ namespace Gelatinarm.ViewModels
 
                     Logger?.LogInformation("LoginViewModel: Login successful, navigating to MainPage");
                     _navigationService.Navigate(typeof(MainPage), "FromLogin");
-                    success = true;
                 }
                 else
                 {
                     ShowError("Invalid username or password");
-                    success = false;
                 }
             }
             catch (Exception ex)
             {
-                success = await ErrorHandler.HandleErrorAsync(ex, context, false,
+                await ErrorHandler.HandleErrorAsync(ex, context, false,
                     false); // We handle user messaging with ShowError
             }
 

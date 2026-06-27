@@ -22,7 +22,6 @@ namespace Gelatinarm.Services
         private readonly IDeviceProfileService _deviceProfileService;
         private readonly IUnifiedDeviceService _deviceService;
         private readonly IMediaOptimizationService _mediaOptimizationService;
-        private readonly IPreferencesService _preferencesService;
         private readonly IUserProfileService _userProfileService;
         private BaseItemDto _currentItem;
         private bool _hasReportedStart;
@@ -38,7 +37,6 @@ namespace Gelatinarm.Services
         public MediaPlaybackService(
             JellyfinApiClient apiClient,
             IUserProfileService userProfileService,
-            IPreferencesService preferencesService,
             IUnifiedDeviceService deviceService,
             IDeviceProfileService deviceProfileService,
             IMediaOptimizationService mediaOptimizationService,
@@ -47,7 +45,6 @@ namespace Gelatinarm.Services
         {
             _apiClient = apiClient;
             _userProfileService = userProfileService;
-            _preferencesService = preferencesService;
             _deviceService = deviceService;
             _deviceProfileService = deviceProfileService;
             _mediaOptimizationService = mediaOptimizationService;
@@ -341,7 +338,7 @@ namespace Gelatinarm.Services
                     return false;
                 }
 
-                if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out _))
                 {
                     return false;
                 }
@@ -372,7 +369,7 @@ namespace Gelatinarm.Services
                     return false;
                 }
 
-                if (!TryGetUserIdGuid(_userProfileService, out var userGuid))
+                if (!TryGetUserIdGuid(_userProfileService, out _))
                 {
                     return false;
                 }

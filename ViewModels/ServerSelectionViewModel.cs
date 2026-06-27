@@ -20,7 +20,6 @@ namespace Gelatinarm.ViewModels
     /// </summary>
     public partial class ServerSelectionViewModel : BaseViewModel
     {
-        private readonly IAuthenticationService _authService;
         private readonly IDialogService _dialogService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly INavigationService _navigationService;
@@ -43,14 +42,12 @@ namespace Gelatinarm.ViewModels
 
         public ServerSelectionViewModel(
             IPreferencesService preferencesService,
-            IAuthenticationService authService,
             INavigationService navigationService,
             IDialogService dialogService,
             IHttpClientFactory httpClientFactory,
             ILogger<ServerSelectionViewModel> logger) : base(logger)
         {
             _preferencesService = preferencesService;
-            _authService = authService;
             _navigationService = navigationService;
             _dialogService = dialogService;
             _httpClientFactory = httpClientFactory;

@@ -18,9 +18,6 @@ namespace Gelatinarm.Views
 {
     public sealed partial class MainPage : BasePage
     {
-        private readonly IMusicPlayerService _musicPlayerService;
-        private IMediaPlaybackService _mediaPlaybackService;
-
         private readonly IUnifiedDeviceService _unifiedDeviceService;
 
         static MainPage()
@@ -31,8 +28,6 @@ namespace Gelatinarm.Views
         {
             InitializeComponent();
             _unifiedDeviceService = GetService<IUnifiedDeviceService>();
-            _mediaPlaybackService = GetService<IMediaPlaybackService>();
-            _musicPlayerService = GetService<IMusicPlayerService>();
 
             if (_unifiedDeviceService == null)
             {

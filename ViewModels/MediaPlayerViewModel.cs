@@ -31,7 +31,6 @@ namespace Gelatinarm.ViewModels
         private readonly IMediaControlService _mediaControlService;
         private readonly IControllerInputService _controllerInputService;
         private readonly IMediaNavigationService _mediaNavigationService;
-        private readonly IMediaOptimizationService _mediaOptimizationService;
         private readonly IMediaPlaybackService _mediaPlaybackService;
 
         private readonly INavigationService _navigationService;
@@ -182,7 +181,6 @@ namespace Gelatinarm.ViewModels
         {
             _playbackControlService = GetRequiredService<IPlaybackControlService>();
             _subtitleService = GetRequiredService<ISubtitleService>();
-            _mediaOptimizationService = GetRequiredService<IMediaOptimizationService>();
             _preferencesService = GetRequiredService<IPreferencesService>();
             _mediaPlaybackService = GetRequiredService<IMediaPlaybackService>();
             _navigationService = GetRequiredService<INavigationService>();

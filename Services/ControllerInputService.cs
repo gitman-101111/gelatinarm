@@ -14,7 +14,6 @@ namespace Gelatinarm.Services
     {
         private bool _areControlsVisible;
         private DateTimeOffset _lastSkipInputUtc = DateTimeOffset.MinValue;
-        private MediaPlayer _mediaPlayer;
 
         public ControllerInputService(ILogger<ControllerInputService> logger) : base(logger)
         {
@@ -28,7 +27,10 @@ namespace Gelatinarm.Services
 
         public Task InitializeAsync(MediaPlayer mediaPlayer)
         {
-            _mediaPlayer = mediaPlayer ?? throw new ArgumentNullException(nameof(mediaPlayer));
+            if (mediaPlayer == null)
+            {
+                throw new ArgumentNullException(nameof(mediaPlayer));
+            }
 
             // Reset control visibility state for new playback session
             _areControlsVisible = false;
@@ -161,7 +163,6 @@ namespace Gelatinarm.Services
         {
             // Disable the service
             IsEnabled = false;
-            _mediaPlayer = null;
         }
 
         private static MediaAction? GetActionForKey(VirtualKey key)

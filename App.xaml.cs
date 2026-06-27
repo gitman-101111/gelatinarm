@@ -308,14 +308,12 @@ namespace Gelatinarm
 
                     var preferencesService = provider.GetRequiredService<IPreferencesService>();
 
-                    var deviceInfoService = provider.GetRequiredService<IUnifiedDeviceService>();
-
                     var cacheManagerService = provider.GetRequiredService<ICacheManagerService>();
 
                     var sdkSettings = provider.GetRequiredService<JellyfinSdkSettings>();
 
                     var apiClient = provider.GetRequiredService<JellyfinApiClient>();
-                    var authService = new AuthenticationService(logger, preferencesService, deviceInfoService,
+                    var authService = new AuthenticationService(logger, preferencesService,
                         cacheManagerService, sdkSettings, apiClient);
 
                     return authService;
@@ -349,11 +347,10 @@ namespace Gelatinarm
                 {
                     var logger = provider.GetService<ILogger<MediaDiscoveryService>>();
                     var apiClient = provider.GetRequiredService<JellyfinApiClient>();
-                    var authService = provider.GetRequiredService<IAuthenticationService>();
                     var userProfileService = provider.GetRequiredService<IUserProfileService>();
                     var navigationStateService = provider.GetRequiredService<INavigationStateService>();
                     var cacheManager = provider.GetRequiredService<ICacheManagerService>();
-                    return new MediaDiscoveryService(logger, apiClient, authService, userProfileService,
+                    return new MediaDiscoveryService(logger, apiClient, userProfileService,
                         navigationStateService, cacheManager);
                 });
             }
@@ -465,7 +462,7 @@ namespace Gelatinarm
                         logger?.LogInformation("Using SDK-based MediaPlaybackService");
 
                         // Create MediaPlaybackService without musicPlayerService to avoid circular dependency
-                        return new MediaPlaybackService(apiClient, userProfileService, preferencesService,
+                        return new MediaPlaybackService(apiClient, userProfileService,
                             deviceServiceInterface, deviceProfileService, mediaOptimizationService,
                             authService, logger);
                     }
@@ -499,9 +496,7 @@ namespace Gelatinarm
                 var logger = provider.GetRequiredService<ILogger<SystemMonitorService>>();
                 var preferencesService = provider.GetRequiredService<IPreferencesService>();
                 var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-                var userProfileService = provider.GetService<IUserProfileService>();
-                return new SystemMonitorService(dispatcher, logger, preferencesService, httpClientFactory,
-                    userProfileService);
+                return new SystemMonitorService(dispatcher, logger, preferencesService, httpClientFactory);
             });
             services.AddSingleton<ISystemMonitorService>(sp => sp.GetRequiredService<SystemMonitorService>());
             services.AddSingleton<IMemoryMonitor>(sp => sp.GetRequiredService<SystemMonitorService>());
@@ -570,12 +565,7 @@ namespace Gelatinarm
             {
                 var logger = provider.GetRequiredService<ILogger<SubtitleService>>();
                 var playbackControlService = provider.GetRequiredService<IPlaybackControlService>();
-                var preferencesService = provider.GetRequiredService<IPreferencesService>();
-                var mediaControlService = provider.GetRequiredService<IMediaControlService>();
-                var authService = provider.GetRequiredService<IAuthenticationService>();
-                var apiClient = provider.GetRequiredService<JellyfinApiClient>();
-                return new SubtitleService(logger, playbackControlService, preferencesService,
-                    mediaControlService, authService, apiClient);
+                return new SubtitleService(logger, playbackControlService);
             });
             services.AddSingleton<IMediaNavigationService>(sp => sp.GetRequiredService<MediaQueueService>());
             services.AddTransient<IControllerInputService, ControllerInputService>();
@@ -592,7 +582,7 @@ namespace Gelatinarm
                 var queueService = provider.GetRequiredService<IPlaybackQueueService>();
                 var mediaControlService = provider.GetRequiredService<IMediaControlService>();
                 var apiClient = provider.GetRequiredService<JellyfinApiClient>();
-                return new MusicPlayerService(logger, provider, apiClient, authService, userProfileService,
+                return new MusicPlayerService(logger, apiClient, authService, userProfileService,
                     mediaPlaybackService,
                     deviceService, preferencesService, mediaOptimizationService, queueService, mediaControlService);
             });
@@ -830,7 +820,7 @@ namespace Gelatinarm
 
                         try
                         {
-                            var unifiedDeviceService = GetRequiredService<IUnifiedDeviceService>();
+                            GetRequiredService<IUnifiedDeviceService>();
                         }
                         catch (Exception)
                         {
@@ -971,7 +961,7 @@ namespace Gelatinarm
                         // Check visual tree
                         try
                         {
-                            var visualTreeHelper = VisualTreeHelper.GetChildrenCount(Window.Current.Content);
+                            VisualTreeHelper.GetChildrenCount(Window.Current.Content);
                             // Visual tree checked
                         }
                         catch (Exception)
@@ -1064,7 +1054,7 @@ namespace Gelatinarm
 
                 // Check if we're on the MediaPlayerPage (video playback)
                 var rootFrame = Window.Current.Content as Frame;
-                if (rootFrame?.Content is MediaPlayerPage mediaPlayerPage)
+                if (rootFrame?.Content is MediaPlayerPage)
                 {
                     _logger?.LogInformation(
                         "App resuming while on MediaPlayerPage - video playback will resume if it was playing before");

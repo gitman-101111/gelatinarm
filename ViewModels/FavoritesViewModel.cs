@@ -20,7 +20,6 @@ namespace Gelatinarm.ViewModels
     {
         private readonly ObservableCollection<BaseItemDto> _allFavorites;
         private readonly JellyfinApiClient _apiClient;
-        private readonly IMediaDiscoveryService _mediaDiscoveryService;
         private readonly INavigationService _navigationService;
         private readonly IUserProfileService _userProfileService;
 
@@ -34,14 +33,12 @@ namespace Gelatinarm.ViewModels
         private ObservableCollection<BaseItemDto> _favoriteItems;
 
         public FavoritesViewModel(JellyfinApiClient apiClient, INavigationService navigationService,
-            IUserProfileService userProfileService, IMediaDiscoveryService mediaDiscoveryService,
+            IUserProfileService userProfileService,
             ILogger<FavoritesViewModel> logger) : base(logger)
         {
             _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _userProfileService = userProfileService ?? throw new ArgumentNullException(nameof(userProfileService));
-            _mediaDiscoveryService =
-                mediaDiscoveryService ?? throw new ArgumentNullException(nameof(mediaDiscoveryService));
             _favoriteItems = new ObservableCollection<BaseItemDto>();
             _allFavorites = new ObservableCollection<BaseItemDto>();
 

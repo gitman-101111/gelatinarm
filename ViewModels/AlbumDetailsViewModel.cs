@@ -25,9 +25,6 @@ namespace Gelatinarm.ViewModels
 
         private readonly IPlaybackQueueService _playbackQueueService;
 
-        // Additional Services
-        private readonly IPreferencesService _preferencesService;
-
         [ObservableProperty] private string _artistName;
 
         [ObservableProperty] private BitmapImage _coverImage;
@@ -69,7 +66,6 @@ namespace Gelatinarm.ViewModels
             IImageLoadingService imageLoadingService,
             IMediaPlaybackService mediaPlaybackService,
             IUserDataService userDataService,
-            IPreferencesService preferencesService,
             IPlaybackQueueService playbackQueueService,
             IMusicPlayerService musicPlayerService) : base(
             logger,
@@ -80,7 +76,6 @@ namespace Gelatinarm.ViewModels
             mediaPlaybackService,
             userDataService)
         {
-            _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
             _playbackQueueService =
                 playbackQueueService ?? throw new ArgumentNullException(nameof(playbackQueueService));
             _musicPlayerService = musicPlayerService ?? throw new ArgumentNullException(nameof(musicPlayerService));
@@ -296,7 +291,6 @@ namespace Gelatinarm.ViewModels
                         _hasMultipleDiscs = discNumbers.Count > 1;
 
                         // Add tracks, marking first track of each disc
-                        int? previousDiscNumber = null;
                         foreach (var track in response.Items)
                         {
                             var currentDiscNumber = track.ParentIndexNumber ?? 1;
@@ -321,7 +315,6 @@ namespace Gelatinarm.ViewModels
                             }
 
                             Tracks.Add(track);
-                            previousDiscNumber = currentDiscNumber;
                         }
 
                         // Update track count

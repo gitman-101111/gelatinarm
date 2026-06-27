@@ -91,9 +91,6 @@ namespace Gelatinarm.Services
 
         private readonly Dictionary<string, BaseItemDto> _preloadedItems = new();
 
-        private readonly IUserProfileService
-            _userProfileService; // Kept, though not directly used in provided snippets, may be used by other methods
-
         private SystemMetrics _currentMetrics;
         private volatile bool _disposed;
 
@@ -110,12 +107,10 @@ namespace Gelatinarm.Services
             CoreDispatcher dispatcher,
             ILogger<SystemMonitorService> logger,
             IPreferencesService preferencesService,
-            IHttpClientFactory httpClientFactory,
-            IUserProfileService userProfileService = null) : base(logger)
+            IHttpClientFactory httpClientFactory) : base(logger)
         {
             _dispatcher = dispatcher;
             _preferencesService = preferencesService;
-            _userProfileService = userProfileService;
             _httpClientFactory = httpClientFactory;
 
             lock (_metricsLock)
@@ -486,7 +481,6 @@ namespace Gelatinarm.Services
         {
             try
             {
-                var memoryReport = MemoryManager.GetAppMemoryReport();
                 var memoryUsage = MemoryManager.AppMemoryUsage;
                 var memoryLimit = MemoryManager.AppMemoryUsageLimit;
 
@@ -877,7 +871,6 @@ namespace Gelatinarm.Services
                 var bytes = Encoding.UTF8.GetByteCount(content);
 
                 var seconds = stopwatch.Elapsed.TotalSeconds;
-                var bitsPerSecond = bytes * 8 / seconds;
 
                 if (stopwatch.ElapsedMilliseconds < RetryConstants.BandwidthTestExcellentThresholdMs)
                 {

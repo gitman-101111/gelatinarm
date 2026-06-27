@@ -324,7 +324,6 @@ namespace Gelatinarm.Views
             try
             {
                 // Cancel any previous search
-                CancellationToken cancellationToken;
                 lock (_cancellationTokenLock)
                 {
                     _searchCancellationTokenSource?.Cancel();
@@ -338,7 +337,6 @@ namespace Gelatinarm.Views
                     // Create new cancellation token with timeout from constants
                     _searchCancellationTokenSource =
                         new CancellationTokenSource(TimeSpan.FromSeconds(RetryConstants.SearchTimeoutSeconds));
-                    cancellationToken = _searchCancellationTokenSource.Token;
                 }
 
                 _lastSearchTerm = searchTerm;

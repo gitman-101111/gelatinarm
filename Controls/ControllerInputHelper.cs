@@ -81,7 +81,7 @@ namespace Gelatinarm.Controls
 
             try
             {
-                var focusResult = control.Focus(FocusState.Programmatic);
+                control.Focus(FocusState.Programmatic);
                 logger?.LogDebug($"Set initial focus to {control.GetType().Name}");
             }
             catch (Exception ex)

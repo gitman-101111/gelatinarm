@@ -16,40 +16,30 @@ namespace Gelatinarm.Services
     /// </summary>
     public class SubtitleService : BaseService, ISubtitleService
     {
-        private readonly IMediaControlService _mediaControlService;
         private readonly IPlaybackControlService _playbackControlService;
-        private readonly IPreferencesService _preferencesService;
-        private readonly IAuthenticationService _authService;
-        private readonly JellyfinApiClient _apiClient;
         private MediaSourceInfo _currentMediaSource;
         private SubtitleTrack _currentSubtitle;
         private volatile bool _isDisposed;
 
-        private MediaPlayer _mediaPlayer;
         private MediaPlaybackParams _playbackParams;
         private List<SubtitleTrack> _subtitleTracks;
 
         public SubtitleService(
             ILogger<SubtitleService> logger,
-            IPlaybackControlService playbackControlService,
-            IPreferencesService preferencesService,
-            IMediaControlService mediaControlService,
-            IAuthenticationService authService,
-            JellyfinApiClient apiClient) : base(logger)
+            IPlaybackControlService playbackControlService) : base(logger)
         {
             _playbackControlService =
                 playbackControlService ?? throw new ArgumentNullException(nameof(playbackControlService));
-            _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
-            _mediaControlService = mediaControlService ?? throw new ArgumentNullException(nameof(mediaControlService));
-            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
         }
 
         public event EventHandler<SubtitleTrack> SubtitleChanged;
 
         public async Task InitializeAsync(MediaPlayer mediaPlayer, MediaPlaybackParams playbackParams)
         {
-            _mediaPlayer = mediaPlayer ?? throw new ArgumentNullException(nameof(mediaPlayer));
+            if (mediaPlayer == null)
+            {
+                throw new ArgumentNullException(nameof(mediaPlayer));
+            }
             _playbackParams = playbackParams ?? throw new ArgumentNullException(nameof(playbackParams));
 
             await Task.CompletedTask;

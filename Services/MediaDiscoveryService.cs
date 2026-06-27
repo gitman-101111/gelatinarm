@@ -27,7 +27,6 @@ namespace Gelatinarm.Services
         };
 
         private readonly JellyfinApiClient _apiClient;
-        private readonly IAuthenticationService _authService;
 
         private readonly TimeSpan _cacheExpiration =
             TimeSpan.FromMinutes(MediaConstants.DiscoveryCacheExpirationMinutes); // Shorter cache for discovery data
@@ -40,13 +39,11 @@ namespace Gelatinarm.Services
         public MediaDiscoveryService(
             ILogger<MediaDiscoveryService> logger,
             JellyfinApiClient apiClient,
-            IAuthenticationService authService,
             IUserProfileService userProfileService,
             INavigationStateService navigationStateService,
             ICacheManagerService cacheManager) : base(logger)
         {
             _apiClient = apiClient;
-            _authService = authService;
             _userProfileService = userProfileService;
             _navigationStateService = navigationStateService;
             _cacheManager = cacheManager;

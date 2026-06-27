@@ -29,7 +29,6 @@ namespace Gelatinarm.Services
         private readonly IPreferencesService _preferencesService;
 
         private readonly IPlaybackQueueService _queueService;
-        private readonly IServiceProvider _serviceProvider;
         private readonly IUserProfileService _userProfileService;
         private MediaSourceInfo _currentMediaSource;
         private string _currentPlaySessionId;
@@ -48,7 +47,6 @@ namespace Gelatinarm.Services
 
         public MusicPlayerService(
             ILogger<MusicPlayerService> logger,
-            IServiceProvider serviceProvider,
             JellyfinApiClient apiClient,
             IAuthenticationService authService,
             IUserProfileService userProfileService,
@@ -59,7 +57,6 @@ namespace Gelatinarm.Services
             IPlaybackQueueService queueService,
             IMediaControlService mediaControlService) : base(logger)
         {
-            _serviceProvider = serviceProvider;
             _apiClient = apiClient;
             _authService = authService;
             _userProfileService = userProfileService;

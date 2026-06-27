@@ -28,7 +28,6 @@ namespace Gelatinarm.ViewModels
             TimeSpan.FromMinutes(RetryConstants.MainViewCacheExpirationMinutes);
 
         private readonly ICacheManagerService _cacheManager;
-        private readonly JellyfinApiClient _jellyfinApiClient;
         private readonly ILogger<MainViewModel> _logger;
         private readonly IMediaDiscoveryService _mediaDiscoveryService;
         private readonly INavigationService _navigationService;
@@ -44,7 +43,6 @@ namespace Gelatinarm.ViewModels
 
         public MainViewModel(IMediaDiscoveryService mediaDiscoveryService,
             INavigationService navigationService,
-            JellyfinApiClient jellyfinApiClient,
             IUserProfileService userProfileService,
             ILogger<MainViewModel> logger,
             ICacheManagerService cacheManager = null)
@@ -53,7 +51,6 @@ namespace Gelatinarm.ViewModels
             _mediaDiscoveryService =
                 mediaDiscoveryService ?? throw new ArgumentNullException(nameof(mediaDiscoveryService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-            _jellyfinApiClient = jellyfinApiClient ?? throw new ArgumentNullException(nameof(jellyfinApiClient));
             _userProfileService = userProfileService ?? throw new ArgumentNullException(nameof(userProfileService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _cacheManager = cacheManager;

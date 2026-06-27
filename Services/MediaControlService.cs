@@ -17,13 +17,10 @@ namespace Gelatinarm.Services
 
     public class MediaControlService : BaseService, IMediaControlService, IDisposable
     {
-        private readonly IPreferencesService _preferencesService;
-
-        public MediaControlService(ILogger<MediaControlService> logger, IPreferencesService preferencesService = null) :
+        public MediaControlService(ILogger<MediaControlService> logger) :
             base(logger)
         {
             // Don't create MediaPlayer here - wait for InitializeAsync
-            _preferencesService = preferencesService;
         }
 
         public MediaPlayer MediaPlayer { get; private set; }

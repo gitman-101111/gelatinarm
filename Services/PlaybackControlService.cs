@@ -26,7 +26,6 @@ namespace Gelatinarm.Services
         private readonly IMediaControlService _mediaControlService;
         private readonly IPreferencesService _preferencesService;
         private readonly IMediaPlaybackService _mediaPlaybackService;
-        private readonly IUnifiedDeviceService _deviceService;
         private readonly PlaybackResumeCoordinator _resumeCoordinator;
         private readonly PlaybackSourceResolver _sourceResolver;
         private BaseItemDto _currentItem;
@@ -58,7 +57,6 @@ namespace Gelatinarm.Services
             _mediaControlService = mediaControlService ?? throw new ArgumentNullException(nameof(mediaControlService));
             _mediaPlaybackService =
                 mediaPlaybackService ?? throw new ArgumentNullException(nameof(mediaPlaybackService));
-            _deviceService = deviceService ?? throw new ArgumentNullException(nameof(deviceService));
             _resumeCoordinator = new PlaybackResumeCoordinator(logger);
             _sourceResolver = new PlaybackSourceResolver(logger, apiClient, authService, deviceService);
         }

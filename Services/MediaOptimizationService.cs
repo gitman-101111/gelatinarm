@@ -190,9 +190,6 @@ namespace Gelatinarm.Services
                 Logger.LogInformation(
                     $"Creating simple MediaSource for {(isAudio ? "audio" : "video")} from URL: {mediaUrl}");
 
-                // Use HttpClient from factory with proper configuration
-                var httpClient = _httpClientFactory.CreateClient("JellyfinClient");
-
                 // Create MediaSource directly from URI without adaptive streaming
                 var uri = new Uri(mediaUrl);
                 var mediaSource = MediaSource.CreateFromUri(uri);

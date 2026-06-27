@@ -1271,7 +1271,7 @@ namespace Gelatinarm.ViewModels
                 }
 
                 // Use the service to build a shuffled queue
-                var (shuffledQueue, startIndex) =
+                var (shuffledQueue, _) =
                     await _episodeQueueService.BuildShuffledSeriesQueueAsync(Series.Id.Value);
 
                 if (shuffledQueue != null && shuffledQueue.Any())

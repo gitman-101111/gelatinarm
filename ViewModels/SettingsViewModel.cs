@@ -14,29 +14,20 @@ namespace Gelatinarm.ViewModels
     /// </summary>
     public class SettingsViewModel : BaseViewModel
     {
-        private readonly MainViewModel _mainViewModel;
-        private readonly IUnifiedDeviceService _unifiedDeviceService;
-
         // UI Properties
         private volatile bool _isInitialized;
         private double _textSize = 14.0;
 
         public SettingsViewModel(
-            IUnifiedDeviceService unifiedDeviceService,
             JellyfinApiClient apiClient,
             IAuthenticationService authService,
             IPreferencesService preferencesService,
-            ISystemMonitorService systemMonitorService,
             INavigationService navigationService,
             IDialogService dialogService,
-            MainViewModel mainViewModel,
             ILogger<SettingsViewModel> logger,
             ILogger<ServerSettingsViewModel> serverLogger,
             ILogger<PlaybackSettingsViewModel> playbackLogger) : base(logger)
         {
-            _unifiedDeviceService =
-                unifiedDeviceService ?? throw new ArgumentNullException(nameof(unifiedDeviceService));
-            _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
             ServerSettings = new ServerSettingsViewModel(
                 serverLogger,
                 apiClient,
