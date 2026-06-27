@@ -249,7 +249,7 @@
                         </Button>
 
                         <!-- Separator for TV show controls -->
-                        <Rectangle x:Name="TVControlsSeparator"
+                        <Rectangle x:Name="TvControlsSeparator"
                                    Width="1"
                                    Height="24"
                                    Fill="White"

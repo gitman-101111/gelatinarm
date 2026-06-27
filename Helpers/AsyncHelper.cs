@@ -65,6 +65,5 @@ namespace Gelatinarm.Helpers
                 logger?.LogError(ex, $"Fire-and-forget task failed in {typeName}.{memberName}");
             }
         }
-
     }
 }

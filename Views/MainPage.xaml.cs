@@ -2,18 +2,17 @@ using System;
 using System.Collections;
 using System.ComponentModel;
 using System.Threading.Tasks;
-using Gelatinarm.Constants;
-using Gelatinarm.Helpers;
-using Gelatinarm.Services;
-using Gelatinarm.ViewModels;
-using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.Logging;
 using Windows.System;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Navigation;
+using Gelatinarm.Constants;
+using Gelatinarm.Services;
+using Gelatinarm.ViewModels;
+using Jellyfin.Sdk.Generated.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Views
 {
@@ -22,7 +21,7 @@ namespace Gelatinarm.Views
         private readonly IMusicPlayerService _musicPlayerService;
         private IMediaPlaybackService _mediaPlaybackService;
 
-        private IUnifiedDeviceService _unifiedDeviceService;
+        private readonly IUnifiedDeviceService _unifiedDeviceService;
 
         static MainPage()
         {
@@ -67,14 +66,14 @@ namespace Gelatinarm.Views
                 if (ViewModel != null)
                 {
                     Logger?.LogInformation(
-                        $"MainPage loaded - Collections: ContinueWatching={ViewModel.ContinueWatchingItems?.Count ?? 0}, Movies={ViewModel.LatestMovies?.Count ?? 0}, TVShows={ViewModel.LatestTVShows?.Count ?? 0}");
+                        $"MainPage loaded - Collections: ContinueWatching={ViewModel.ContinueWatchingItems?.Count ?? 0}, Movies={ViewModel.LatestMovies?.Count ?? 0}, TVShows={ViewModel.LatestTvShows?.Count ?? 0}");
                 }
                 else
                 {
                     Logger?.LogError("MainPage loaded but ViewModel is null");
                 }
 
-                CheckUIElementBinding();
+                CheckUiElementBinding();
                 // Focus navigation setup removed - wasn't working properly
             }
             catch (Exception ex)
@@ -94,7 +93,7 @@ namespace Gelatinarm.Views
             if (e.PropertyName == nameof(MainViewModel.HasContinueWatching) ||
                 e.PropertyName == nameof(MainViewModel.HasNextUp) ||
                 e.PropertyName == nameof(MainViewModel.HasLatestMovies) ||
-                e.PropertyName == nameof(MainViewModel.HasLatestTVShows))
+                e.PropertyName == nameof(MainViewModel.HasLatestTvShows))
             {
                 // Focus navigation setup removed - wasn't working properly
             }
@@ -123,16 +122,16 @@ namespace Gelatinarm.Views
             HandleItemClick(e.ClickedItem);
         }
 
-        private void CheckUIElementBinding()
+        private void CheckUiElementBinding()
         {
             try
             {
                 var continueWatchingElement = FindName("ContinueWatchingItems");
                 var latestMoviesElement = FindName("LatestMovies");
-                var latestTVShowsElement = FindName("LatestTVShows");
+                var latestTvShowsElement = FindName("LatestTvShows");
 
                 Logger?.LogInformation(
-                    $"UI Elements found - ContinueWatching: {continueWatchingElement != null}, Movies: {latestMoviesElement != null}, TVShows: {latestTVShowsElement != null}");
+                    $"UI Elements found - ContinueWatching: {continueWatchingElement != null}, Movies: {latestMoviesElement != null}, TVShows: {latestTvShowsElement != null}");
 
                 if (continueWatchingElement is ListView continueWatchingListView)
                 {
@@ -200,7 +199,7 @@ namespace Gelatinarm.Views
             // Check if we're coming from login by looking for specific parameter.
             var hasExistingData = ViewModel?.ContinueWatchingItems?.Count > 0 ||
                                   ViewModel?.LatestMovies?.Count > 0 ||
-                                  ViewModel?.LatestTVShows?.Count > 0;
+                                  ViewModel?.LatestTvShows?.Count > 0;
             var isComingFromLogin = parameter?.ToString() == "FromLogin";
 
             // Log the actual state
@@ -242,7 +241,7 @@ namespace Gelatinarm.Views
 
             try
             {
-                await Task.Delay(RetryConstants.UI_RENDER_DELAY_MS);
+                await Task.Delay(RetryConstants.UiRenderDelayMs);
 
                 if (ViewModel != null)
                 {
@@ -279,7 +278,7 @@ namespace Gelatinarm.Views
             Logger?.LogInformation("MainPage: OnNavigatedBackAsync called");
 
             // Ensure the page has focus when navigating back
-            await Task.Delay(RetryConstants.UI_FOCUS_READY_DELAY_MS); // Small delay to ensure UI is ready
+            await Task.Delay(RetryConstants.UiFocusReadyDelayMs); // Small delay to ensure UI is ready
             Focus(FocusState.Programmatic);
         }
 
@@ -302,6 +301,5 @@ namespace Gelatinarm.Views
 
             Logger?.LogInformation("MainPage: Cleaned up all event handlers");
         }
-
     }
 }

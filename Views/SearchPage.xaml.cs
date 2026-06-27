@@ -7,6 +7,11 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.System;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Markup;
 using Gelatinarm.Constants;
 using Gelatinarm.Controls;
 using Gelatinarm.Helpers;
@@ -15,11 +20,6 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.System;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Markup;
 
 namespace Gelatinarm.Views
 {
@@ -93,6 +93,7 @@ namespace Gelatinarm.Views
                 {
                     Logger?.LogError(ex, "Failed to get user ID");
                 }
+
                 _searchResults = new ObservableCollection<BaseItemDto>();
                 lock (_groupedResultsLock)
                 {
@@ -194,6 +195,7 @@ namespace Gelatinarm.Views
                     }
                 }
             }
+
             await Task.CompletedTask;
         }
 
@@ -296,7 +298,7 @@ namespace Gelatinarm.Views
             if (!_userIdGuid.HasValue)
             {
                 Logger?.LogWarning("PerformSearch: UserId not available.");
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     if (LoadingOverlay != null)
                     {
@@ -309,7 +311,7 @@ namespace Gelatinarm.Views
             if (_apiClient == null)
             {
                 Logger?.LogWarning("PerformSearch: API client is null.");
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     if (LoadingOverlay != null)
                     {
@@ -335,13 +337,13 @@ namespace Gelatinarm.Views
 
                     // Create new cancellation token with timeout from constants
                     _searchCancellationTokenSource =
-                        new CancellationTokenSource(TimeSpan.FromSeconds(RetryConstants.SEARCH_TIMEOUT_SECONDS));
+                        new CancellationTokenSource(TimeSpan.FromSeconds(RetryConstants.SearchTimeoutSeconds));
                     cancellationToken = _searchCancellationTokenSource.Token;
                 }
 
                 _lastSearchTerm = searchTerm;
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     if (LoadingOverlay != null)
                     {
@@ -357,7 +359,7 @@ namespace Gelatinarm.Views
                 if (_apiClient == null)
                 {
                     Logger?.LogError("API client not available");
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         if (LoadingOverlay != null)
                         {
@@ -422,7 +424,7 @@ namespace Gelatinarm.Views
                     }
                 }
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     _searchResults?.ReplaceAll(items);
                     lock (_groupedResultsLock)
@@ -439,7 +441,7 @@ namespace Gelatinarm.Views
                     if (items.Any())
                     {
                         GroupItemsByType(items);
-                        CreateGroupedUI();
+                        CreateGroupedUi();
                     }
 
                     var resultCount = _searchResults?.Count ?? 0;
@@ -476,9 +478,9 @@ namespace Gelatinarm.Views
             catch (TaskCanceledException)
             {
                 Logger?.LogInformation(
-                    $"Search operation timed out after {RetryConstants.SEARCH_TIMEOUT_SECONDS} seconds");
+                    $"Search operation timed out after {RetryConstants.SearchTimeoutSeconds} seconds");
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     _emptyStateTitle = "Search timed out";
                     _emptyStateMessage = "The search took too long. Please try again with a more specific term.";
@@ -491,7 +493,7 @@ namespace Gelatinarm.Views
             }
             finally
             {
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     if (LoadingOverlay != null)
                     {
@@ -686,7 +688,7 @@ namespace Gelatinarm.Views
             }
         }
 
-        private void CreateGroupedUI()
+        private void CreateGroupedUi()
         {
             try
             {
@@ -715,8 +717,11 @@ namespace Gelatinarm.Views
                 Dictionary<string, List<BaseItemDto>> groupedResultsCopy;
                 lock (_groupedResultsLock)
                 {
-                    groupedResultsCopy = _groupedResults != null ? new Dictionary<string, List<BaseItemDto>>(_groupedResults) : new Dictionary<string, List<BaseItemDto>>();
+                    groupedResultsCopy = _groupedResults != null
+                        ? new Dictionary<string, List<BaseItemDto>>(_groupedResults)
+                        : new Dictionary<string, List<BaseItemDto>>();
                 }
+
                 var sortedGroups = groupedResultsCopy.OrderBy(g => GetGroupPriority(g.Key));
                 var isFiltered = _currentFilter != null && _currentFilter.Length > 0;
 
@@ -725,8 +730,7 @@ namespace Gelatinarm.Views
                     // Create header with count
                     var headerPanel = new StackPanel
                     {
-                        Orientation = Orientation.Horizontal,
-                        Margin = new Thickness(0, 0, 0, 8)
+                        Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8)
                     };
 
                     var headerText = new TextBlock
@@ -835,7 +839,7 @@ namespace Gelatinarm.Views
             }
             catch (Exception ex)
             {
-                Logger?.LogError(ex, "Error in CreateGroupedUI");
+                Logger?.LogError(ex, "Error in CreateGroupedUi");
             }
         }
 
@@ -916,6 +920,5 @@ namespace Gelatinarm.Views
                 Logger?.LogError(ex, "Error in ShowMoreButton_Click");
             }
         }
-
     }
 }

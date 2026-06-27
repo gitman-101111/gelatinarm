@@ -1,6 +1,6 @@
 using System;
-using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Helpers
 {
@@ -32,8 +32,9 @@ namespace Gelatinarm.Helpers
                 var lastSeekAge = request.LastSeekTime == DateTime.MinValue
                     ? "n/a"
                     : $"{(DateTime.UtcNow - request.LastSeekTime).TotalSeconds:F1}s";
-                _logger.LogInformation($"Buffering started at position {request.Position:hh\\:mm\\:ss}, HLS: {request.IsHls}{seekLabel}, " +
-                                       $"PendingSeeks: {request.PendingSeekCount}, LastSeekAge: {lastSeekAge}");
+                _logger.LogInformation(
+                    $"Buffering started at position {request.Position:hh\\:mm\\:ss}, HLS: {request.IsHls}{seekLabel}, " +
+                    $"PendingSeeks: {request.PendingSeekCount}, LastSeekAge: {lastSeekAge}");
 
                 if (request.IsHls && request.ExpectedHlsSeekTarget > TimeSpan.Zero)
                 {
@@ -45,29 +46,35 @@ namespace Gelatinarm.Helpers
                         var durationDiff = Math.Abs((naturalDuration - metadataDuration).TotalSeconds);
                         if (durationDiff > 10 && naturalDuration < metadataDuration)
                         {
-                            _logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected during buffering. Natural: {naturalDuration:hh\\:mm\\:ss}, Metadata: {metadataDuration:hh\\:mm\\:ss}");
+                            _logger.LogInformation(
+                                $"[HLS-MANIFEST-CHANGE] Detected during buffering. Natural: {naturalDuration:hh\\:mm\\:ss}, Metadata: {metadataDuration:hh\\:mm\\:ss}");
                             result.HlsManifestOffset = request.ExpectedHlsSeekTarget;
                             result.ExpectedHlsSeekTarget = TimeSpan.Zero;
-                            _logger.LogInformation($"[HLS-MANIFEST-CHANGE] Position 0 in new manifest = {result.HlsManifestOffset:hh\\:mm\\:ss}");
+                            _logger.LogInformation(
+                                $"[HLS-MANIFEST-CHANGE] Position 0 in new manifest = {result.HlsManifestOffset:hh\\:mm\\:ss}");
                         }
                     }
                 }
 
                 result.BufferingStartTime = DateTime.UtcNow;
-                result.TriggerHlsBufferingFix = request.IsHls && (request.HasManifestOffset || request.IsHlsTrackChange);
+                result.TriggerHlsBufferingFix =
+                    request.IsHls && (request.HasManifestOffset || request.IsHlsTrackChange);
                 result.StartTimeoutTimer = true;
-                _logger.LogInformation($"[BUFFERING-TIMEOUT] Started {_timeoutSeconds}s timeout timer for {(request.IsHls ? "HLS" : "direct")} stream");
+                _logger.LogInformation(
+                    $"[BUFFERING-TIMEOUT] Started {_timeoutSeconds}s timeout timer for {(request.IsHls ? "HLS" : "direct")} stream");
                 return result;
             }
 
             if (!request.IsBuffering && request.BufferingStartTime.HasValue)
             {
-                _logger.LogInformation($"Buffering ended at position {request.Position:hh\\:mm\\:ss}, transitioning to {request.NewState}");
+                _logger.LogInformation(
+                    $"Buffering ended at position {request.Position:hh\\:mm\\:ss}, transitioning to {request.NewState}");
 
                 if (request.BufferingStartTime.HasValue)
                 {
                     var bufferingDuration = DateTime.UtcNow - request.BufferingStartTime.Value;
-                    _logger.LogInformation($"[BUFFERING-END] Buffering completed after {bufferingDuration.TotalSeconds:F1}s");
+                    _logger.LogInformation(
+                        $"[BUFFERING-END] Buffering completed after {bufferingDuration.TotalSeconds:F1}s");
                 }
 
                 result.BufferingStartTime = null;

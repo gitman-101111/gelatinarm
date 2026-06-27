@@ -4,12 +4,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Media.Imaging;
 using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.Helpers
 {
@@ -19,12 +19,12 @@ namespace Gelatinarm.Helpers
     /// </summary>
     public static class ImageHelper
     {
-        private const string IMAGE_CACHE_PROVIDER = "ImageCache";
+        private const string ImageCacheProvider = "ImageCache";
         private static ICacheProvider _imageCacheProvider;
         private static ICacheManagerService _cacheManager;
         private static ILogger _logger;
         private static readonly SemaphoreSlim _initializationSemaphore = new SemaphoreSlim(1, 1);
-        private static volatile bool _isInitialized = false;
+        private static volatile bool _isInitialized;
 
         private static T GetService<T>() where T : class
         {
@@ -33,12 +33,19 @@ namespace Gelatinarm.Helpers
 
         private static async Task EnsureInitializedAsync()
         {
-            if (_isInitialized) return;
+            if (_isInitialized)
+            {
+                return;
+            }
 
             await _initializationSemaphore.WaitAsync();
             try
             {
-                if (_isInitialized) return;
+                if (_isInitialized)
+                {
+                    return;
+                }
+
                 await InitializeCacheAsync();
                 _isInitialized = true;
             }
@@ -63,7 +70,7 @@ namespace Gelatinarm.Helpers
                 await imageCacheProvider.InitializeAsync();
 
                 _imageCacheProvider = imageCacheProvider;
-                _cacheManager?.RegisterCacheProvider(IMAGE_CACHE_PROVIDER, imageCacheProvider);
+                _cacheManager?.RegisterCacheProvider(ImageCacheProvider, imageCacheProvider);
 
                 _logger?.LogInformation("Image cache provider initialized and registered");
             }
@@ -184,11 +191,19 @@ namespace Gelatinarm.Helpers
                         config.QueryParameters.Quality = 90;
 
                         if (width.HasValue)
+                        {
                             config.QueryParameters.MaxWidth = width.Value;
+                        }
+
                         if (height.HasValue)
+                        {
                             config.QueryParameters.MaxHeight = height.Value;
+                        }
+
                         if (!string.IsNullOrEmpty(tag))
+                        {
                             config.QueryParameters.Tag = tag;
+                        }
                     });
 
                 // Use BuildUri to ensure the correct BaseUrl is used
@@ -302,7 +317,7 @@ namespace Gelatinarm.Helpers
                 if (imageData != null)
                 {
                     // Create bitmap on UI thread
-                    return await UIHelper.RunOnUIThreadAsync(async () =>
+                    return await UiHelper.RunOnUIThreadAsync(async () =>
                     {
                         using (var stream = new MemoryStream(imageData))
                         {
@@ -359,7 +374,7 @@ namespace Gelatinarm.Helpers
                 }
 
                 // Create bitmap from downloaded data - must be on UI thread
-                return await UIHelper.RunOnUIThreadAsync(async () =>
+                return await UiHelper.RunOnUIThreadAsync(async () =>
                 {
                     using (var stream = new MemoryStream(imageData))
                     {

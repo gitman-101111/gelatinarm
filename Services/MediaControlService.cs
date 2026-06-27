@@ -1,10 +1,10 @@
 using System;
 using System.Threading.Tasks;
+using Windows.Media.Playback;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Playback;
 
 namespace Gelatinarm.Services
 {
@@ -19,7 +19,8 @@ namespace Gelatinarm.Services
     {
         private readonly IPreferencesService _preferencesService;
 
-        public MediaControlService(ILogger<MediaControlService> logger, IPreferencesService preferencesService = null) : base(logger)
+        public MediaControlService(ILogger<MediaControlService> logger, IPreferencesService preferencesService = null) :
+            base(logger)
         {
             // Don't create MediaPlayer here - wait for InitializeAsync
             _preferencesService = preferencesService;
@@ -141,7 +142,8 @@ namespace Gelatinarm.Services
                     var currentPosition = MediaPlayer.PlaybackSession.Position;
                     var naturalDuration = MediaPlayer.PlaybackSession.NaturalDuration;
 
-                    Logger.LogInformation($"Attempting to seek forward {seconds} seconds from {currentPosition:mm\\:ss}");
+                    Logger.LogInformation(
+                        $"Attempting to seek forward {seconds} seconds from {currentPosition:mm\\:ss}");
                     Logger.LogInformation($"NaturalDuration before seek: {naturalDuration:mm\\:ss}");
 
                     var newPosition = currentPosition + TimeSpan.FromSeconds(seconds);
@@ -150,13 +152,15 @@ namespace Gelatinarm.Services
 
                     if (newPosition < naturalDuration)
                     {
-                        Logger.LogInformation($"Setting new position: {newPosition:mm\\:ss} ({newPositionSeconds:F1}s), Ticks: {newPositionTicks}");
+                        Logger.LogInformation(
+                            $"Setting new position: {newPosition:mm\\:ss} ({newPositionSeconds:F1}s), Ticks: {newPositionTicks}");
                         MediaPlayer.PlaybackSession.Position = newPosition;
                         Logger.LogInformation($"Seeked forward {seconds} seconds to {newPosition:mm\\:ss}");
                     }
                     else
                     {
-                        Logger.LogWarning($"Cannot seek forward {seconds} seconds - would exceed duration {naturalDuration}");
+                        Logger.LogWarning(
+                            $"Cannot seek forward {seconds} seconds - would exceed duration {naturalDuration}");
                     }
                 }
                 else
@@ -177,7 +181,8 @@ namespace Gelatinarm.Services
                 if (MediaPlayer?.PlaybackSession != null)
                 {
                     var currentPosition = MediaPlayer.PlaybackSession.Position;
-                    Logger.LogInformation($"Attempting to seek backward {seconds} seconds from {currentPosition:mm\\:ss}");
+                    Logger.LogInformation(
+                        $"Attempting to seek backward {seconds} seconds from {currentPosition:mm\\:ss}");
 
                     var newPosition = currentPosition - TimeSpan.FromSeconds(seconds);
                     var newPositionTicks = newPosition.Ticks;
@@ -185,7 +190,8 @@ namespace Gelatinarm.Services
 
                     if (newPosition >= TimeSpan.Zero)
                     {
-                        Logger.LogInformation($"Setting new position: {newPosition:mm\\:ss} ({newPositionSeconds:F1}s), Ticks: {newPositionTicks}");
+                        Logger.LogInformation(
+                            $"Setting new position: {newPosition:mm\\:ss} ({newPositionSeconds:F1}s), Ticks: {newPositionTicks}");
                         MediaPlayer.PlaybackSession.Position = newPosition;
                     }
                     else
@@ -194,7 +200,8 @@ namespace Gelatinarm.Services
                         MediaPlayer.PlaybackSession.Position = TimeSpan.Zero;
                     }
 
-                    Logger.LogInformation($"Seeked backward {seconds} seconds to {MediaPlayer.PlaybackSession.Position:mm\\:ss}");
+                    Logger.LogInformation(
+                        $"Seeked backward {seconds} seconds to {MediaPlayer.PlaybackSession.Position:mm\\:ss}");
                 }
                 else
                 {
@@ -294,7 +301,7 @@ namespace Gelatinarm.Services
                 MediaPlayer.Source = source;
 
                 // Notify listeners
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     NowPlayingChanged?.Invoke(this, item);
                 }, logger: Logger);
@@ -323,6 +330,7 @@ namespace Gelatinarm.Services
                     {
                         Logger.LogDebug("MediaPlayer is null, skipping source clear");
                     }
+
                     await Task.CompletedTask;
                 }
                 catch (Exception ex)
@@ -334,7 +342,10 @@ namespace Gelatinarm.Services
 
         private void SubscribeToMediaPlayerEvents()
         {
-            if (MediaPlayer == null) return;
+            if (MediaPlayer == null)
+            {
+                return;
+            }
 
             MediaPlayer.MediaFailed += OnMediaFailed;
             MediaPlayer.MediaEnded += OnMediaEnded;
@@ -344,7 +355,10 @@ namespace Gelatinarm.Services
 
         private void UnsubscribeFromMediaPlayerEvents()
         {
-            if (MediaPlayer == null) return;
+            if (MediaPlayer == null)
+            {
+                return;
+            }
 
             MediaPlayer.MediaFailed -= OnMediaFailed;
             MediaPlayer.MediaEnded -= OnMediaEnded;

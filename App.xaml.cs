@@ -1,10 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Windows.ApplicationModel;
+using Windows.ApplicationModel.Activation;
+using Windows.ApplicationModel.Core;
+using Windows.System;
+using Windows.UI.Core;
+using Windows.UI.Popups;
+using Windows.UI.Text;
+using Windows.UI.ViewManagement;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Markup;
+using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Navigation;
 using Gelatinarm.Constants;
 using Gelatinarm.Controls;
 using Gelatinarm.Helpers;
@@ -15,18 +30,6 @@ using Jellyfin.Sdk;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Kiota.Abstractions.Authentication;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.ApplicationModel.Core;
-using Windows.UI.Core;
-using Windows.UI.Popups;
-using Windows.UI.Text;
-using Windows.UI.ViewManagement;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Markup;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
 using UnhandledExceptionEventArgs = Windows.UI.Xaml.UnhandledExceptionEventArgs;
 
 namespace Gelatinarm
@@ -98,7 +101,7 @@ namespace Gelatinarm
             }
         }
 
-        public static new App Current => (App)Application.Current;
+        public new static App Current => (App)Application.Current;
 
         public IServiceProvider Services
         {
@@ -166,50 +169,51 @@ namespace Gelatinarm
 
             // Configure HttpClientFactory for proper connection pooling and socket management
             services.AddHttpClient("JellyfinClient", (serviceProvider, client) =>
-            {
-                // Configure default headers
-                client.DefaultRequestHeaders.UserAgent.ParseAdd($"{BrandingConstants.USER_AGENT}/1.0");
-                client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-
-                // Set timeout from preferences
-                var preferencesService = serviceProvider.GetService<IPreferencesService>();
-                var timeoutSeconds = SystemConstants.DEFAULT_TIMEOUT_SECONDS;
-                if (preferencesService != null)
                 {
-                    try
+                    // Configure default headers
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd($"{BrandingConstants.USER_AGENT}/1.0");
+                    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+
+                    // Set timeout from preferences
+                    var preferencesService = serviceProvider.GetService<IPreferencesService>();
+                    var timeoutSeconds = SystemConstants.DefaultTimeoutSeconds;
+                    if (preferencesService != null)
                     {
-                        timeoutSeconds = preferencesService.GetValue(PreferenceConstants.ConnectionTimeout,
-                            SystemConstants.DEFAULT_TIMEOUT_SECONDS);
+                        try
+                        {
+                            timeoutSeconds = preferencesService.GetValue(PreferenceConstants.ConnectionTimeout,
+                                SystemConstants.DefaultTimeoutSeconds);
+                        }
+                        catch { }
                     }
-                    catch { }
-                }
-                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
-            })
-            .SetHandlerLifetime(TimeSpan.FromMinutes(10))
-            .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
-            {
-                var handler = new HttpClientHandler();
 
-                // Check certificate validation preference
-                var preferencesService = serviceProvider.GetService<IPreferencesService>();
-                var ignoreCertErrors = false;
-                if (preferencesService != null)
+                    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                })
+                .SetHandlerLifetime(TimeSpan.FromMinutes(10))
+                .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
                 {
-                    try
+                    var handler = new HttpClientHandler();
+
+                    // Check certificate validation preference
+                    var preferencesService = serviceProvider.GetService<IPreferencesService>();
+                    var ignoreCertErrors = false;
+                    if (preferencesService != null)
                     {
-                        ignoreCertErrors = preferencesService.GetValue("IgnoreCertificateErrors", false);
+                        try
+                        {
+                            ignoreCertErrors = preferencesService.GetValue("IgnoreCertificateErrors", false);
+                        }
+                        catch { }
                     }
-                    catch { }
-                }
 
-                if (ignoreCertErrors)
-                {
-                    handler.ServerCertificateCustomValidationCallback =
-                        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-                }
+                    if (ignoreCertErrors)
+                    {
+                        handler.ServerCertificateCustomValidationCallback =
+                            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                    }
 
-                return handler;
-            });
+                    return handler;
+                });
 
             // Register JellyfinSdkSettings - needed for proper SDK initialization
             services.AddSingleton(provider =>
@@ -221,7 +225,7 @@ namespace Gelatinarm
                 var deviceName = deviceService?.GetDeviceName() ?? "Xbox";
 
                 settings.Initialize(
-                    BrandingConstants.APP_NAME,
+                    BrandingConstants.AppName,
                     "1.0.0",
                     deviceName,
                     deviceId
@@ -238,7 +242,7 @@ namespace Gelatinarm
             });
 
             // Register Jellyfin SDK Request Adapter - critical for API communication
-            services.AddSingleton<JellyfinRequestAdapter>(provider =>
+            services.AddSingleton(provider =>
             {
                 var logger = provider.GetService<ILogger<App>>();
                 try
@@ -496,20 +500,22 @@ namespace Gelatinarm
                 var preferencesService = provider.GetRequiredService<IPreferencesService>();
                 var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
                 var userProfileService = provider.GetService<IUserProfileService>();
-                return new SystemMonitorService(dispatcher, logger, preferencesService, httpClientFactory, userProfileService);
+                return new SystemMonitorService(dispatcher, logger, preferencesService, httpClientFactory,
+                    userProfileService);
             });
             services.AddSingleton<ISystemMonitorService>(sp => sp.GetRequiredService<SystemMonitorService>());
             services.AddSingleton<IMemoryMonitor>(sp => sp.GetRequiredService<SystemMonitorService>());
             services.AddSingleton<INetworkMonitor>(sp => sp.GetRequiredService<SystemMonitorService>());
 
-            services.AddSingleton<MediaQueueService>(provider =>
+            services.AddSingleton(provider =>
             {
                 var apiClient = provider.GetRequiredService<JellyfinApiClient>();
                 var userProfileService = provider.GetRequiredService<IUserProfileService>();
                 var navigationService = provider.GetRequiredService<INavigationService>();
                 var navigationStateService = provider.GetRequiredService<INavigationStateService>();
                 var logger = provider.GetRequiredService<ILogger<MediaQueueService>>();
-                return new MediaQueueService(apiClient, userProfileService, navigationService, navigationStateService, logger);
+                return new MediaQueueService(apiClient, userProfileService, navigationService, navigationStateService,
+                    logger);
             });
             services.AddSingleton<IEpisodeQueueService>(sp => sp.GetRequiredService<MediaQueueService>());
 
@@ -535,7 +541,8 @@ namespace Gelatinarm
                 var memoryMonitor = provider.GetRequiredService<IMemoryMonitor>();
                 var networkMonitor = provider.GetRequiredService<INetworkMonitor>();
                 var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-                return new MediaOptimizationService(logger, httpClientFactory, preferencesService, deviceService, memoryMonitor,
+                return new MediaOptimizationService(logger, httpClientFactory, preferencesService, deviceService,
+                    memoryMonitor,
                     networkMonitor);
             });
 
@@ -585,7 +592,8 @@ namespace Gelatinarm
                 var queueService = provider.GetRequiredService<IPlaybackQueueService>();
                 var mediaControlService = provider.GetRequiredService<IMediaControlService>();
                 var apiClient = provider.GetRequiredService<JellyfinApiClient>();
-                return new MusicPlayerService(logger, provider, apiClient, authService, userProfileService, mediaPlaybackService,
+                return new MusicPlayerService(logger, provider, apiClient, authService, userProfileService,
+                    mediaPlaybackService,
                     deviceService, preferencesService, mediaOptimizationService, queueService, mediaControlService);
             });
 
@@ -654,7 +662,8 @@ namespace Gelatinarm
                     {
                         var mediaPlaybackService = GetService<IMediaPlaybackService>();
                         var musicPlayerService = GetService<IMusicPlayerService>();
-                        if (mediaPlaybackService is MediaPlaybackService mediaPlaybackImpl && musicPlayerService != null)
+                        if (mediaPlaybackService is MediaPlaybackService mediaPlaybackImpl &&
+                            musicPlayerService != null)
                         {
                             mediaPlaybackImpl.SetMusicPlayerService(musicPlayerService);
                         }
@@ -733,7 +742,7 @@ namespace Gelatinarm
                     if (_logger != null)
                     {
                         var loggingTask = Task.CompletedTask;
-                        var timeoutTask = Task.Delay(RetryConstants.LOGGING_INIT_TIMEOUT_MS);
+                        var timeoutTask = Task.Delay(RetryConstants.LoggingInitTimeoutMs);
                         var completedTask = await Task.WhenAny(loggingTask, timeoutTask);
 
                         if (completedTask == timeoutTask)
@@ -795,7 +804,7 @@ namespace Gelatinarm
                     }
                 }
 
-                if (e.PrelaunchActivated == false)
+                if (!e.PrelaunchActivated)
                 {
                     if (rootFrame.Content == null)
                     {
@@ -881,8 +890,9 @@ namespace Gelatinarm
                                         try
                                         {
                                             var sessionTask = capturedAuthService.RestoreLastSessionAsync();
-                                            var timeoutTask = Task.Delay(RetryConstants.SESSION_RESTORE_TIMEOUT_MS);
-                                            var completedTask = await Task.WhenAny(sessionTask, timeoutTask).ConfigureAwait(false);
+                                            var timeoutTask = Task.Delay(RetryConstants.SessionRestoreTimeoutMs);
+                                            var completedTask = await Task.WhenAny(sessionTask, timeoutTask)
+                                                .ConfigureAwait(false);
 
                                             if (completedTask == timeoutTask)
                                             {
@@ -897,8 +907,9 @@ namespace Gelatinarm
                                             // Any other failure (network error, exception) leaves it intact — don't redirect.
                                             if (string.IsNullOrEmpty(capturedAuthService.AccessToken))
                                             {
-                                                await UIHelper.RunOnUIThreadAsync(() =>
-                                                    capturedNavService.Navigate(typeof(ServerSelectionPage), launchArgs));
+                                                await UiHelper.RunOnUIThreadAsync(() =>
+                                                    capturedNavService.Navigate(typeof(ServerSelectionPage),
+                                                        launchArgs));
                                             }
                                         }
                                         catch (Exception)
@@ -953,7 +964,7 @@ namespace Gelatinarm
 
                         // Add a small delay to let XAML fully render
                         // Wait for XAML to stabilize
-                        await Task.Delay(RetryConstants.XAML_STABILIZATION_DELAY_MS);
+                        await Task.Delay(RetryConstants.XamlStabilizationDelayMs);
                         // XAML stabilization complete
 
                         // Add more debugging to isolate when errors occur
@@ -1121,7 +1132,7 @@ namespace Gelatinarm
                 var rootFrame = rootContainer?.MainFrame;
                 if (rootFrame?.Content is MediaPlayerPage mediaPlayerPage)
                 {
-                    await UIHelper.RunOnUIThreadAsync(
+                    await UiHelper.RunOnUIThreadAsync(
                         () => mediaPlayerPage.HandleAppBackgroundChangedAsync(isInBackground),
                         logger: _logger);
                 }
@@ -1151,7 +1162,7 @@ namespace Gelatinarm
 
         private async Task ExitAppAsync()
         {
-            await UIHelper.RunOnUIThreadAsync(
+            await UiHelper.RunOnUIThreadAsync(
                 () => Application.Current.Exit(),
                 logger: _logger);
         }
@@ -1234,8 +1245,8 @@ namespace Gelatinarm
                 // Log memory usage at time of crash
                 try
                 {
-                    var memoryUsage = Windows.System.MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
-                    var memoryLimit = Windows.System.MemoryManager.AppMemoryUsageLimit / (1024.0 * 1024.0);
+                    var memoryUsage = MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
+                    var memoryLimit = MemoryManager.AppMemoryUsageLimit / (1024.0 * 1024.0);
                     logger?.LogCritical($"Memory at crash: {memoryUsage:F2} MB / {memoryLimit:F2} MB");
                 }
                 catch { }
@@ -1260,7 +1271,7 @@ namespace Gelatinarm
                 }
 
                 // Check for COM exceptions which are common with media playback
-                if (e.Exception is System.Runtime.InteropServices.COMException comEx)
+                if (e.Exception is COMException comEx)
                 {
                     logger?.LogCritical($"COM Exception HResult: 0x{comEx.HResult:X8}");
                     logger?.LogCritical($"COM Exception ErrorCode: {comEx.ErrorCode}");
@@ -1281,8 +1292,8 @@ namespace Gelatinarm
             catch (Exception ex)
             {
                 // Last resort - log to debug output
-                System.Diagnostics.Debug.WriteLine($"Failed to log unhandled exception: {ex}");
-                System.Diagnostics.Debug.WriteLine($"Original exception: {e?.Exception}");
+                Debug.WriteLine($"Failed to log unhandled exception: {ex}");
+                Debug.WriteLine($"Original exception: {e?.Exception}");
                 e.Handled = true;
             }
         }

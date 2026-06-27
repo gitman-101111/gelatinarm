@@ -3,13 +3,6 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Input;
-using Gelatinarm.Helpers;
-using Gelatinarm.Models;
-using Gelatinarm.Services;
-using Gelatinarm.ViewModels;
-using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -17,6 +10,13 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using CommunityToolkit.Mvvm.Input;
+using Gelatinarm.Helpers;
+using Gelatinarm.Models;
+using Gelatinarm.Services;
+using Gelatinarm.ViewModels;
+using Jellyfin.Sdk.Generated.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Views
 {
@@ -30,9 +30,9 @@ namespace Gelatinarm.Views
         private readonly INavigationStateService _navigationStateService;
         private readonly IMusicPlayerService _musicPlayerService;
         private readonly IPreferencesService _preferencesService;
-        private volatile int _controlVisibilityCounter = 0;
+        private volatile int _controlVisibilityCounter;
         private DispatcherTimer _controlVisibilityTimer;
-        private volatile int _isDisposing = 0; // 0 = not disposing, 1 = disposing
+        private volatile int _isDisposing; // 0 = not disposing, 1 = disposing
         private volatile bool _isInBackground;
         private MediaPlaybackState? _stateBeforeFocusLost;
 
@@ -48,7 +48,8 @@ namespace Gelatinarm.Views
             ViewModel.MediaPlayerElement = MediaPlayer;
 
             // Subscribe to ViewModel events
-            ViewModel.ToggleControlsRequested += OnToggleControlsRequested; InitializeControlVisibilityTimer();
+            ViewModel.ToggleControlsRequested += OnToggleControlsRequested;
+            InitializeControlVisibilityTimer();
 
             // Subscribe to page events
             KeyDown += MediaPlayerPage_KeyDown;
@@ -80,7 +81,8 @@ namespace Gelatinarm.Views
                 return;
             }
 
-            Logger?.LogInformation($"{label}List_ItemClick - Selected {label.ToLower()}: {displaySelector(selectedTrack)}");
+            Logger?.LogInformation(
+                $"{label}List_ItemClick - Selected {label.ToLower()}: {displaySelector(selectedTrack)}");
 
             // Debug logging
             Logger?.LogInformation($"ViewModel is null: {ViewModel == null}");
@@ -157,17 +159,18 @@ namespace Gelatinarm.Views
                     var existingSession = _navigationStateService.GetCurrentPlaybackSession();
 
                     // Determine if we're continuing an existing session
-                    bool isContinuingSession = false;
+                    var isContinuingSession = false;
 
                     if (existingSession != null)
                     {
                         // For shuffle sessions, check if it's from the same originating page
                         if (playbackParams.IsShuffled && existingSession.IsShuffled)
                         {
-                            isContinuingSession = existingSession.OriginatingPage == playbackParams.NavigationSourcePage;
+                            isContinuingSession =
+                                existingSession.OriginatingPage == playbackParams.NavigationSourcePage;
                             Logger.LogInformation($"Shuffle session check - Continuing: {isContinuingSession}, " +
-                                $"Existing page: {existingSession.OriginatingPage?.Name}, " +
-                                $"New page: {playbackParams.NavigationSourcePage?.Name}");
+                                                  $"Existing page: {existingSession.OriginatingPage?.Name}, " +
+                                                  $"New page: {playbackParams.NavigationSourcePage?.Name}");
                         }
                         // For regular queue playback, check if it's the same series/season
                         else if (!playbackParams.IsShuffled && !existingSession.IsShuffled)
@@ -183,7 +186,8 @@ namespace Gelatinarm.Views
 
                         if (isContinuingSession)
                         {
-                            Logger.LogInformation($"Continuing session - preserving OriginatingPageState type: {existingSession.OriginatingPageState?.GetType().Name}");
+                            Logger.LogInformation(
+                                $"Continuing session - preserving OriginatingPageState type: {existingSession.OriginatingPageState?.GetType().Name}");
                         }
                     }
 
@@ -235,8 +239,8 @@ namespace Gelatinarm.Views
                         if (appPrefs != null && MediaPlayer != null)
                         {
                             MediaPlayer.Stretch = appPrefs.VideoStretchMode == "UniformToFill"
-                                ? Windows.UI.Xaml.Media.Stretch.UniformToFill
-                                : Windows.UI.Xaml.Media.Stretch.Uniform;
+                                ? Stretch.UniformToFill
+                                : Stretch.Uniform;
                         }
                     }
 
@@ -398,7 +402,7 @@ namespace Gelatinarm.Views
                     Logger.LogInformation($"Returning to {session.OriginatingPage.Name} with saved state");
 
                     // Use the current episode from the session for navigation to ensure correct info display
-                    object navigationParameter = session.OriginatingPageState;
+                    var navigationParameter = session.OriginatingPageState;
 
                     // If we've been watching episodes and the originating page is SeasonDetailsPage,
                     // navigate with the current episode so it displays correctly
@@ -406,7 +410,8 @@ namespace Gelatinarm.Views
                         session.CurrentItem.Type == BaseItemDto_Type.Episode &&
                         session.OriginatingPage == typeof(SeasonDetailsPage))
                     {
-                        Logger.LogInformation($"Using current episode '{session.CurrentItem.Name}' for navigation back to SeasonDetailsPage");
+                        Logger.LogInformation(
+                            $"Using current episode '{session.CurrentItem.Name}' for navigation back to SeasonDetailsPage");
                         navigationParameter = session.CurrentItem;
                     }
 
@@ -420,12 +425,13 @@ namespace Gelatinarm.Views
                     {
                         if (Frame?.BackStack?.Count > backStackCountBefore)
                         {
-                            for (int i = Frame.BackStack.Count - 1; i >= 0; i--)
+                            for (var i = Frame.BackStack.Count - 1; i >= 0; i--)
                             {
                                 if (Frame?.BackStack?[i].SourcePageType == typeof(MediaPlayerPage))
                                 {
                                     Frame.BackStack.RemoveAt(i);
-                                    Logger.LogInformation($"Removed MediaPlayerPage from back stack at index {i} after returning to {session.OriginatingPage.Name}");
+                                    Logger.LogInformation(
+                                        $"Removed MediaPlayerPage from back stack at index {i} after returning to {session.OriginatingPage.Name}");
                                     break;
                                 }
                             }
@@ -536,7 +542,7 @@ namespace Gelatinarm.Views
         {
             Logger.LogError($"Media playback failed: {args.Error} - {args.ErrorMessage}");
 
-            await UIHelper.RunOnUIThreadAsync(() =>
+            await UiHelper.RunOnUIThreadAsync(() =>
             {
                 ShowError($"Playback failed: {args.ErrorMessage}");
             }, Dispatcher, Logger);
@@ -549,14 +555,15 @@ namespace Gelatinarm.Views
             var rawPosition = sender.PlaybackSession?.Position ?? TimeSpan.Zero;
             // Use ViewModel.Position which already includes HLS offset
             var currentPosition = ViewModel?.Position ?? rawPosition;
-            var metadataDuration = ViewModel?.CurrentItem?.RunTimeTicks != null && ViewModel.CurrentItem.RunTimeTicks > 0
-                ? TimeSpan.FromTicks(ViewModel.CurrentItem.RunTimeTicks.Value)
-                : TimeSpan.Zero;
+            var metadataDuration =
+                ViewModel?.CurrentItem?.RunTimeTicks != null && ViewModel.CurrentItem.RunTimeTicks > 0
+                    ? TimeSpan.FromTicks(ViewModel.CurrentItem.RunTimeTicks.Value)
+                    : TimeSpan.Zero;
 
             Logger.LogInformation($"MediaEnded event - RawPosition: {rawPosition:mm\\:ss}, " +
-                $"Position (with offset): {currentPosition:mm\\:ss}, " +
-                $"NaturalDuration: {naturalDuration:mm\\:ss}, " +
-                $"MetadataDuration: {metadataDuration:mm\\:ss}");
+                                  $"Position (with offset): {currentPosition:mm\\:ss}, " +
+                                  $"NaturalDuration: {naturalDuration:mm\\:ss}, " +
+                                  $"MetadataDuration: {metadataDuration:mm\\:ss}");
 
             // Ignore MediaEnded if we haven't performed the initial resume seek yet
             // This can happen with HLS streams where seeking triggers a false MediaEnded
@@ -567,27 +574,28 @@ namespace Gelatinarm.Views
             {
                 var percentComplete = currentPosition.TotalSeconds / metadataDuration.TotalSeconds * 100;
                 var percentOfNatural = naturalDuration.HasValue && naturalDuration.Value > TimeSpan.Zero
-                    ? rawPosition.TotalSeconds / naturalDuration.Value.TotalSeconds * 100  // Compare raw to raw!
+                    ? rawPosition.TotalSeconds / naturalDuration.Value.TotalSeconds * 100 // Compare raw to raw!
                     : 0;
 
                 // If we're not actually near the end (less than 95%), this is likely a false MediaEnded
                 // Special case: HLS manifest corruption causes NaturalDuration to become very short
                 var isHlsCorruption = naturalDuration.HasValue &&
-                                     naturalDuration.Value < TimeSpan.FromMinutes(1) &&
-                                     metadataDuration > TimeSpan.FromMinutes(5) &&
-                                     rawPosition > naturalDuration.Value;  // Compare raw to raw!
+                                      naturalDuration.Value < TimeSpan.FromMinutes(1) &&
+                                      metadataDuration > TimeSpan.FromMinutes(5) &&
+                                      rawPosition > naturalDuration.Value; // Compare raw to raw!
 
                 if (percentComplete < 95)
                 {
                     Logger.LogWarning($"Premature MediaEnded at {percentComplete:F2}% of metadata duration " +
-                        $"({percentOfNatural:F2}% of natural duration)");
+                                      $"({percentOfNatural:F2}% of natural duration)");
                     Logger.LogWarning($"Position={currentPosition:mm\\:ss}, " +
-                        $"MetadataDuration={metadataDuration:mm\\:ss}, " +
-                        $"NaturalDuration={naturalDuration:mm\\:ss}");
+                                      $"MetadataDuration={metadataDuration:mm\\:ss}, " +
+                                      $"NaturalDuration={naturalDuration:mm\\:ss}");
 
                     if (isHlsCorruption)
                     {
-                        Logger.LogError("[HLS-CORRUPT] Detected HLS manifest corruption - natural duration is impossibly short");
+                        Logger.LogError(
+                            "[HLS-CORRUPT] Detected HLS manifest corruption - natural duration is impossibly short");
 
                         // Show error message to user
                         _ = ShowHlsCorruptionError();
@@ -598,7 +606,7 @@ namespace Gelatinarm.Views
             }
 
             // ViewModel will handle auto-play and navigation
-            await UIHelper.RunOnUIThreadAsync(() =>
+            await UiHelper.RunOnUIThreadAsync(() =>
             {
                 // If no auto-play occurred, navigate back
                 if (!ViewModel.IsPlaying)
@@ -625,7 +633,7 @@ namespace Gelatinarm.Views
         private async void OnSeekCompleted(MediaPlayer sender, object args)
         {
             // Ensure logging happens on UI thread to avoid threading issues
-            await UIHelper.RunOnUIThreadAsync(() =>
+            await UiHelper.RunOnUIThreadAsync(() =>
             {
                 Logger.LogInformation("Seek completed");
             }, Dispatcher, Logger);
@@ -638,7 +646,7 @@ namespace Gelatinarm.Views
         private void OnSkipButtonBecameAvailable(object sender, SkipSegmentType segmentType)
         {
             // Focus the appropriate skip button when it becomes available
-            FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(() =>
+            FireAndForget(async () => await UiHelper.RunOnUIThreadAsync(() =>
             {
                 Button buttonToFocus = null;
 
@@ -704,7 +712,7 @@ namespace Gelatinarm.Views
             if (sender is Button button && button.Visibility == Visibility.Visible && !ViewModel.IsPaused)
             {
                 // Small delay to ensure button is fully rendered and layout has stabilized
-                FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(async () =>
+                FireAndForget(async () => await UiHelper.RunOnUIThreadAsync(async () =>
                 {
                     // Wait a bit to ensure button is fully rendered
                     await Task.Delay(100);
@@ -959,7 +967,8 @@ namespace Gelatinarm.Views
             if (visibleOverlayButton != null)
             {
                 var focusResult = visibleOverlayButton.Focus(FocusState.Programmatic);
-                Logger?.LogInformation($"Controls hidden, set focus to overlay button {visibleOverlayButton.Name}: {focusResult}");
+                Logger?.LogInformation(
+                    $"Controls hidden, set focus to overlay button {visibleOverlayButton.Name}: {focusResult}");
                 return;
             }
 
@@ -1098,12 +1107,13 @@ namespace Gelatinarm.Views
                     if (Frame?.BackStack?.Count > backStackCountBefore)
                     {
                         // The navigation added an entry, remove the MediaPlayerPage entry
-                        for (int i = Frame.BackStack.Count - 1; i >= 0; i--)
+                        for (var i = Frame.BackStack.Count - 1; i >= 0; i--)
                         {
                             if (Frame?.BackStack?[i].SourcePageType == typeof(MediaPlayerPage))
                             {
                                 Frame.BackStack.RemoveAt(i);
-                                Logger?.LogInformation($"Removed MediaPlayerPage from back stack at index {i} after navigating to SeasonDetailsPage");
+                                Logger?.LogInformation(
+                                    $"Removed MediaPlayerPage from back stack at index {i} after navigating to SeasonDetailsPage");
                                 break; // Only remove the most recent MediaPlayerPage entry
                             }
                         }
@@ -1136,7 +1146,8 @@ namespace Gelatinarm.Views
                     var itemId = ViewModel.CurrentItem.Id.Value;
 
                     // Use UserDataService to toggle favorite
-                    var updatedData = await userDataService.ToggleFavoriteAsync(itemId, !isFavorite); if (updatedData != null)
+                    var updatedData = await userDataService.ToggleFavoriteAsync(itemId, !isFavorite);
+                    if (updatedData != null)
                     {
                         ViewModel.CurrentItem.UserData = updatedData;
                     }
@@ -1186,7 +1197,7 @@ namespace Gelatinarm.Views
         private void FindAndConfigureButtons(DependencyObject parent)
         {
             var childCount = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < childCount; i++)
+            for (var i = 0; i < childCount; i++)
             {
                 var child = VisualTreeHelper.GetChild(parent, i);
 
@@ -1195,7 +1206,8 @@ namespace Gelatinarm.Views
                 {
                     // Set XYFocusDown to the button itself to prevent downward navigation
                     button.XYFocusDown = button;
-                    Logger?.LogDebug($"Set XYFocusDown on {button.Name ?? "unnamed button"} to prevent downward navigation");
+                    Logger?.LogDebug(
+                        $"Set XYFocusDown on {button.Name ?? "unnamed button"} to prevent downward navigation");
                 }
 
                 // Recursively search children
@@ -1389,6 +1401,7 @@ namespace Gelatinarm.Views
                     {
                         return;
                     }
+
                     var currentState = MediaPlayer.MediaPlayer.PlaybackSession.PlaybackState;
                     Logger?.LogInformation($"Window deactivated, current playback state: {currentState}");
 
@@ -1430,7 +1443,8 @@ namespace Gelatinarm.Views
         {
             try
             {
-                Logger?.LogInformation($"Window visibility changed: Visible={e.Visible}, WasInBackground={_isInBackground}");
+                Logger?.LogInformation(
+                    $"Window visibility changed: Visible={e.Visible}, WasInBackground={_isInBackground}");
                 FireAndForget(() => HandleAppBackgroundChangedAsync(!e.Visible), "HandleAppBackgroundChanged");
             }
             catch (Exception ex)
@@ -1450,7 +1464,8 @@ namespace Gelatinarm.Views
             try
             {
                 var playbackState = MediaPlayer?.MediaPlayer?.PlaybackSession?.PlaybackState;
-                Logger?.LogInformation($"App background change: IsInBackground={isInBackground}, PlaybackState={playbackState}");
+                Logger?.LogInformation(
+                    $"App background change: IsInBackground={isInBackground}, PlaybackState={playbackState}");
             }
             catch (Exception ex)
             {
@@ -1498,10 +1513,6 @@ namespace Gelatinarm.Views
 
         #endregion
 
-        #region Helper Methods
-
-        #endregion
-
         private async Task ShowHlsCorruptionError()
         {
             try
@@ -1513,7 +1524,7 @@ namespace Gelatinarm.Views
                         "The video stream became corrupted at this position. This is a known issue when resuming certain videos. " +
                         "Would you like to restart playback from the beginning?");
 
-                    if (result == true && ViewModel != null)
+                    if (result && ViewModel != null)
                     {
                         // Restart playback from the beginning
                         Logger?.LogInformation("User chose to restart playback after HLS corruption");

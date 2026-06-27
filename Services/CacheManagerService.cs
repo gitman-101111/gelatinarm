@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Windows.System;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
 {
@@ -15,22 +15,22 @@ namespace Gelatinarm.Services
     public class CacheManagerService : ICacheManagerService, IDisposable
     {
         // Memory pressure thresholds
-        private const double HIGH_MEMORY_PRESSURE_THRESHOLD = 0.85; // Start aggressive eviction at 85% memory usage
-        private const double CRITICAL_MEMORY_PRESSURE_THRESHOLD = 0.95; // Clear cache at 95% memory usage
+        private const double HighMemoryPressureThreshold = 0.85; // Start aggressive eviction at 85% memory usage
+        private const double CriticalMemoryPressureThreshold = 0.95; // Clear cache at 95% memory usage
         private readonly Dictionary<string, CacheEntry> _cache = new();
         private readonly object _cacheLock = new();
         private readonly Dictionary<string, ICacheProvider> _cacheProviders = new();
         private readonly ILogger<CacheManagerService> _logger;
         private readonly LinkedList<string> _lruList = new();
         private readonly Dictionary<string, LinkedListNode<string>> _lruNodes = new();
-        private long _currentEstimatedSize = 0;
+        private long _currentEstimatedSize;
 
-        private bool _disposed = false;
-        private int _evictionCount = 0;
-        private int _hitCount = 0;
+        private bool _disposed;
+        private int _evictionCount;
+        private int _hitCount;
 
         private long _maxSizeInBytes = 100 * 1024 * 1024; // Default 100MB for Xbox 1GB limit
-        private int _missCount = 0;
+        private int _missCount;
 
         public CacheManagerService(ILogger<CacheManagerService> logger)
         {
@@ -53,7 +53,8 @@ namespace Gelatinarm.Services
                 var estimatedSize = EstimateObjectSize(value);
                 var expirationTime = expiration.HasValue
                     ? DateTime.UtcNow.Add(expiration.Value)
-                    : DateTime.UtcNow.AddMinutes(5); // Default 5 minute expiration                if (_cache.ContainsKey(key))
+                    : DateTime.UtcNow
+                        .AddMinutes(5); // Default 5 minute expiration                if (_cache.ContainsKey(key))
                 {
                     Remove(key);
                 }
@@ -63,6 +64,7 @@ namespace Gelatinarm.Services
                 {
                     EvictLeastRecentlyUsed();
                 }
+
                 var entry = new CacheEntry
                 {
                     Value = value,
@@ -73,7 +75,8 @@ namespace Gelatinarm.Services
                 };
 
                 _cache[key] = entry;
-                _currentEstimatedSize += estimatedSize; var node = _lruList.AddFirst(key);
+                _currentEstimatedSize += estimatedSize;
+                var node = _lruList.AddFirst(key);
                 _lruNodes[key] = node;
 
                 _logger.LogDebug(
@@ -272,12 +275,12 @@ namespace Gelatinarm.Services
                 var limit = MemoryManager.AppMemoryUsageLimit;
                 var usageRatio = (double)usage / limit;
 
-                if (usageRatio > CRITICAL_MEMORY_PRESSURE_THRESHOLD)
+                if (usageRatio > CriticalMemoryPressureThreshold)
                 {
                     _logger.LogWarning($"Critical memory pressure detected ({usageRatio:P0}). Clearing cache.");
                     Clear();
                 }
-                else if (usageRatio > HIGH_MEMORY_PRESSURE_THRESHOLD)
+                else if (usageRatio > HighMemoryPressureThreshold)
                 {
                     _logger.LogInformation(
                         $"High memory pressure detected ({usageRatio:P0}). Triggering cache eviction.");

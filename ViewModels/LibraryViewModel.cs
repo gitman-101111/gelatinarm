@@ -1,5 +1,6 @@
 // Required for CancellationToken
 // Required for AsyncRelayCommand
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Windows.UI.Xaml;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
@@ -17,7 +19,6 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml;
 using static Gelatinarm.Constants.LibraryConstants;
 
 namespace Gelatinarm.ViewModels
@@ -41,11 +42,11 @@ namespace Gelatinarm.ViewModels
         private string _emptyStateMessage = "Try adjusting your filters or search term";
         private string _emptyStateTitle = "No items found";
 
-        private bool _hasLoadedOnce = false;
+        private bool _hasLoadedOnce;
 
         private bool _hasMoreItems;
         private bool _isAscending = true;
-        private bool _isLoadingMore = false;
+        private bool _isLoadingMore;
 
         private CancellationTokenSource _loadFiltersCts;
         private readonly object _loadFiltersCtsLock = new object();
@@ -56,7 +57,7 @@ namespace Gelatinarm.ViewModels
         private string _searchTerm = string.Empty;
 
         private BaseItemDto _selectedLibrary;
-        private int _selectedSortIndex = 0;
+        private int _selectedSortIndex;
 
         private bool _showGenreFilter = true;
         private bool _showPlayedStatusFilter = true;
@@ -64,7 +65,7 @@ namespace Gelatinarm.ViewModels
         private bool _showResolutionFilter = true;
         private bool _showYearFilter = true;
 
-        private int _totalItemCount = 0;
+        private int _totalItemCount;
 
         public LibraryViewModel(
             JellyfinApiClient apiClient,
@@ -475,6 +476,7 @@ namespace Gelatinarm.ViewModels
                 _loadLibrariesCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 localCts = _loadLibrariesCts;
             }
+
             var localToken = localCts.Token;
 
             IsError = false;
@@ -585,7 +587,8 @@ namespace Gelatinarm.ViewModels
                 var context = CreateErrorContext("LoadFilters");
                 try
                 {
-                    Logger.LogInformation($"Loading filters for library: {SelectedLibrary.Name} (ID: {selectedLibraryId})");
+                    Logger.LogInformation(
+                        $"Loading filters for library: {SelectedLibrary.Name} (ID: {selectedLibraryId})");
 
                     // Update filter visibility on UI thread
                     await RunOnUIThreadAsync(() => UpdateFilterVisibility());
@@ -627,7 +630,8 @@ namespace Gelatinarm.ViewModels
                             // Add to cache with size limit (LRU eviction)
                             lock (_genreCacheOrder)
                             {
-                                if (_genreCache.Count >= MaxGenreCacheSize && !_genreCache.ContainsKey(selectedLibraryId))
+                                if (_genreCache.Count >= MaxGenreCacheSize &&
+                                    !_genreCache.ContainsKey(selectedLibraryId))
                                 {
                                     // Evict oldest entry
                                     if (_genreCacheOrder.Any())
@@ -690,7 +694,8 @@ namespace Gelatinarm.ViewModels
                             {
                                 var commonRatings = new[]
                                 {
-                                "G", "PG", "PG-13", "R", "NC-17", "TV-Y", "TV-Y7", "TV-G", "TV-PG", "TV-14", "TV-MA"
+                                    "G", "PG", "PG-13", "R", "NC-17", "TV-Y", "TV-Y7", "TV-G", "TV-PG", "TV-14",
+                                    "TV-MA"
                                 };
                                 Ratings.ReplaceAll(commonRatings.Where(rating => !string.IsNullOrEmpty(rating))
                                     .Select(rating => new FilterItem(rating)));
@@ -712,16 +717,16 @@ namespace Gelatinarm.ViewModels
                                 {
                                     Resolutions.ReplaceAll(new[]
                                     {
-                                    new FilterItem("Lossless"), new FilterItem("High Quality"),
-                                    new FilterItem("Standard Quality")
+                                        new FilterItem("Lossless"), new FilterItem("High Quality"),
+                                        new FilterItem("Standard Quality")
                                     });
                                 }
                                 else
                                 {
                                     Resolutions.ReplaceAll(new[]
                                     {
-                                    new FilterItem("4K"), new FilterItem("1080p"), new FilterItem("720p"),
-                                    new FilterItem("SD")
+                                        new FilterItem("4K"), new FilterItem("1080p"), new FilterItem("720p"),
+                                        new FilterItem("SD")
                                     });
                                 }
                             }
@@ -739,7 +744,10 @@ namespace Gelatinarm.ViewModels
                         {
                             if (ShowPlayedStatusFilter)
                             {
-                                PlayedStatuses.ReplaceAll(new[] { new FilterItem("Watched"), new FilterItem("Unwatched") });
+                                PlayedStatuses.ReplaceAll(new[]
+                                {
+                                    new FilterItem("Watched"), new FilterItem("Unwatched")
+                                });
                             }
                             else
                             {
@@ -747,6 +755,7 @@ namespace Gelatinarm.ViewModels
                             }
                         });
                     }
+
                     if (Decades != null)
                     {
                         await RunOnUIThreadAsync(() =>
@@ -755,20 +764,20 @@ namespace Gelatinarm.ViewModels
                             {
                                 Decades.ReplaceAll(new[]
                                 {
-                                new DecadeFilterItem("2020s", 2020, 2029) { YearsCollection = Years },
-                                new DecadeFilterItem("2010s", 2010, 2019) { YearsCollection = Years },
-                                new DecadeFilterItem("2000s", 2000, 2009) { YearsCollection = Years },
-                                new DecadeFilterItem("1990s", 1990, 1999) { YearsCollection = Years },
-                                new DecadeFilterItem("1980s", 1980, 1989) { YearsCollection = Years },
-                                new DecadeFilterItem("1970s", 1970, 1979) { YearsCollection = Years },
-                                new DecadeFilterItem("1960s", 1960, 1969) { YearsCollection = Years },
-                                new DecadeFilterItem("1950s", 1950, 1959) { YearsCollection = Years },
-                                new DecadeFilterItem("1940s", 1940, 1949) { YearsCollection = Years },
-                                new DecadeFilterItem("1930s", 1930, 1939) { YearsCollection = Years },
-                                new DecadeFilterItem("1920s", 1920, 1929) { YearsCollection = Years },
-                                new DecadeFilterItem("1910s", 1910, 1919) { YearsCollection = Years },
-                                new DecadeFilterItem("1900s", 1900, 1909) { YearsCollection = Years },
-                                new DecadeFilterItem("Earlier", 0, 1899) { YearsCollection = Years }
+                                    new DecadeFilterItem("2020s", 2020, 2029) { YearsCollection = Years },
+                                    new DecadeFilterItem("2010s", 2010, 2019) { YearsCollection = Years },
+                                    new DecadeFilterItem("2000s", 2000, 2009) { YearsCollection = Years },
+                                    new DecadeFilterItem("1990s", 1990, 1999) { YearsCollection = Years },
+                                    new DecadeFilterItem("1980s", 1980, 1989) { YearsCollection = Years },
+                                    new DecadeFilterItem("1970s", 1970, 1979) { YearsCollection = Years },
+                                    new DecadeFilterItem("1960s", 1960, 1969) { YearsCollection = Years },
+                                    new DecadeFilterItem("1950s", 1950, 1959) { YearsCollection = Years },
+                                    new DecadeFilterItem("1940s", 1940, 1949) { YearsCollection = Years },
+                                    new DecadeFilterItem("1930s", 1930, 1939) { YearsCollection = Years },
+                                    new DecadeFilterItem("1920s", 1920, 1929) { YearsCollection = Years },
+                                    new DecadeFilterItem("1910s", 1910, 1919) { YearsCollection = Years },
+                                    new DecadeFilterItem("1900s", 1900, 1909) { YearsCollection = Years },
+                                    new DecadeFilterItem("Earlier", 0, 1899) { YearsCollection = Years }
                                 });
                             }
                             else
@@ -968,7 +977,8 @@ namespace Gelatinarm.ViewModels
                                 case "includeItemTypes":
                                 case "IncludeItemTypes":
                                     var includeTypes = param.Value.Split(',')
-                                        .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                                        .Select(t =>
+                                            Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
                                         .Where(k => k.HasValue)
                                         .Select(k => k.Value)
                                         .ToArray();
@@ -976,11 +986,13 @@ namespace Gelatinarm.ViewModels
                                     {
                                         config.QueryParameters.IncludeItemTypes = includeTypes;
                                     }
+
                                     break;
                                 case "excludeItemTypes":
                                 case "ExcludeItemTypes":
                                     var excludeTypes = param.Value.Split(',')
-                                        .Select(t => Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
+                                        .Select(t =>
+                                            Enum.TryParse<BaseItemKind>(t, out var kind) ? (BaseItemKind?)kind : null)
                                         .Where(k => k.HasValue)
                                         .Select(k => k.Value)
                                         .ToArray();
@@ -988,6 +1000,7 @@ namespace Gelatinarm.ViewModels
                                     {
                                         config.QueryParameters.ExcludeItemTypes = excludeTypes;
                                     }
+
                                     break;
                                 case "genres":
                                 case "Genres":
@@ -1009,6 +1022,7 @@ namespace Gelatinarm.ViewModels
                                     {
                                         config.QueryParameters.MinWidth = minWidth;
                                     }
+
                                     break;
                                 case "isPlayed":
                                     config.QueryParameters.IsPlayed = bool.Parse(param.Value);
@@ -1021,12 +1035,14 @@ namespace Gelatinarm.ViewModels
                                     {
                                         config.QueryParameters.MinHeight = minHeight;
                                     }
+
                                     break;
                                 case "maxHeight":
                                     if (int.TryParse(param.Value, out var maxHeight))
                                     {
                                         config.QueryParameters.MaxHeight = maxHeight;
                                     }
+
                                     break;
                                 case "Filters":
                                     if (param.Value == "IsPlayed")
@@ -1072,12 +1088,14 @@ namespace Gelatinarm.ViewModels
                                     {
                                         config.QueryParameters.StartIndex = startIndex;
                                     }
+
                                     break;
                                 case "Limit":
                                     if (int.TryParse(param.Value, out var limit))
                                     {
                                         config.QueryParameters.Limit = limit;
                                     }
+
                                     break;
                                 case "searchTerm":
                                 case "SearchTerm":
@@ -1108,8 +1126,8 @@ namespace Gelatinarm.ViewModels
                     return response;
                 },
                 Logger,
-                RetryConstants.DEFAULT_API_RETRY_ATTEMPTS,
-                TimeSpan.FromMilliseconds(RetryConstants.INITIAL_RETRY_DELAY_MS),
+                RetryConstants.DefaultApiRetryAttempts,
+                TimeSpan.FromMilliseconds(RetryConstants.InitialRetryDelayMs),
                 memberName: "GetItemsAsync");
         }
 
@@ -1451,7 +1469,10 @@ namespace Gelatinarm.ViewModels
             queryParams["sortOrder"] = IsAscending ? "Ascending" : "Descending";
         }
 
-        private void SetFilter(string filter) => CurrentFilter = filter ?? "All";
+        private void SetFilter(string filter)
+        {
+            CurrentFilter = filter ?? "All";
+        }
 
         private void SetAlphabetFilter(string letter)
         {

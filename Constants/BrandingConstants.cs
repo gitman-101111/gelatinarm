@@ -8,7 +8,7 @@ namespace Gelatinarm.Constants
         /// <summary>
         ///     The display name of the application
         /// </summary>
-        public const string APP_NAME = "Gelatinarm";
+        public const string AppName = "Gelatinarm";
 
         /// <summary>
         ///     User agent for API calls

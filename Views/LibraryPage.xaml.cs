@@ -6,6 +6,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Core;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Data;
+using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Navigation;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
@@ -14,13 +20,6 @@ using Gelatinarm.ViewModels;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Core;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
 using static Gelatinarm.Constants.LibraryConstants;
 
 namespace Gelatinarm.Views
@@ -118,8 +117,8 @@ namespace Gelatinarm.Views
                     Logger.LogInformation(
                         $"LibraryPage: CurrentFilter changed to {ViewModel.CurrentFilter}, updating item template");
                     // Small delay to ensure the UI has updated
-                    await Task.Delay(RetryConstants.UI_SETTLE_DELAY_MS).ConfigureAwait(false);
-                    await UIHelper.RunOnUIThreadAsync(() => UpdateItemTemplate(), Dispatcher, Logger);
+                    await Task.Delay(RetryConstants.UiSettleDelayMs).ConfigureAwait(false);
+                    await UiHelper.RunOnUIThreadAsync(() => UpdateItemTemplate(), Dispatcher, Logger);
                 }
             }
             catch (Exception ex)
@@ -135,8 +134,8 @@ namespace Gelatinarm.Views
                 if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems?.Count > 0)
                 {
                     // Small delay to ensure the UI has updated with new items
-                    await Task.Delay(RetryConstants.UI_RENDER_DELAY_MS).ConfigureAwait(false);
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await Task.Delay(RetryConstants.UiRenderDelayMs).ConfigureAwait(false);
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         UpdateItemTemplate();
 
@@ -288,9 +287,7 @@ namespace Gelatinarm.Views
 
                     var restoredLibrary = new BaseItemDto
                     {
-                        Id = libraryGuid,
-                        Name = savedLibraryName,
-                        Type = BaseItemDto_Type.CollectionFolder
+                        Id = libraryGuid, Name = savedLibraryName, Type = BaseItemDto_Type.CollectionFolder
                     };
 
                     if (!string.IsNullOrEmpty(savedLibraryType))
@@ -315,7 +312,7 @@ namespace Gelatinarm.Views
                 Logger?.LogInformation(
                     $"LibraryPage: ViewModel initialized with library: {ViewModel.SelectedLibrary.Name}");
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     // Ensure the grid has focus for controller navigation
                     MediaGrid?.Focus(FocusState.Programmatic);
@@ -638,9 +635,7 @@ namespace Gelatinarm.Views
                     // Set up two-way binding
                     var binding = new Binding
                     {
-                        Source = decade,
-                        Path = new PropertyPath("IsSelected"),
-                        Mode = BindingMode.TwoWay
+                        Source = decade, Path = new PropertyPath("IsSelected"), Mode = BindingMode.TwoWay
                     };
                     checkBox.SetBinding(CheckBox.IsCheckedProperty, binding);
 
@@ -843,7 +838,7 @@ namespace Gelatinarm.Views
             {
                 Logger?.LogInformation($"Scrolling to letter: {letter}");
 
-                await UIHelper.RunOnUIThreadAsync(async () =>
+                await UiHelper.RunOnUIThreadAsync(async () =>
                 {
                     try
                     {

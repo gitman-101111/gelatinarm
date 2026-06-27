@@ -1,13 +1,13 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Windows.ApplicationModel;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Microsoft.Extensions.Logging;
-using Windows.ApplicationModel;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 
 namespace Gelatinarm.Controls
 {
@@ -16,7 +16,7 @@ namespace Gelatinarm.Controls
     /// </summary>
     public abstract class BaseControl : UserControl
     {
-        private bool _servicesInitialized = false;
+        private bool _servicesInitialized;
 
         protected BaseControl()
         {
@@ -61,7 +61,8 @@ namespace Gelatinarm.Controls
                 {
                     Services = app.Services;
                     var loggerType = typeof(ILogger<>).MakeGenericType(GetType());
-                    Logger = Services.GetService(loggerType) as ILogger ?? ServiceLocator.GetService(loggerType) as ILogger;
+                    Logger = Services.GetService(loggerType) as ILogger ??
+                             ServiceLocator.GetService(loggerType) as ILogger;
                     ErrorHandler = GetService<IErrorHandlingService>();
 
                     // Allow derived classes to get additional services

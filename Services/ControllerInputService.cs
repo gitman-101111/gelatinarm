@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
-using Gelatinarm.Models;
-using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
 using Windows.System;
+using Gelatinarm.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
 {
@@ -12,7 +12,7 @@ namespace Gelatinarm.Services
     /// </summary>
     public class ControllerInputService : BaseService, IControllerInputService
     {
-        private bool _areControlsVisible = false;
+        private bool _areControlsVisible;
         private DateTimeOffset _lastSkipInputUtc = DateTimeOffset.MinValue;
         private MediaPlayer _mediaPlayer;
 
@@ -81,6 +81,7 @@ namespace Gelatinarm.Services
                     ActionWithParameterTriggered?.Invoke(this, (MediaAction.Rewind, 600));
                     return true;
                 }
+
                 if (key == VirtualKey.GamepadRightTrigger)
                 {
                     _lastSkipInputUtc = now;
@@ -96,6 +97,7 @@ namespace Gelatinarm.Services
                     ActionTriggered?.Invoke(this, MediaAction.Rewind);
                     return true;
                 }
+
                 if (allowSkipWhileVisible &&
                     (key == VirtualKey.GamepadDPadRight || key == VirtualKey.Right))
                 {

@@ -14,16 +14,23 @@ namespace Gelatinarm.Services
 {
     public class MediaDiscoveryService : BaseService, IMediaDiscoveryService
     {
-        private const int MAX_SEARCH_HISTORY = 10;
-        private static readonly ItemFields[] DefaultItemFields =
-            { ItemFields.Overview, ItemFields.PrimaryImageAspectRatio };
-        private static readonly ImageType[] DefaultImageTypes =
-            { ImageType.Primary, ImageType.Banner, ImageType.Thumb };
+        private const int MaxSearchHistory = 10;
+
+        private static readonly ItemFields[] _defaultItemFields =
+        {
+            ItemFields.Overview, ItemFields.PrimaryImageAspectRatio
+        };
+
+        private static readonly ImageType[] _defaultImageTypes =
+        {
+            ImageType.Primary, ImageType.Banner, ImageType.Thumb
+        };
+
         private readonly JellyfinApiClient _apiClient;
         private readonly IAuthenticationService _authService;
 
         private readonly TimeSpan _cacheExpiration =
-            TimeSpan.FromMinutes(MediaConstants.DISCOVERY_CACHE_EXPIRATION_MINUTES); // Shorter cache for discovery data
+            TimeSpan.FromMinutes(MediaConstants.DiscoveryCacheExpirationMinutes); // Shorter cache for discovery data
 
         private readonly ICacheManagerService _cacheManager;
         private readonly INavigationStateService _navigationStateService;
@@ -58,9 +65,9 @@ namespace Gelatinarm.Services
             CancellationToken cancellationToken = default)
         {
             limit = ValidateLimit(limit);
-            if (limit > MediaConstants.MAX_DISCOVERY_QUERY_LIMIT)
+            if (limit > MediaConstants.MaxDiscoveryQueryLimit)
             {
-                limit = MediaConstants.MAX_DISCOVERY_QUERY_LIMIT; // Reasonable upper limit
+                limit = MediaConstants.MaxDiscoveryQueryLimit; // Reasonable upper limit
             }
 
             return await GetCachedOrFetchAsync(
@@ -89,9 +96,9 @@ namespace Gelatinarm.Services
                             config.QueryParameters.SortOrder = new[] { SortOrder.Descending };
                             config.QueryParameters.Limit = limit + 10; // Small buffer for grouping
                             config.QueryParameters.Fields =
-                                DefaultItemFields;
+                                _defaultItemFields;
                             config.QueryParameters.EnableImageTypes =
-                                DefaultImageTypes;
+                                _defaultImageTypes;
                             config.QueryParameters.Recursive = true;
                             config.QueryParameters.ExcludeItemTypes = new[] { BaseItemKind.CollectionFolder };
                             config.QueryParameters.IncludeItemTypes = new[]
@@ -227,12 +234,13 @@ namespace Gelatinarm.Services
                             Logger?.LogError("SDK client not available");
                             return new List<BaseItemDto>();
                         }
+
                         var response = await _apiClient.UserItems.Resume.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
                             config.QueryParameters.Limit = limit;
                             config.QueryParameters.Fields =
-                                DefaultItemFields;
+                                _defaultItemFields;
                             config.QueryParameters.EnableImageTypes = new[]
                             {
                                 ImageType.Primary, ImageType.Backdrop, ImageType.Banner, ImageType.Thumb
@@ -243,7 +251,7 @@ namespace Gelatinarm.Services
                         }, ct).ConfigureAwait(false);
 
                         var items = response?.Items ?? new List<BaseItemDto>();
-                        await UIHelper.RunOnUIThreadAsync(() =>
+                        await UiHelper.RunOnUIThreadAsync(() =>
                         {
                             ContinueWatchingUpdated?.Invoke(this, items.ToArray());
                         }, logger: Logger);
@@ -256,7 +264,7 @@ namespace Gelatinarm.Services
                 },
                 cancellationToken,
                 TimeSpan.FromSeconds(MediaConstants
-                    .CONTINUE_WATCHING_CACHE_SECONDS)); // Very short cache for continue watching
+                    .ContinueWatchingCacheSeconds)); // Very short cache for continue watching
         }
 
         public async Task<IEnumerable<BaseItemDto>> GetRecommendedAsync(int limit = 0,
@@ -286,7 +294,7 @@ namespace Gelatinarm.Services
                 {
                     config.QueryParameters.UserId = userGuid;
                     // Note: Recommendations endpoint doesn't have a Limit parameter
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                 }, cancellationToken).ConfigureAwait(false);
 
                 var recommendations = new List<BaseItemDto>();
@@ -302,7 +310,7 @@ namespace Gelatinarm.Services
                     }
                 }
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     RecommendationsUpdated?.Invoke(this, recommendations.ToArray());
                 }, logger: Logger);
@@ -348,7 +356,7 @@ namespace Gelatinarm.Services
                     config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.SeriesId = new Guid(seriesId);
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response?.Items ?? new List<BaseItemDto>();
@@ -385,15 +393,16 @@ namespace Gelatinarm.Services
                             Logger?.LogError("SDK client not available");
                             return new List<BaseItemDto>();
                         }
+
                         var response = await _apiClient.Items.Latest.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
                             config.QueryParameters.IncludeItemTypes = new[] { BaseItemKind.Movie };
                             config.QueryParameters.Limit = limit;
                             config.QueryParameters.Fields =
-                                DefaultItemFields;
+                                _defaultItemFields;
                             config.QueryParameters.EnableImageTypes =
-                                DefaultImageTypes;
+                                _defaultImageTypes;
                         }, ct).ConfigureAwait(false);
 
                         return response ?? new List<BaseItemDto>();
@@ -432,15 +441,16 @@ namespace Gelatinarm.Services
                             Logger?.LogError("SDK client not available");
                             return new List<BaseItemDto>();
                         }
+
                         var response = await _apiClient.Items.Latest.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userIdGuid;
                             config.QueryParameters.IncludeItemTypes = new[] { BaseItemKind.Series };
                             config.QueryParameters.Limit = limit;
                             config.QueryParameters.Fields =
-                                DefaultItemFields;
+                                _defaultItemFields;
                             config.QueryParameters.EnableImageTypes =
-                                DefaultImageTypes;
+                                _defaultImageTypes;
                         }, ct).ConfigureAwait(false);
 
                         return response ?? new List<BaseItemDto>();
@@ -463,14 +473,15 @@ namespace Gelatinarm.Services
                 {
                     return new List<BaseItemDto>();
                 }
+
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.IsFavorite = true;
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        DefaultImageTypes;
+                        _defaultImageTypes;
                     config.QueryParameters.Recursive = true;
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -543,14 +554,15 @@ namespace Gelatinarm.Services
                 {
                     return new List<BaseItemDto>();
                 }
+
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.GenreIds = new[] { (Guid?)new Guid(genreId) };
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        DefaultImageTypes;
+                        _defaultImageTypes;
                     config.QueryParameters.Recursive = true;
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -577,7 +589,7 @@ namespace Gelatinarm.Services
                 {
                     config.QueryParameters.UserId = userGuid;
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response?.Items ?? new List<BaseItemDto>();
@@ -597,12 +609,13 @@ namespace Gelatinarm.Services
                 {
                     return new List<BaseItemDto>();
                 }
+
                 var response = await _apiClient.Items.Suggestions.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.MediaType = new[] { MediaType.Video };
                     config.QueryParameters.Type = new[] { BaseItemKind.Movie, BaseItemKind.Series };
-                    config.QueryParameters.Limit = MediaConstants.DEFAULT_QUERY_LIMIT;
+                    config.QueryParameters.Limit = MediaConstants.DefaultQueryLimit;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response?.Items ?? new List<BaseItemDto>();
@@ -630,9 +643,9 @@ namespace Gelatinarm.Services
                         var response = await _apiClient.Shows.NextUp.GetAsync(config =>
                         {
                             config.QueryParameters.UserId = userGuid;
-                            config.QueryParameters.Limit = MediaConstants.DEFAULT_QUERY_LIMIT;
+                            config.QueryParameters.Limit = MediaConstants.DefaultQueryLimit;
                             config.QueryParameters.Fields =
-                                DefaultItemFields;
+                                _defaultItemFields;
                         }, ct).ConfigureAwait(false);
 
                         var items = response?.Items ?? new List<BaseItemDto>();
@@ -650,7 +663,7 @@ namespace Gelatinarm.Services
                     }
                 },
                 cancellationToken,
-                TimeSpan.FromMinutes(MediaConstants.NEXT_UP_CACHE_MINUTES)); // Shorter cache for next up
+                TimeSpan.FromMinutes(MediaConstants.NextUpCacheMinutes)); // Shorter cache for next up
         }
 
         public async Task<IEnumerable<BaseItemDto>> SearchAsync(string searchTerm, string[] includeItemTypes = null,
@@ -669,14 +682,15 @@ namespace Gelatinarm.Services
                 {
                     return new List<BaseItemDto>();
                 }
+
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.SearchTerm = searchTerm;
-                    config.QueryParameters.Limit = MediaConstants.LARGE_QUERY_LIMIT;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Limit = MediaConstants.LargeQueryLimit;
+                    config.QueryParameters.Fields = _defaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        DefaultImageTypes;
+                        _defaultImageTypes;
                     config.QueryParameters.Recursive = true;
 
                     if (includeItemTypes?.Length > 0)
@@ -703,7 +717,7 @@ namespace Gelatinarm.Services
                 var results = response?.Items ?? new List<BaseItemDto>();
 
                 // Store search results
-                if (_recentSearches.Count >= MAX_SEARCH_HISTORY)
+                if (_recentSearches.Count >= MaxSearchHistory)
                 {
                     var oldestKey = _recentSearches.Keys.FirstOrDefault();
                     if (oldestKey != null)
@@ -732,14 +746,15 @@ namespace Gelatinarm.Services
                 {
                     return new List<BaseItemDto>();
                 }
+
                 var response = await _apiClient.Items.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
                     config.QueryParameters.PersonIds = new[] { (Guid?)new Guid(personId) };
                     config.QueryParameters.Recursive = true;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        DefaultImageTypes;
+                        _defaultImageTypes;
 
                     if (includeItemTypes?.Length > 0)
                     {
@@ -780,6 +795,7 @@ namespace Gelatinarm.Services
                 {
                     return new List<BaseItemDto>();
                 }
+
                 var response = await _apiClient.Items.Latest.GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userIdGuid;
@@ -803,9 +819,9 @@ namespace Gelatinarm.Services
                     }
 
                     config.QueryParameters.Limit = limit;
-                    config.QueryParameters.Fields = DefaultItemFields;
+                    config.QueryParameters.Fields = _defaultItemFields;
                     config.QueryParameters.EnableImageTypes =
-                        DefaultImageTypes;
+                        _defaultImageTypes;
                 }, cancellationToken).ConfigureAwait(false);
 
                 return response ?? new List<BaseItemDto>();
@@ -828,7 +844,7 @@ namespace Gelatinarm.Services
 
         private int ValidateLimit(int limit)
         {
-            return limit <= 0 ? MediaConstants.DEFAULT_QUERY_LIMIT : limit;
+            return limit <= 0 ? MediaConstants.DefaultQueryLimit : limit;
         }
 
         private async Task<T> GetCachedOrFetchAsync<T>(string cacheKey, Func<CancellationToken, Task<T>> fetchFunc,
@@ -853,7 +869,8 @@ namespace Gelatinarm.Services
 #if DEBUG
             Logger?.LogDebug($"Fetching fresh data for {cacheKey}");
 #endif
-            var data = await fetchFunc(cancellationToken).ConfigureAwait(false); if (data != null && _cacheManager != null)
+            var data = await fetchFunc(cancellationToken).ConfigureAwait(false);
+            if (data != null && _cacheManager != null)
             {
                 _cacheManager.Set(fullCacheKey, data, expiration);
             }

@@ -1,14 +1,14 @@
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
-using Gelatinarm.Helpers;
-using Gelatinarm.ViewModels;
-using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.Logging;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using Gelatinarm.Helpers;
+using Gelatinarm.ViewModels;
+using Jellyfin.Sdk.Generated.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Views
 {
@@ -184,7 +184,7 @@ namespace Gelatinarm.Views
                     // For Series Overview, point to the Series Play button AND move focus immediately
                     if (ViewModel.SelectedSeasonIndex == -1)
                     {
-                        var seriesPlayButton = this.FindName("SeriesPlayButton") as Windows.UI.Xaml.Controls.Button;
+                        var seriesPlayButton = FindName("SeriesPlayButton") as Button;
                         if (seriesPlayButton != null)
                         {
                             FocusLandingButton.XYFocusDown = seriesPlayButton;
@@ -196,7 +196,8 @@ namespace Gelatinarm.Views
                             await Task.Delay(100); // Small delay to ensure button is ready
                             seriesPlayButton.Focus(FocusState.Programmatic);
                             FocusLandingButton.IsTabStop = false;
-                            Logger?.LogInformation("OnPageLoaded: Moved focus to Series Play button for Series Overview");
+                            Logger?.LogInformation(
+                                "OnPageLoaded: Moved focus to Series Play button for Series Overview");
                         }
                     }
                     else if (ViewModel.IsResumeButtonVisible && ResumeButton != null)
@@ -225,7 +226,7 @@ namespace Gelatinarm.Views
                 // Wait for seasons to be loaded
                 await Task.Delay(300);
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     if (ViewModel.SelectedSeasonIndex < SeasonTabs.Items.Count)
                     {
@@ -264,7 +265,7 @@ namespace Gelatinarm.Views
             if (e.PropertyName == nameof(ViewModel.SelectedEpisodeIndex))
             {
                 // Only restore focus after initial page load is complete
-                bool shouldRestoreFocus = ViewModel?.IsInitialLoadComplete == true && ViewModel?.SelectedEpisode != null;
+                var shouldRestoreFocus = ViewModel?.IsInitialLoadComplete == true && ViewModel?.SelectedEpisode != null;
                 ScrollEpisodeIntoView(shouldRestoreFocus);
             }
             else if (e.PropertyName == nameof(ViewModel.SelectedSeasonIndex))
@@ -309,7 +310,7 @@ namespace Gelatinarm.Views
                 // Small delay to ensure the list is populated
                 await Task.Delay(200);
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     Logger?.LogInformation(
                         $"Attempting to scroll to episode index {ViewModel.SelectedEpisodeIndex} of {EpisodesList.Items.Count} items");
@@ -323,11 +324,13 @@ namespace Gelatinarm.Views
                         // Only restore focus when explicitly requested (e.g., after watched status change)
                         if (restoreFocus)
                         {
-                            var container = EpisodesList.ContainerFromIndex(ViewModel.SelectedEpisodeIndex) as ListViewItem;
+                            var container =
+                                EpisodesList.ContainerFromIndex(ViewModel.SelectedEpisodeIndex) as ListViewItem;
                             if (container != null)
                             {
                                 container.Focus(FocusState.Programmatic);
-                                Logger?.LogInformation($"Restored focus to episode at index {ViewModel.SelectedEpisodeIndex}");
+                                Logger?.LogInformation(
+                                    $"Restored focus to episode at index {ViewModel.SelectedEpisodeIndex}");
                             }
                         }
                     }
@@ -356,7 +359,7 @@ namespace Gelatinarm.Views
                 // Small delay to ensure the list is populated
                 await Task.Delay(100);
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     if (ViewModel.SelectedSeasonIndex < SeasonTabs.Items.Count)
                     {
@@ -407,8 +410,8 @@ namespace Gelatinarm.Views
             // If on Series Overview (Season Info tab), focus on the Series Play button
             if (ViewModel?.SelectedSeasonIndex == -1)
             {
-                var seriesPlayButton = this.FindName("SeriesPlayButton") as Windows.UI.Xaml.Controls.Button;
-                if (seriesPlayButton != null && seriesPlayButton.Visibility == Windows.UI.Xaml.Visibility.Visible)
+                var seriesPlayButton = FindName("SeriesPlayButton") as Button;
+                if (seriesPlayButton != null && seriesPlayButton.Visibility == Visibility.Visible)
                 {
                     seriesPlayButton.Focus(FocusState.Programmatic);
                     Logger?.LogInformation("Moved focus to Series Play button on Series Overview");
@@ -450,6 +453,5 @@ namespace Gelatinarm.Views
                 Logger?.LogWarning("Cannot navigate to series info - Series data not available");
             }
         }
-
     }
 }

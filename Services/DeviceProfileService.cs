@@ -74,9 +74,7 @@ namespace Gelatinarm.Services
                 },
                 new DirectPlayProfile
                 {
-                    Container = "wmv,asf",
-                    VideoCodec = "vc1,wvc1,mpeg4,mp4v",
-                    AudioCodec = "wma,wmap,ac3,ac-3"
+                    Container = "wmv,asf", VideoCodec = "vc1,wvc1,mpeg4,mp4v", AudioCodec = "wma,wmap,ac3,ac-3"
                 },
                 new DirectPlayProfile
                 {
@@ -86,10 +84,7 @@ namespace Gelatinarm.Services
                         "ac3,ac-3,aac,mp4a,mp2"
                 },
                 // Add FLV container support
-                new DirectPlayProfile
-                {
-                    Container = "flv", VideoCodec = "h264,avc1", AudioCodec = "mp3,aac,mp4a,pcm"
-                },
+                new DirectPlayProfile { Container = "flv", VideoCodec = "h264,avc1", AudioCodec = "mp3,aac,mp4a,pcm" },
                 new DirectPlayProfile
                 {
                     Container = "mp3,aac,m4a,flac,alac,wav,wma,amr", Type = DirectPlayProfile_Type.Audio
@@ -120,7 +115,7 @@ namespace Gelatinarm.Services
                     AudioCodec = "aac,ac3",
                     Context = TranscodingProfile_Context.Streaming,
                     Protocol = TranscodingProfile_Protocol.Hls,
-                    MinSegments = 5,  // Ensure at least 5 segments are ready before playback
+                    MinSegments = 5, // Ensure at least 5 segments are ready before playback
                     SegmentLength = 5, // 5-second segments for better seeking precision
                     BreakOnNonKeyFrames = false, // Keep segments on keyframes for stability
                     CopyTimestamps = false,
@@ -347,7 +342,6 @@ namespace Gelatinarm.Services
                 new SubtitleProfile { Format = "ssa", Method = SubtitleProfile_Method.Embed },
                 new SubtitleProfile { Format = "vtt", Method = SubtitleProfile_Method.Embed },
                 new SubtitleProfile { Format = "webvtt", Method = SubtitleProfile_Method.Embed },
-
                 new SubtitleProfile { Format = "pgs", Method = SubtitleProfile_Method.Embed },
                 new SubtitleProfile { Format = "pgssub", Method = SubtitleProfile_Method.Embed },
                 new SubtitleProfile { Format = "dvdsub", Method = SubtitleProfile_Method.Embed },
@@ -374,7 +368,7 @@ namespace Gelatinarm.Services
 
                 // Only add HLG if the display fully supports it
                 // This prevents HLG on displays that "don't support all HDR10 modes"
-                if (_deviceService.SupportsHLG)
+                if (_deviceService.SupportsHlg)
                 {
                     supportedTypes.Add("HLG");
                 }

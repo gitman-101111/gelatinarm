@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using Gelatinarm.ViewModels;
 using Windows.UI.Xaml;
+using Gelatinarm.ViewModels;
 
 namespace Gelatinarm.Views
 {

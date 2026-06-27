@@ -2,14 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.Media.Core;
+using Windows.Media.Playback;
+using Windows.Media.Streaming.Adaptive;
+using Windows.System;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Core;
-using Windows.Media.Playback;
-using Windows.Media.Streaming.Adaptive;
 using AudioTrack = Gelatinarm.Models.AudioTrack;
 
 namespace Gelatinarm.Services
@@ -55,7 +56,8 @@ namespace Gelatinarm.Services
                 deviceProfileService ?? throw new ArgumentNullException(nameof(deviceProfileService));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
             _mediaControlService = mediaControlService ?? throw new ArgumentNullException(nameof(mediaControlService));
-            _mediaPlaybackService = mediaPlaybackService ?? throw new ArgumentNullException(nameof(mediaPlaybackService));
+            _mediaPlaybackService =
+                mediaPlaybackService ?? throw new ArgumentNullException(nameof(mediaPlaybackService));
             _deviceService = deviceService ?? throw new ArgumentNullException(nameof(deviceService));
             _resumeCoordinator = new PlaybackResumeCoordinator(logger);
             _sourceResolver = new PlaybackSourceResolver(logger, apiClient, authService, deviceService);
@@ -97,17 +99,17 @@ namespace Gelatinarm.Services
 
                 // When subtitle/audio tracks are specified with resume position, some servers ignore StartTimeTicks.
                 // Apply resume client-side in these cases.
-                bool hasSubtitlesWithResume = _playbackParams?.SubtitleStreamIndex.HasValue == true &&
-                                              _playbackParams.SubtitleStreamIndex.Value >= 0 &&
-                                              _playbackParams?.StartPositionTicks > 0;
+                var hasSubtitlesWithResume = _playbackParams?.SubtitleStreamIndex.HasValue == true &&
+                                             _playbackParams.SubtitleStreamIndex.Value >= 0 &&
+                                             _playbackParams?.StartPositionTicks > 0;
 
-                bool hasAudioWithResume = _playbackParams?.AudioStreamIndex.HasValue == true &&
-                                          _playbackParams.AudioStreamIndex.Value >= 0 &&
-                                          _playbackParams?.StartPositionTicks > 0;
+                var hasAudioWithResume = _playbackParams?.AudioStreamIndex.HasValue == true &&
+                                         _playbackParams.AudioStreamIndex.Value >= 0 &&
+                                         _playbackParams?.StartPositionTicks > 0;
 
                 // Check if the item has 2-channel or less audio
                 // If so, always allow audio stream copy to prevent unnecessary transcoding
-                bool shouldAllowAudioStreamCopy = preferences.AllowAudioStreamCopy;
+                var shouldAllowAudioStreamCopy = preferences.AllowAudioStreamCopy;
 
                 if (item?.MediaStreams != null)
                 {
@@ -116,7 +118,8 @@ namespace Gelatinarm.Services
                     {
                         // Always allow stream copy for stereo or mono audio
                         shouldAllowAudioStreamCopy = true;
-                        Logger.LogInformation($"Detected {audioStream.Channels.Value} channel audio - forcing AllowAudioStreamCopy=true");
+                        Logger.LogInformation(
+                            $"Detected {audioStream.Channels.Value} channel audio - forcing AllowAudioStreamCopy=true");
                     }
                 }
 
@@ -138,7 +141,8 @@ namespace Gelatinarm.Services
                     AllowVideoStreamCopy = true // Generally want to allow video stream copy when possible
                 };
 
-                LogClientSideResumeRequirement(hasSubtitlesWithResume, hasAudioWithResume, _playbackParams?.StartPositionTicks);
+                LogClientSideResumeRequirement(hasSubtitlesWithResume, hasAudioWithResume,
+                    _playbackParams?.StartPositionTicks);
                 LogPlaybackInfoRequest(preferences, shouldAllowAudioStreamCopy);
 
                 if (!item.Id.HasValue)
@@ -154,12 +158,14 @@ namespace Gelatinarm.Services
                 _playSessionId = response.PlaySessionId;
 
                 // Log response details
-                Logger.LogInformation($"Playback info response - MediaSources count: {response?.MediaSources?.Count ?? 0}");
+                Logger.LogInformation(
+                    $"Playback info response - MediaSources count: {response?.MediaSources?.Count ?? 0}");
                 if (response?.MediaSources != null)
                 {
                     foreach (var source in response.MediaSources)
                     {
-                        Logger.LogInformation($"MediaSource Id: {source.Id}, Name: {source.Name}, SupportsDirectPlay: {source.SupportsDirectPlay}, SupportsDirectStream: {source.SupportsDirectStream}, SupportsTranscoding: {source.SupportsTranscoding}");
+                        Logger.LogInformation(
+                            $"MediaSource Id: {source.Id}, Name: {source.Name}, SupportsDirectPlay: {source.SupportsDirectPlay}, SupportsDirectStream: {source.SupportsDirectStream}, SupportsTranscoding: {source.SupportsTranscoding}");
                     }
                 }
 
@@ -210,8 +216,8 @@ namespace Gelatinarm.Services
                 if (mediaSource != null)
                 {
                     Logger.LogInformation($"[PLAYBACK-START] MediaSource State: {mediaSource.State}, " +
-                        $"IsOpen: {mediaSource.IsOpen}, " +
-                        $"Duration: {mediaSource.Duration?.TotalSeconds}s");
+                                          $"IsOpen: {mediaSource.IsOpen}, " +
+                                          $"Duration: {mediaSource.Duration?.TotalSeconds}s");
                 }
 
                 // Create MediaPlaybackItem from MediaSource to enable subtitle/audio track access
@@ -266,7 +272,8 @@ namespace Gelatinarm.Services
             if (pendingSeekPositionTicks > 0 && _mediaPlayer?.PlaybackSession != null)
             {
                 var targetPosition = TimeSpan.FromTicks(pendingSeekPositionTicks);
-                Logger.LogInformation($"Applying pending seek after quality/track switch to {targetPosition:hh\\:mm\\:ss}");
+                Logger.LogInformation(
+                    $"Applying pending seek after quality/track switch to {targetPosition:hh\\:mm\\:ss}");
 
                 try
                 {
@@ -334,6 +341,7 @@ namespace Gelatinarm.Services
                             sessionState.LastSeekTime = DateTime.UtcNow;
                         }
                     }
+
                     return result;
                 },
                 IsResumePending = () =>
@@ -407,7 +415,8 @@ namespace Gelatinarm.Services
         private void LogMediaSourceDetails(MediaSourceInfo mediaSource)
         {
             Logger.LogInformation($"MediaSource TranscodingUrl: {mediaSource.TranscodingUrl}");
-            Logger.LogInformation($"MediaSource DirectStreamUrl: {PlaybackSourceResolver.GetDirectStreamUrl(mediaSource)}");
+            Logger.LogInformation(
+                $"MediaSource DirectStreamUrl: {PlaybackSourceResolver.GetDirectStreamUrl(mediaSource)}");
             Logger.LogInformation($"MediaSource SupportsDirectPlay: {mediaSource.SupportsDirectPlay}");
             Logger.LogInformation($"MediaSource SupportsDirectStream: {mediaSource.SupportsDirectStream}");
             Logger.LogInformation($"MediaSource SupportsTranscoding: {mediaSource.SupportsTranscoding}");
@@ -421,7 +430,8 @@ namespace Gelatinarm.Services
             // This ensures playback stats report "Direct playing"
             _currentMediaSource.TranscodingUrl = null;
 
-            var directPlayUrl = _sourceResolver.BuildStreamUrl(_currentMediaSource, _currentItem, _playbackParams, playbackInfo.PlaySessionId);
+            var directPlayUrl = _sourceResolver.BuildStreamUrl(_currentMediaSource, _currentItem, _playbackParams,
+                playbackInfo.PlaySessionId);
             Logger.LogInformation($"Direct Play URL: {directPlayUrl}");
 
             _resumePolicy = new DirectPlayResumePolicy();
@@ -431,7 +441,8 @@ namespace Gelatinarm.Services
 
         private async Task<MediaSource> CreateStreamingMediaSourceAsync(PlaybackInfoResponse playbackInfo)
         {
-            var streamUrl = _sourceResolver.BuildStreamUrl(_currentMediaSource, _currentItem, _playbackParams, playbackInfo.PlaySessionId);
+            var streamUrl = _sourceResolver.BuildStreamUrl(_currentMediaSource, _currentItem, _playbackParams,
+                playbackInfo.PlaySessionId);
             Logger.LogInformation("Stream URL: {StreamUrl}", streamUrl);
 
             UpdateResumePolicyFromMediaSource();
@@ -485,7 +496,7 @@ namespace Gelatinarm.Services
         private static bool IsAdaptiveStreaming(MediaSourceInfo mediaSource)
         {
             return mediaSource.TranscodingUrl?.Contains(".m3u8") == true ||
-                mediaSource.TranscodingUrl?.Contains(".mpd") == true;
+                   mediaSource.TranscodingUrl?.Contains(".mpd") == true;
         }
 
         private void PrepareResumeTracking(bool shouldResume, TimeSpan resumePosition)
@@ -505,11 +516,13 @@ namespace Gelatinarm.Services
 
             Logger.LogInformation($"[RESUME-TIERED] Resume requested to {resumePosition:hh\\:mm\\:ss}");
             Logger.LogInformation("[RESUME-TIERED] Tier 1: StartTimeTicks already sent to server in PlaybackInfoDto");
-            Logger.LogInformation("[RESUME-TIERED] Tier 2: Will apply client-side seek if position is not at resume point");
+            Logger.LogInformation(
+                "[RESUME-TIERED] Tier 2: Will apply client-side seek if position is not at resume point");
 
             if (_resumePolicy.ShouldUseManifestOffset)
             {
-                Logger.LogInformation("[RESUME-TIERED] Tier 3: HLS detected - will track manifest offset if server creates new manifest");
+                Logger.LogInformation(
+                    "[RESUME-TIERED] Tier 3: HLS detected - will track manifest offset if server creates new manifest");
             }
         }
 
@@ -519,7 +532,8 @@ namespace Gelatinarm.Services
 
             if (!UrlHelper.HasApiKey(streamUrl))
             {
-                Logger.LogWarning("[HLS-DEBUG] Stream URL does not include ApiKey parameter; auth headers are not used for AdaptiveMediaSource");
+                Logger.LogWarning(
+                    "[HLS-DEBUG] Stream URL does not include ApiKey parameter; auth headers are not used for AdaptiveMediaSource");
             }
 
             var playSessionId = GetQueryParameter(streamUrl, "PlaySessionId");
@@ -548,7 +562,8 @@ namespace Gelatinarm.Services
                 return;
             }
 
-            Logger.LogInformation("[HLS-MANIFEST] No StartTimeTicks in URL - server may provide manifest starting at 0");
+            Logger.LogInformation(
+                "[HLS-MANIFEST] No StartTimeTicks in URL - server may provide manifest starting at 0");
         }
 
         private static string GetQueryParameter(string url, string key)
@@ -591,9 +606,10 @@ namespace Gelatinarm.Services
             }
 
             var reason = hasSubtitlesWithResume
-                ? (hasAudioWithResume ? "Subtitle + Audio" : "Subtitle")
+                ? hasAudioWithResume ? "Subtitle + Audio" : "Subtitle"
                 : "Audio";
-            Logger.LogInformation($"{reason} + Resume detected: Will apply resume position {TimeSpan.FromTicks(startPositionTicks.Value):hh\\:mm\\:ss} client-side");
+            Logger.LogInformation(
+                $"{reason} + Resume detected: Will apply resume position {TimeSpan.FromTicks(startPositionTicks.Value):hh\\:mm\\:ss} client-side");
         }
 
         private void LogPlaybackInfoRequest(AppPreferences preferences, bool shouldAllowAudioStreamCopy)
@@ -605,8 +621,10 @@ namespace Gelatinarm.Services
             if (_playbackParams?.StartPositionTicks > 0)
             {
                 var resumeTime = TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value);
-                Logger.LogInformation($"StartTimeTicks: {_playbackParams.StartPositionTicks} ({resumeTime:hh\\:mm\\:ss})");
-                Logger.LogInformation("Note: Server may ignore StartTimeTicks for HLS streams - client-side seek will be used");
+                Logger.LogInformation(
+                    $"StartTimeTicks: {_playbackParams.StartPositionTicks} ({resumeTime:hh\\:mm\\:ss})");
+                Logger.LogInformation(
+                    "Note: Server may ignore StartTimeTicks for HLS streams - client-side seek will be used");
             }
             else
             {
@@ -623,10 +641,12 @@ namespace Gelatinarm.Services
 
         private void LogAdaptiveMediaSourceResult(AdaptiveMediaSourceCreationResult result)
         {
-            Logger.LogInformation($"[HLS-DEBUG] AdaptiveMediaSource.CreateFromUriAsync returned status: {result.Status}");
+            Logger.LogInformation(
+                $"[HLS-DEBUG] AdaptiveMediaSource.CreateFromUriAsync returned status: {result.Status}");
             if (result.HttpResponseMessage != null)
             {
-                Logger.LogInformation($"[HLS-DEBUG] HTTP Status Code: {result.HttpResponseMessage.StatusCode} {result.HttpResponseMessage.ReasonPhrase}");
+                Logger.LogInformation(
+                    $"[HLS-DEBUG] HTTP Status Code: {result.HttpResponseMessage.StatusCode} {result.HttpResponseMessage.ReasonPhrase}");
                 return;
             }
 
@@ -732,7 +752,8 @@ namespace Gelatinarm.Services
         /// <param name="maxBitrate">Optional max bitrate for quality changes</param>
         /// <param name="restartReason">Reason for restart (for logging)</param>
         /// <returns>Task</returns>
-        public async Task RestartPlaybackWithCurrentPositionAsync(int? maxBitrate = null, string restartReason = "stream change", int? audioStreamIndex = null, int? subtitleStreamIndex = null)
+        public async Task RestartPlaybackWithCurrentPositionAsync(int? maxBitrate = null,
+            string restartReason = "stream change", int? audioStreamIndex = null, int? subtitleStreamIndex = null)
         {
             try
             {
@@ -770,7 +791,8 @@ namespace Gelatinarm.Services
 
             if (request.MediaPlayer?.PlaybackSession == null)
             {
-                Logger.LogWarning($"Cannot restart playback for {request.RestartReason} - media player not initialized");
+                Logger.LogWarning(
+                    $"Cannot restart playback for {request.RestartReason} - media player not initialized");
                 return;
             }
 
@@ -837,7 +859,8 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    Logger.LogWarning("MediaPlaybackService does not implement IMediaSessionService - cannot report playback stop");
+                    Logger.LogWarning(
+                        "MediaPlaybackService does not implement IMediaSessionService - cannot report playback stop");
                 }
             }
             catch (Exception ex)
@@ -860,20 +883,23 @@ namespace Gelatinarm.Services
             }
             else
             {
-                Logger.LogWarning("MediaPlaybackService does not implement IMediaSessionService - cannot report playback start");
+                Logger.LogWarning(
+                    "MediaPlaybackService does not implement IMediaSessionService - cannot report playback start");
             }
         }
 
         #region Adaptive Streaming Event Handlers
 
-        private void OnDownloadBitrateChanged(AdaptiveMediaSource sender, AdaptiveMediaSourceDownloadBitrateChangedEventArgs args)
+        private void OnDownloadBitrateChanged(AdaptiveMediaSource sender,
+            AdaptiveMediaSourceDownloadBitrateChangedEventArgs args)
         {
             try
             {
-                Logger.LogInformation($"[BITRATE] Download bitrate changed from {args.OldValue / 1000}kbps to {args.NewValue / 1000}kbps");
+                Logger.LogInformation(
+                    $"[BITRATE] Download bitrate changed from {args.OldValue / 1000}kbps to {args.NewValue / 1000}kbps");
 
                 // Log memory usage when bitrate changes
-                var memoryUsage = Windows.System.MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
+                var memoryUsage = MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
                 Logger.LogDebug($"[MEMORY] After bitrate change: {memoryUsage:F2} MB");
             }
             catch (Exception ex)
@@ -882,11 +908,13 @@ namespace Gelatinarm.Services
             }
         }
 
-        private void OnPlaybackBitrateChanged(AdaptiveMediaSource sender, AdaptiveMediaSourcePlaybackBitrateChangedEventArgs args)
+        private void OnPlaybackBitrateChanged(AdaptiveMediaSource sender,
+            AdaptiveMediaSourcePlaybackBitrateChangedEventArgs args)
         {
             try
             {
-                Logger.LogInformation($"[BITRATE] Playback bitrate changed from {args.OldValue / 1000}kbps to {args.NewValue / 1000}kbps");
+                Logger.LogInformation(
+                    $"[BITRATE] Playback bitrate changed from {args.OldValue / 1000}kbps to {args.NewValue / 1000}kbps");
             }
             catch (Exception ex)
             {

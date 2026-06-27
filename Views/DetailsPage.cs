@@ -1,9 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Gelatinarm.Controls;
-using Gelatinarm.Models;
-using Gelatinarm.Services;
-using Jellyfin.Sdk;
 using Windows.Foundation;
 using Windows.System;
 using Windows.UI.Xaml;
@@ -12,6 +8,10 @@ using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Gelatinarm.Controls;
+using Gelatinarm.Models;
+using Gelatinarm.Services;
+using Jellyfin.Sdk;
 
 namespace Gelatinarm.Views
 {
@@ -32,7 +32,6 @@ namespace Gelatinarm.Views
             ApiClient = GetService<JellyfinApiClient>();
             DeviceService = GetService<IUnifiedDeviceService>();
             NavigationStateService = GetService<INavigationStateService>();
-
         }
 
         // Common UI Elements (expected to be defined in derived XAML)

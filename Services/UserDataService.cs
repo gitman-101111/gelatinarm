@@ -53,6 +53,7 @@ namespace Gelatinarm.Services
                         .DeleteAsync(config => config.QueryParameters.UserId = userGuid.Value, cancellationToken)
                         .ConfigureAwait(false);
                 }
+
                 return await GetUserDataAsync(itemId, userGuid, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -90,6 +91,7 @@ namespace Gelatinarm.Services
                         .DeleteAsync(config => config.QueryParameters.UserId = userGuid.Value, cancellationToken)
                         .ConfigureAwait(false);
                 }
+
                 return await GetUserDataAsync(itemId, userGuid, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -112,6 +114,7 @@ namespace Gelatinarm.Services
                     Logger.LogWarning("Cannot get user data - no valid user ID");
                     return null;
                 }
+
                 var item = await _apiClient.Items[itemId]
                     .GetAsync(config => config.QueryParameters.UserId = userGuid.Value, cancellationToken)
                     .ConfigureAwait(false);
@@ -123,6 +126,5 @@ namespace Gelatinarm.Services
                 return await ErrorHandler.HandleErrorAsync<UserItemDataDto>(ex, context, null);
             }
         }
-
     }
 }

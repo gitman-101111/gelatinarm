@@ -1,6 +1,6 @@
 using System;
-using Jellyfin.Sdk.Generated.Models;
 using Windows.UI.Xaml.Data;
+using Jellyfin.Sdk.Generated.Models;
 
 namespace Gelatinarm.Converters.Text
 {
@@ -74,6 +74,7 @@ namespace Gelatinarm.Converters.Text
 
                                     return $"{startYear}-Present";
                                 }
+
                                 return startYear.ToString();
                             }
                             // Fallback to season count if no year info

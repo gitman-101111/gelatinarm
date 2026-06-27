@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Gelatinarm.Views;
@@ -112,7 +113,8 @@ namespace Gelatinarm.ViewModels
                     ItemId = CurrentItem.Id?.ToString(),
                     MediaSourceId = mediaSourceId,
                     AudioStreamIndex = SelectedAudioTrack?.ServerStreamIndex,
-                    SubtitleStreamIndex = SelectedSubtitleTrack?.IsNoneOption == true ? -1 : SelectedSubtitleTrack?.ServerStreamIndex,
+                    SubtitleStreamIndex =
+                        SelectedSubtitleTrack?.IsNoneOption == true ? -1 : SelectedSubtitleTrack?.ServerStreamIndex,
                     StartPositionTicks = CanResume && CurrentItem.UserData?.PlaybackPositionTicks.HasValue == true
                         ? CurrentItem.UserData.PlaybackPositionTicks
                         : null
@@ -122,7 +124,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -160,7 +162,8 @@ namespace Gelatinarm.ViewModels
                     ItemId = CurrentItem.Id?.ToString(),
                     MediaSourceId = mediaSourceId,
                     AudioStreamIndex = SelectedAudioTrack?.ServerStreamIndex,
-                    SubtitleStreamIndex = SelectedSubtitleTrack?.IsNoneOption == true ? -1 : SelectedSubtitleTrack?.ServerStreamIndex,
+                    SubtitleStreamIndex =
+                        SelectedSubtitleTrack?.IsNoneOption == true ? -1 : SelectedSubtitleTrack?.ServerStreamIndex,
                     StartPositionTicks = 0 // Start from beginning
                 };
 
@@ -168,7 +171,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -207,6 +210,7 @@ namespace Gelatinarm.ViewModels
             {
                 Year = CurrentItem.PremiereDate.Value.Year.ToString();
             }
+
             if (CurrentItem.RunTimeTicks.HasValue)
             {
                 var runtime = TimeSpan.FromTicks(CurrentItem.RunTimeTicks.Value);
@@ -226,6 +230,7 @@ namespace Gelatinarm.ViewModels
                     Runtime = $"{runtime.Minutes}min";
                 }
             }
+
             if (!string.IsNullOrEmpty(CurrentItem.OfficialRating))
             {
                 Rating = CurrentItem.OfficialRating;
@@ -251,7 +256,9 @@ namespace Gelatinarm.ViewModels
 
             // Load cast and crew
             LoadCastAndCrew();
-            HasCast = Cast.Count > 0; LoadGenres(); LoadStudios();
+            HasCast = Cast.Count > 0;
+            LoadGenres();
+            LoadStudios();
 
             // Format release date
             if (CurrentItem.PremiereDate.HasValue)
@@ -285,11 +292,13 @@ namespace Gelatinarm.ViewModels
                 {
                     Cast.Add(actor);
                 }
+
                 var director = CurrentItem.People.FirstOrDefault(p => p.Type == BaseItemPerson_Type.Director);
                 if (director != null)
                 {
                     Director = director.Name;
                 }
+
                 var writers = CurrentItem.People
                     .Where(p => p.Type == BaseItemPerson_Type.Writer)
                     .Select(p => p.Name)
@@ -394,7 +403,9 @@ namespace Gelatinarm.ViewModels
         private async Task LoadCollectionSiblingsAsync()
         {
             if (CurrentItem?.Id == null || !UserIdGuid.HasValue)
+            {
                 return;
+            }
 
             var context = CreateErrorContext("LoadCollectionSiblings");
             try
@@ -406,7 +417,9 @@ namespace Gelatinarm.ViewModels
 
                 var collection = ancestors?.FirstOrDefault(a => a.Type == BaseItemDto_Type.BoxSet);
                 if (collection?.Id == null)
+                {
                     return;
+                }
 
                 var response = await ApiClient.Items.GetAsync(config =>
                 {
@@ -513,9 +526,7 @@ namespace Gelatinarm.ViewModels
 
                     var defaultVersion = new MovieVersion
                     {
-                        Id = CurrentItem.Id.Value.ToString(),
-                        Name = displayName,
-                        SourceInfo = null
+                        Id = CurrentItem.Id.Value.ToString(), Name = displayName, SourceInfo = null
                     };
                     AvailableVersions.Add(defaultVersion);
                 }
@@ -658,6 +669,7 @@ namespace Gelatinarm.ViewModels
                     Logger?.LogError($"Invalid ID format - Version: {version.Id}, User: {userGuid}");
                     return;
                 }
+
                 var item = await ApiClient.Items[versionGuid].GetAsync(config =>
                 {
                     config.QueryParameters.UserId = userGuid.Value;
@@ -710,7 +722,8 @@ namespace Gelatinarm.ViewModels
                 }
 
                 // Load subtitle tracks for this version
-                var noneSubtitle = new SubtitleTrack { IsNoneOption = true, DisplayTitle = "None", ServerStreamIndex = -1 };
+                var noneSubtitle =
+                    new SubtitleTrack { IsNoneOption = true, DisplayTitle = "None", ServerStreamIndex = -1 };
                 AvailableSubtitleTracks.Add(noneSubtitle);
 
                 var subtitleStreams = item.MediaStreams.Where(s => s.Type == MediaStream_Type.Subtitle).ToList();
@@ -757,7 +770,7 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        [CommunityToolkit.Mvvm.Input.RelayCommand]
+        [RelayCommand]
         private void ToggleBioExpansion()
         {
             IsBioExpanded = !IsBioExpanded;

@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Gelatinarm.Helpers;
-using Gelatinarm.Models;
-using Jellyfin.Sdk.Generated.Models;
 using Windows.Gaming.Input;
 using Windows.Media.Core;
 using Windows.Media.Playback;
@@ -13,6 +10,9 @@ using Windows.UI.Core;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
+using Gelatinarm.Helpers;
+using Gelatinarm.Models;
+using Jellyfin.Sdk.Generated.Models;
 using AudioTrack = Gelatinarm.Models.AudioTrack;
 
 namespace Gelatinarm.Services
@@ -97,10 +97,10 @@ namespace Gelatinarm.Services
         bool IsXboxSeriesConsole { get; }
         bool IsXboxSeriesDevice { get; }
         bool IsNetworkAvailable { get; }
-        bool SupportsHDR { get; }
+        bool SupportsHdr { get; }
         bool SupportsHDR10 { get; }
         bool SupportsHDR10Plus { get; }
-        bool SupportsHLG { get; }
+        bool SupportsHlg { get; }
         bool SupportsDolbyVision { get; }
         bool SupportsHardwareDecoding { get; }
         int MaxSupportedBitrate { get; }
@@ -437,7 +437,7 @@ namespace Gelatinarm.Services
 
         // Preference Getters (for UI binding)
         bool GetSpatialAudioPreference();
-        bool GetHDROutputEnabledPreference();
+        bool GetHdrOutputEnabledPreference();
 
         // Events
         event EventHandler<OptimizationStateChangedEventArgs> OptimizationStateChanged;
@@ -831,14 +831,13 @@ namespace Gelatinarm.Services
         /// <param name="restartReason">Reason for restart (for logging)</param>
         /// <param name="audioStreamIndex">Optional audio stream index for audio track changes</param>
         /// <param name="subtitleStreamIndex">Optional subtitle stream index for subtitle changes</param>
-        Task RestartPlaybackWithCurrentPositionAsync(int? maxBitrate = null, string restartReason = "stream change", int? audioStreamIndex = null, int? subtitleStreamIndex = null);
-
+        Task RestartPlaybackWithCurrentPositionAsync(int? maxBitrate = null, string restartReason = "stream change",
+            int? audioStreamIndex = null, int? subtitleStreamIndex = null);
     }
 
     /// <summary>
     ///     Service for managing buffering state and health
     /// </summary>
-
     /// <summary>
     ///     Service for managing subtitle tracks
     /// </summary>

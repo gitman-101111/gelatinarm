@@ -1,3 +1,5 @@
+using System;
+
 namespace Gelatinarm.Models
 {
     /// <summary>
@@ -118,14 +120,15 @@ namespace Gelatinarm.Models
     /// <summary>
     /// Exception thrown when media playback resume operation times out
     /// </summary>
-    public class ResumeTimeoutException : System.InvalidOperationException
+    public class ResumeTimeoutException : InvalidOperationException
     {
-        public System.TimeSpan Position { get; }
-        public System.TimeSpan TargetPosition { get; }
-        public System.TimeSpan Elapsed { get; }
+        public TimeSpan Position { get; }
+        public TimeSpan TargetPosition { get; }
+        public TimeSpan Elapsed { get; }
 
-        public ResumeTimeoutException(System.TimeSpan position, System.TimeSpan targetPosition, System.TimeSpan elapsed)
-            : base($"Resume operation timed out after {elapsed.TotalSeconds:F1}s. Stuck at position {position:mm\\:ss}, target was {targetPosition:mm\\:ss}")
+        public ResumeTimeoutException(TimeSpan position, TimeSpan targetPosition, TimeSpan elapsed)
+            : base(
+                $"Resume operation timed out after {elapsed.TotalSeconds:F1}s. Stuck at position {position:mm\\:ss}, target was {targetPosition:mm\\:ss}")
         {
             Position = position;
             TargetPosition = targetPosition;
@@ -136,14 +139,15 @@ namespace Gelatinarm.Models
     /// <summary>
     /// Exception thrown when media playback is stuck and cannot resume
     /// </summary>
-    public class ResumeStuckException : System.InvalidOperationException
+    public class ResumeStuckException : InvalidOperationException
     {
-        public System.TimeSpan Position { get; }
-        public System.TimeSpan TargetPosition { get; }
+        public TimeSpan Position { get; }
+        public TimeSpan TargetPosition { get; }
         public int AttemptCount { get; }
 
-        public ResumeStuckException(System.TimeSpan position, System.TimeSpan targetPosition, int attemptCount)
-            : base($"Unable to resume playback at the saved position. This media may have encoding issues that prevent proper seeking. You can try playing it from the beginning instead.")
+        public ResumeStuckException(TimeSpan position, TimeSpan targetPosition, int attemptCount)
+            : base(
+                "Unable to resume playback at the saved position. This media may have encoding issues that prevent proper seeking. You can try playing it from the beginning instead.")
         {
             Position = position;
             TargetPosition = targetPosition;

@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Controls;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Controls;
 
 namespace Gelatinarm.Views
 {
@@ -12,7 +12,7 @@ namespace Gelatinarm.Views
     /// </summary>
     public sealed partial class MovieDetailsPage : DetailsPage
     {
-        private bool _isNavigatingToPerson = false;
+        private bool _isNavigatingToPerson;
 
         public MovieDetailsPage() : base(typeof(MovieDetailsPage))
         {

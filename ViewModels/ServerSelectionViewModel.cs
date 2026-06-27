@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.System.Profile;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
@@ -10,7 +11,6 @@ using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Gelatinarm.Views;
 using Microsoft.Extensions.Logging;
-using Windows.System.Profile;
 using Exception = System.Exception;
 
 namespace Gelatinarm.ViewModels
@@ -145,6 +145,7 @@ namespace Gelatinarm.ViewModels
                         await ShowErrorAsync("Invalid server URL format", "Connection Error");
                         return;
                     }
+
                     trimmedUrl = "http://" + lastPart;
                     Logger?.LogInformation($"Attempting HTTP fallback: {trimmedUrl}");
                     isAvailable = await TestConnectionAsync(trimmedUrl);

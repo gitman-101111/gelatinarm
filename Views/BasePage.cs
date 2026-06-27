@@ -1,16 +1,16 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Windows.UI.Core;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Navigation;
 using Gelatinarm.Controls;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Core;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
 
 namespace Gelatinarm.Views
 {
@@ -21,11 +21,11 @@ namespace Gelatinarm.Views
     public abstract class BasePage : Page
     {
         private readonly Type _loggerType;
-        private bool _hasInitialized = false;
+        private bool _hasInitialized;
 
         // State tracking
-        private bool _isPageLoaded = false;
-        private bool _servicesInitialized = false;
+        private bool _isPageLoaded;
+        private bool _servicesInitialized;
 
         protected BasePage() : this(typeof(BasePage))
         {

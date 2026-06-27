@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Windows.Media.Playback;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
@@ -9,9 +12,6 @@ using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Playback;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using RepeatMode = Gelatinarm.Services.RepeatMode;
 
 namespace Gelatinarm.Controls
@@ -19,7 +19,7 @@ namespace Gelatinarm.Controls
     public sealed partial class MusicPlayer : BaseControl
     {
         private MediaPlayer _currentMediaPlayer;
-        private bool _isUpdatingProgress = false;
+        private bool _isUpdatingProgress;
         private IMusicPlayerService _musicPlayerService;
         private INavigationService _navigationService;
         private JellyfinApiClient _apiClient;
@@ -29,7 +29,8 @@ namespace Gelatinarm.Controls
 
         public MusicPlayer()
         {
-            InitializeComponent(); Loaded += MusicPlayer_Loaded;
+            InitializeComponent();
+            Loaded += MusicPlayer_Loaded;
             Unloaded += MusicPlayer_Unloaded;
         }
 
@@ -96,9 +97,10 @@ namespace Gelatinarm.Controls
                     // Subscribe to MediaPlayer events for duration updates
                     SubscribeToMediaPlayer();
                 }
+
                 _progressTimer = new DispatcherTimer
                 {
-                    Interval = TimeSpan.FromMilliseconds(UIConstants.MINI_PLAYER_UPDATE_INTERVAL_MS)
+                    Interval = TimeSpan.FromMilliseconds(UiConstants.MiniPlayerUpdateIntervalMs)
                 };
                 _progressTimer.Tick += ProgressTimer_Tick;
 
@@ -221,7 +223,7 @@ namespace Gelatinarm.Controls
 #endif
             AsyncHelper.FireAndForget(async () =>
             {
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     var context = CreateErrorContext("NowPlayingChanged");
                     try
@@ -255,7 +257,7 @@ namespace Gelatinarm.Controls
         {
             AsyncHelper.FireAndForget(async () =>
             {
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     try
                     {
@@ -292,7 +294,7 @@ namespace Gelatinarm.Controls
             Logger?.LogInformation($"MusicPlayer received ShuffleStateChanged event: {isShuffled}");
             AsyncHelper.FireAndForget(async () =>
             {
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     try
                     {
@@ -320,7 +322,7 @@ namespace Gelatinarm.Controls
             Logger?.LogInformation($"MusicPlayer received RepeatModeChanged event: {repeatMode}");
             AsyncHelper.FireAndForget(async () =>
             {
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     try
                     {
@@ -348,7 +350,7 @@ namespace Gelatinarm.Controls
             Logger?.LogInformation($"MusicPlayer received QueueChanged event: {queue?.Count ?? 0} items");
             AsyncHelper.FireAndForget(async () =>
             {
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     try
                     {
@@ -407,7 +409,8 @@ namespace Gelatinarm.Controls
             {
                 var duration = TimeSpan.FromTicks(item.RunTimeTicks.Value);
                 TotalTimeText.Text = TimeFormattingHelper.FormatTime(duration);
-                Logger?.LogDebug($"MusicPlayer: Set duration from metadata: {TimeFormattingHelper.FormatTime(duration)}");
+                Logger?.LogDebug(
+                    $"MusicPlayer: Set duration from metadata: {TimeFormattingHelper.FormatTime(duration)}");
             }
 
             // Load album art
@@ -658,7 +661,7 @@ namespace Gelatinarm.Controls
                             var instantMix = await _apiClient.Items[currentItem.Id.Value].InstantMix.GetAsync(config =>
                             {
                                 config.QueryParameters.UserId = userIdGuid;
-                                config.QueryParameters.Limit = MediaConstants.MAX_DISCOVERY_QUERY_LIMIT;
+                                config.QueryParameters.Limit = MediaConstants.MaxDiscoveryQueryLimit;
                             });
 
                             if (instantMix?.Items?.Any() == true)

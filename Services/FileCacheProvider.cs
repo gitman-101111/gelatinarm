@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Windows.Storage;
 using Windows.Storage.Streams;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
 {
@@ -166,6 +166,7 @@ namespace Gelatinarm.Services
                     _logger?.LogDebug("Cache folder does not exist, nothing to clear");
                     return;
                 }
+
                 foreach (var file in files)
                 {
                     if (!file.Name.Equals("metadata.json", StringComparison.OrdinalIgnoreCase))
@@ -299,6 +300,7 @@ namespace Gelatinarm.Services
                         {
                             _metadata.Clear();
                         }
+
                         await SaveMetadataAsync();
                         return;
                     }
@@ -315,6 +317,7 @@ namespace Gelatinarm.Services
                         {
                             _metadata.Clear();
                         }
+
                         await SaveMetadataAsync();
                         return;
                     }
@@ -326,6 +329,7 @@ namespace Gelatinarm.Services
                         {
                             _metadata.Clear();
                         }
+
                         await SaveMetadataAsync();
                         return;
                     }

@@ -1,6 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Storage;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
@@ -9,9 +12,6 @@ using Gelatinarm.Services;
 using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Microsoft.Extensions.Logging;
-using Windows.Storage;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 
 namespace Gelatinarm.ViewModels
 {
@@ -40,11 +40,11 @@ namespace Gelatinarm.ViewModels
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
-        private bool _hasUnsavedChanges = false;
+        private bool _hasUnsavedChanges;
         private string _validationError;
 
         // Settings properties
-        private bool _allowSelfSignedCertificates = false;
+        private bool _allowSelfSignedCertificates;
         private int _connectionTimeout = 30;
 
         // Server properties
@@ -63,7 +63,8 @@ namespace Gelatinarm.ViewModels
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
-            PreferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService)); SignOutCommand = new AsyncRelayCommand(SignOutAsync);
+            PreferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+            SignOutCommand = new AsyncRelayCommand(SignOutAsync);
         }
 
         // Commands
@@ -235,6 +236,7 @@ namespace Gelatinarm.ViewModels
                     Username = "Not logged in";
                 }
             }
+
             var appPrefs = await PreferencesService.GetAppPreferencesAsync().ConfigureAwait(false);
 
             await RunOnUIThreadAsync(() =>
@@ -263,7 +265,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         protected async Task ResetToDefaultsInternalAsync()
         {
-            ConnectionTimeout = SystemConstants.DEFAULT_TIMEOUT_SECONDS;
+            ConnectionTimeout = SystemConstants.DefaultTimeoutSeconds;
             AllowSelfSignedCertificates = true;
             await Task.CompletedTask;
         }

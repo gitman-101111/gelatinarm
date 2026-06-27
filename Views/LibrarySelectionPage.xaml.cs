@@ -1,13 +1,13 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using Gelatinarm.Constants;
 using Gelatinarm.Services;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 
 namespace Gelatinarm.Views
 {
@@ -44,7 +44,7 @@ namespace Gelatinarm.Views
                     $"LibrarySelectionPage: Navigating to library: {library.Name} (ID: {library.Id}, Type: {library.CollectionType})");
 
                 // Small delay to ensure any animations complete
-                await Task.Delay(UIConstants.UI_RENDER_DELAY_MS);
+                await Task.Delay(UiConstants.UiRenderDelayMs);
 
                 _navigationService.Navigate(typeof(LibraryPage), library);
             }
@@ -104,7 +104,7 @@ namespace Gelatinarm.Views
         {
             // Set focus to the first library, if any items exist.
             // Using a short delay to ensure items are rendered for focus to work reliably.
-            await Task.Delay(UIConstants.UI_SETTLE_DELAY_MS);
+            await Task.Delay(UiConstants.UiSettleDelayMs);
             if (LibraryTypeGrid?.Items?.Count > 0)
             {
                 try

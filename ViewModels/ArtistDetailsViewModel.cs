@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
@@ -11,7 +12,6 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.ViewModels
 {
@@ -152,13 +152,15 @@ namespace Gelatinarm.ViewModels
             {
                 return;
             }
-            await RunOnUIThreadAsync(() => UpdateArtistUI()); await LoadAlbumsAsync(cancellationToken);
+
+            await RunOnUIThreadAsync(() => UpdateArtistUi());
+            await LoadAlbumsAsync(cancellationToken);
 
             Logger?.LogInformation(
                 $"ArtistDetailsViewModel: Loaded artist: {CurrentItem?.Name ?? CurrentItem?.Id?.ToString() ?? "Unknown"} with {Albums.Count} albums");
         }
 
-        private void UpdateArtistUI()
+        private void UpdateArtistUi()
         {
             if (CurrentItem == null)
             {
@@ -289,7 +291,7 @@ namespace Gelatinarm.ViewModels
                 {
                     config.QueryParameters.ParentId = albumWithTracks.Album.Id.Value;
                     config.QueryParameters.UserId = UserIdGuid.Value;
-                    config.QueryParameters.SortBy = new ItemSortBy[] { ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber };
+                    config.QueryParameters.SortBy = new[] { ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber };
                 }, cancellationToken).ConfigureAwait(false);
 
                 if (response?.Items != null)

@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Navigation;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Views;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
 
 namespace Gelatinarm.Services
 {
@@ -142,7 +142,7 @@ namespace Gelatinarm.Services
 
         public bool Navigate(Type pageType, object parameter = null)
         {
-            if (!_navigationSemaphore.Wait(TimeSpan.FromSeconds(RetryConstants.NAVIGATION_TIMEOUT_SECONDS)))
+            if (!_navigationSemaphore.Wait(TimeSpan.FromSeconds(RetryConstants.NavigationTimeoutSeconds)))
             {
                 Logger.LogWarning("Navigate: Navigation timeout - another navigation in progress");
                 return false;
@@ -233,7 +233,7 @@ namespace Gelatinarm.Services
             }
 
             // Special handling for MediaPlayerPage to prevent memory buildup
-            bool isEpisodeToEpisodeNavigation = false;
+            var isEpisodeToEpisodeNavigation = false;
             if (pageType == typeof(MediaPlayerPage))
             {
                 // Check if we're navigating from MediaPlayerPage to MediaPlayerPage (episode to episode)
@@ -247,12 +247,12 @@ namespace Gelatinarm.Services
             }
 
             // Limit back stack depth
-            if (_frame.BackStackDepth > UIConstants.MAX_BACK_STACK_DEPTH)
+            if (_frame.BackStackDepth > UiConstants.MaxBackStackDepth)
             {
                 Logger.LogInformation("Trimming back stack (current depth: {Depth})", _frame.BackStackDepth);
 
                 // Remove oldest entries from back stack
-                while (_frame.BackStackDepth > UIConstants.MAX_BACK_STACK_DEPTH - 1)
+                while (_frame.BackStackDepth > UiConstants.MaxBackStackDepth - 1)
                 {
                     if (_frame.BackStack.Any())
                     {
@@ -302,7 +302,8 @@ namespace Gelatinarm.Services
                     if (_frame.BackStack[lastIndex].SourcePageType == typeof(MediaPlayerPage))
                     {
                         _frame.BackStack.RemoveAt(lastIndex);
-                        Logger.LogInformation("Removed previous MediaPlayerPage from back stack after episode-to-episode navigation");
+                        Logger.LogInformation(
+                            "Removed previous MediaPlayerPage from back stack after episode-to-episode navigation");
                     }
                 }
                 else if (pageType != typeof(MediaPlayerPage) &&
@@ -323,12 +324,13 @@ namespace Gelatinarm.Services
                         IsSameNavigationContext(_frame.BackStack[_frame.BackStack.Count - 1].Parameter, parameter))
                     {
                         _frame.BackStack.RemoveAt(_frame.BackStack.Count - 1);
-                        Logger.LogInformation($"Collapsed duplicate {pageType.Name} from back stack (same series context)");
+                        Logger.LogInformation(
+                            $"Collapsed duplicate {pageType.Name} from back stack (same series context)");
                     }
                 }
 
                 // Keep navigation history size reasonable
-                if (_navigationHistory.Count > UIConstants.MAX_BACK_STACK_DEPTH * 2)
+                if (_navigationHistory.Count > UiConstants.MaxBackStackDepth * 2)
                 {
                     _navigationHistory.Clear();
                 }
@@ -345,7 +347,7 @@ namespace Gelatinarm.Services
         {
             // Use async wait with timeout
             using (var cts = new CancellationTokenSource(
-                       TimeSpan.FromSeconds(RetryConstants.NAVIGATION_TIMEOUT_SECONDS)))
+                       TimeSpan.FromSeconds(RetryConstants.NavigationTimeoutSeconds)))
             {
                 try
                 {
@@ -378,7 +380,7 @@ namespace Gelatinarm.Services
 
                 // Navigation must happen on UI thread
                 var result = false;
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     // Call NavigateCore directly to avoid double semaphore acquisition
                     result = NavigateCore(pageType, parameter);
@@ -543,11 +545,9 @@ namespace Gelatinarm.Services
                             $"GetLastNavigationParameter returning parameter for current page {current.PageType?.Name}");
                         return current.Parameter;
                     }
-                    else
-                    {
-                        Logger.LogWarning(
-                            $"GetLastNavigationParameter called but frame content ({_frame?.Content?.GetType()?.Name}) doesn't match stack top ({current.PageType?.Name})");
-                    }
+
+                    Logger.LogWarning(
+                        $"GetLastNavigationParameter called but frame content ({_frame?.Content?.GetType()?.Name}) doesn't match stack top ({current.PageType?.Name})");
                 }
             }
 
@@ -699,11 +699,16 @@ namespace Gelatinarm.Services
         {
             if (paramA is BaseItemDto itemA && paramB is BaseItemDto itemB)
             {
-                if (itemA.Id == itemB.Id) return true;
+                if (itemA.Id == itemB.Id)
+                {
+                    return true;
+                }
+
                 var seriesIdA = itemA.SeriesId ?? itemA.Id;
                 var seriesIdB = itemB.SeriesId ?? itemB.Id;
                 return seriesIdA.HasValue && seriesIdA == seriesIdB;
             }
+
             return false;
         }
 

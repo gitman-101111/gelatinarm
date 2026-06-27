@@ -109,7 +109,8 @@ namespace Gelatinarm.Services
                 case InvalidOperationException invEx when invEx.Message.Contains("Quick Connect"):
                     return invEx.Message; // Already user-friendly
 
-                case InvalidOperationException invEx when invEx.Message.Contains("resume playback", StringComparison.OrdinalIgnoreCase):
+                case InvalidOperationException invEx
+                    when invEx.Message.Contains("resume playback", StringComparison.OrdinalIgnoreCase):
                     return invEx.Message; // Already user-friendly for resume failures
 
                 case NotSupportedException _:
@@ -241,8 +242,10 @@ namespace Gelatinarm.Services
                 },
                 429 => "Too many requests. Please wait a moment and try again.",
                 500 => "Server error. The server encountered an error. Please try again later.",
-                502 => "The Jellyfin server appears to be restarting or temporarily unavailable. Please wait a moment and try again.",
-                503 => "The Jellyfin server is temporarily unavailable (possibly updating). Please wait a moment and try again.",
+                502 =>
+                    "The Jellyfin server appears to be restarting or temporarily unavailable. Please wait a moment and try again.",
+                503 =>
+                    "The Jellyfin server is temporarily unavailable (possibly updating). Please wait a moment and try again.",
                 504 => "The server is taking too long to respond. It may be under heavy load or restarting.",
                 _ => $"Server returned error {statusCode}. Please try again."
             };

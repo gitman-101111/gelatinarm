@@ -13,7 +13,7 @@ namespace Gelatinarm.Helpers
 
             try
             {
-                return global::Gelatinarm.App.Current?.Services?.GetService(serviceType);
+                return App.Current?.Services?.GetService(serviceType);
             }
             catch (InvalidOperationException)
             {
@@ -26,7 +26,7 @@ namespace Gelatinarm.Helpers
         {
             try
             {
-                return global::Gelatinarm.App.Current?.Services?.GetService(typeof(T)) as T;
+                return App.Current?.Services?.GetService(typeof(T)) as T;
             }
             catch (InvalidOperationException)
             {

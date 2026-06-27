@@ -134,7 +134,7 @@
             <!-- TV Shows Section -->
             <ListViewItem Margin="0" IsTabStop="False">
                 <StackPanel
-                    Visibility="{x:Bind ViewModel.IsTVShowsSectionVisible, Converter={StaticResource BoolToVisibility}}"
+                    Visibility="{x:Bind ViewModel.IsTvShowsSectionVisible, Converter={StaticResource BoolToVisibility}}"
                     Margin="0">
                     <TextBlock Text="TV Shows"
                                Style="{StaticResource SectionHeaderTextStyle}"
@@ -143,7 +143,7 @@
                     <ScrollViewer HorizontalScrollMode="Enabled"
                                   VerticalScrollMode="Disabled"
                                   HorizontalScrollBarVisibility="Hidden">
-                        <GridView x:Name="TVShowsList"
+                        <GridView x:Name="TvShowsList"
                                   ItemsSource="{x:Bind ViewModel.TvShows}"
                                   SelectionMode="None"
                                   IsItemClickEnabled="True"

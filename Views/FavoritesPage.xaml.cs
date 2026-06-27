@@ -1,11 +1,12 @@
 using System;
 using System.Threading.Tasks;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using Gelatinarm.Controls;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+
 // Added for Application.Current.Resources and Style
 
 namespace Gelatinarm.Views

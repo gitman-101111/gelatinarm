@@ -18,7 +18,7 @@ namespace Gelatinarm.ViewModels
         private readonly IUnifiedDeviceService _unifiedDeviceService;
 
         // UI Properties
-        private volatile bool _isInitialized = false;
+        private volatile bool _isInitialized;
         private double _textSize = 14.0;
 
         public SettingsViewModel(
@@ -36,7 +36,8 @@ namespace Gelatinarm.ViewModels
         {
             _unifiedDeviceService =
                 unifiedDeviceService ?? throw new ArgumentNullException(nameof(unifiedDeviceService));
-            _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel)); ServerSettings = new ServerSettingsViewModel(
+            _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
+            ServerSettings = new ServerSettingsViewModel(
                 serverLogger,
                 apiClient,
                 preferencesService,
@@ -46,7 +47,8 @@ namespace Gelatinarm.ViewModels
 
             PlaybackSettings = new PlaybackSettingsViewModel(
                 playbackLogger,
-                preferencesService); ResetSettingsCommand = new RelayCommand(ResetSettings);
+                preferencesService);
+            ResetSettingsCommand = new RelayCommand(ResetSettings);
 
             // Call InitializeAsync without await from constructor for async initialization
             FireAndForget(() => InitializeAsync());
@@ -83,11 +85,7 @@ namespace Gelatinarm.ViewModels
 
         protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
         {
-            var tasks = new[]
-            {
-                ServerSettings.InitializeAsync(),
-                PlaybackSettings.InitializeAsync()
-            };
+            var tasks = new[] { ServerSettings.InitializeAsync(), PlaybackSettings.InitializeAsync() };
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
 
@@ -105,11 +103,7 @@ namespace Gelatinarm.ViewModels
 
         protected override async Task RefreshDataCoreAsync()
         {
-            var tasks = new[]
-            {
-                ServerSettings.RefreshAsync(),
-                PlaybackSettings.RefreshAsync()
-            };
+            var tasks = new[] { ServerSettings.RefreshAsync(), PlaybackSettings.RefreshAsync() };
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }

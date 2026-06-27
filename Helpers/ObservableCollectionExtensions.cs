@@ -48,7 +48,8 @@ namespace Gelatinarm.Helpers
             if (collection.Count == 0 && itemsList.Count == 0)
             {
                 return;
-            }            // This will fire 2 events (one for Clear, one for Reset) instead of N events
+            } // This will fire 2 events (one for Clear, one for Reset) instead of N events
+
             collection.Clear();
 
             // Add all new items

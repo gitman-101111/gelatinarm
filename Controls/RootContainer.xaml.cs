@@ -9,28 +9,20 @@ namespace Gelatinarm.Controls
     public sealed partial class RootContainer : BaseControl
     {
         private DispatcherTimer _rightTriggerHoldTimer;
-        private bool _isRightTriggerDown = false;
-        private const int TRIGGER_HOLD_DELAY_MS = 500;
+        private bool _isRightTriggerDown;
+        private const int TriggerHoldDelayMs = 500;
 
         public RootContainer()
         {
-            try
-            {
-                InitializeComponent();
+            InitializeComponent();
 
-                if (ContentFrame == null)
-                {
-                    throw new InvalidOperationException("ContentFrame is null after InitializeComponent");
-                }
-
-                // Setup right trigger hold detection
-                InitializeTriggerHoldDetection();
-            }
-            catch (Exception)
+            if (ContentFrame == null)
             {
-                throw;
+                throw new InvalidOperationException("ContentFrame is null after InitializeComponent");
             }
 
+            // Setup right trigger hold detection
+            InitializeTriggerHoldDetection();
         }
 
         private void InitializeTriggerHoldDetection()
@@ -42,7 +34,7 @@ namespace Gelatinarm.Controls
             // Initialize the hold timer
             _rightTriggerHoldTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(TRIGGER_HOLD_DELAY_MS)
+                Interval = TimeSpan.FromMilliseconds(TriggerHoldDelayMs)
             };
             _rightTriggerHoldTimer.Tick += OnRightTriggerHoldTimerTick;
         }
@@ -71,6 +63,7 @@ namespace Gelatinarm.Controls
                 if (_rightTriggerHoldTimer.IsEnabled)
                 {
                 }
+
                 CancelRightTriggerHold();
             }
         }
@@ -83,9 +76,6 @@ namespace Gelatinarm.Controls
             if (MusicPlayer != null && MusicPlayer.Visibility == Visibility.Visible)
             {
                 MusicPlayer.FocusPlayPauseButton();
-            }
-            else
-            {
             }
         }
 

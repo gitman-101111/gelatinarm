@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.Media.Playback;
 using Gelatinarm.Constants;
 using Gelatinarm.Models;
+using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Playback;
 
 namespace Gelatinarm.Services
 {
@@ -19,10 +20,10 @@ namespace Gelatinarm.Services
         private readonly IPlaybackControlService _playbackControlService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAuthenticationService _authService;
-        private readonly Jellyfin.Sdk.JellyfinApiClient _apiClient;
+        private readonly JellyfinApiClient _apiClient;
         private MediaSourceInfo _currentMediaSource;
         private SubtitleTrack _currentSubtitle;
-        private volatile bool _isDisposed = false;
+        private volatile bool _isDisposed;
 
         private MediaPlayer _mediaPlayer;
         private MediaPlaybackParams _playbackParams;
@@ -34,7 +35,7 @@ namespace Gelatinarm.Services
             IPreferencesService preferencesService,
             IMediaControlService mediaControlService,
             IAuthenticationService authService,
-            Jellyfin.Sdk.JellyfinApiClient apiClient) : base(logger)
+            JellyfinApiClient apiClient) : base(logger)
         {
             _playbackControlService =
                 playbackControlService ?? throw new ArgumentNullException(nameof(playbackControlService));
@@ -63,8 +64,8 @@ namespace Gelatinarm.Services
                     new()
                     {
                         ServerStreamIndex = -1,
-                        Language = MediaConstants.SUBTITLE_NONE_OPTION,
-                        DisplayTitle = MediaConstants.SUBTITLE_NONE_OPTION,
+                        Language = MediaConstants.SubtitleNoneOption,
+                        DisplayTitle = MediaConstants.SubtitleNoneOption,
                         IsNoneOption = true,
                         IsDefault = false
                     }
@@ -240,6 +241,5 @@ namespace Gelatinarm.Services
                 restartReason: $"subtitle change to {subtitle.DisplayTitle}",
                 subtitleStreamIndex: subtitleIndex);
         }
-
     }
 }

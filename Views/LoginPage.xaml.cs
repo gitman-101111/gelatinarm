@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Windows.UI.Core;
 using Gelatinarm.Controls;
 using Gelatinarm.ViewModels;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Core;
 
 namespace Gelatinarm.Views
 {
@@ -37,6 +37,7 @@ namespace Gelatinarm.Views
             {
                 Logger?.LogWarning(ex, "Failed to configure system navigation");
             }
+
             await ViewModel.InitializeAsync(parameter);
         }
 

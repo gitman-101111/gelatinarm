@@ -4,11 +4,6 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Gelatinarm.Constants;
-using Gelatinarm.Helpers;
-using Gelatinarm.Models;
-using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.Logging;
 using Windows.Devices.Enumeration;
 using Windows.Networking.Connectivity;
 using Windows.Security.ExchangeActiveSyncProvisioning;
@@ -16,6 +11,12 @@ using Windows.System;
 using Windows.System.Profile;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
+using Gelatinarm.Constants;
+using Gelatinarm.Helpers;
+using Gelatinarm.Models;
+using Jellyfin.Sdk.Generated.Models;
+using Microsoft.Extensions.Logging;
+
 // Stopwatch is here
 
 namespace Gelatinarm.Services
@@ -73,11 +74,11 @@ namespace Gelatinarm.Services
 
     public class SystemMonitorService : BaseService, ISystemMonitorService, IMemoryMonitor, INetworkMonitor, IDisposable
     {
-        private const ulong MEMORY_THRESHOLD_LOW = 1024 * 1024 * 1024;
-        private const double BANDWIDTH_THRESHOLD_LOW = 5_000_000;
+        private const ulong MemoryThresholdLow = 1024 * 1024 * 1024;
+        private const double BandwidthThresholdLow = 5_000_000;
 
         private readonly TimeSpan _bandwidthTestInterval =
-            TimeSpan.FromMinutes(RetryConstants.BANDWIDTH_TEST_INTERVAL_MINUTES);
+            TimeSpan.FromMinutes(RetryConstants.BandwidthTestIntervalMinutes);
 
         private readonly CoreDispatcher _dispatcher;
 
@@ -94,14 +95,14 @@ namespace Gelatinarm.Services
             _userProfileService; // Kept, though not directly used in provided snippets, may be used by other methods
 
         private SystemMetrics _currentMetrics;
-        private volatile bool _disposed = false;
+        private volatile bool _disposed;
 
-        private double _lastBandwidth = 0.0;
+        private double _lastBandwidth;
         private readonly object _bandwidthLock = new object();
         private DateTime _lastBandwidthTest = DateTime.MinValue;
         private readonly object _bandwidthTestLock = new object();
         private volatile AppMemoryUsageLevel _lastMemoryPressure = AppMemoryUsageLevel.Low;
-        private volatile bool _lastNetworkStatus = false;
+        private volatile bool _lastNetworkStatus;
         private volatile ConnectionQuality _lastConnectionQuality = ConnectionQuality.Good;
         private DispatcherTimer _monitoringTimer;
 
@@ -128,7 +129,7 @@ namespace Gelatinarm.Services
             {
                 _monitoringTimer = new DispatcherTimer
                 {
-                    Interval = TimeSpan.FromSeconds(RetryConstants.SYSTEM_MONITOR_INTERVAL_SECONDS)
+                    Interval = TimeSpan.FromSeconds(RetryConstants.SystemMonitorIntervalSeconds)
                 };
                 _monitoringTimer.Tick += OnMonitoringTick;
             }
@@ -141,11 +142,12 @@ namespace Gelatinarm.Services
         }
 
         // IMemoryMonitor specific events - forward to internal event
-        private event EventHandler<MemoryPressureEventArgs> _memoryPressureChangedForInterface;
+        private event EventHandler<MemoryPressureEventArgs> MemoryPressureChangedForInterface;
+
         event EventHandler<MemoryPressureEventArgs> IMemoryMonitor.MemoryPressureChanged
         {
-            add { _memoryPressureChangedForInterface += value; }
-            remove { _memoryPressureChangedForInterface -= value; }
+            add => MemoryPressureChangedForInterface += value;
+            remove => MemoryPressureChangedForInterface -= value;
         }
 
         long INetworkMonitor.CurrentBandwidth => (long)CurrentBandwidth;
@@ -168,19 +170,19 @@ namespace Gelatinarm.Services
         }
 
         // INetworkMonitor specific events - forward to internal events
-        private event EventHandler<BandwidthEventArgs> _bandwidthChangedForInterface;
-        private event EventHandler<ConnectionQualityEventArgs> _connectionQualityChangedForInterface;
+        private event EventHandler<BandwidthEventArgs> BandwidthChangedForInterface;
+        private event EventHandler<ConnectionQualityEventArgs> ConnectionQualityChangedForInterface;
 
         event EventHandler<BandwidthEventArgs> INetworkMonitor.BandwidthChanged
         {
-            add { _bandwidthChangedForInterface += value; }
-            remove { _bandwidthChangedForInterface -= value; }
+            add => BandwidthChangedForInterface += value;
+            remove => BandwidthChangedForInterface -= value;
         }
 
         event EventHandler<ConnectionQualityEventArgs> INetworkMonitor.ConnectionQualityChanged
         {
-            add { _connectionQualityChangedForInterface += value; }
-            remove { _connectionQualityChangedForInterface -= value; }
+            add => ConnectionQualityChangedForInterface += value;
+            remove => ConnectionQualityChangedForInterface -= value;
         }
 
         public bool IsMonitoring { get; private set; }
@@ -243,7 +245,7 @@ namespace Gelatinarm.Services
             }
         }
 
-        public bool IsResourceConstrained => IsMemoryConstrained || CurrentBandwidth < BANDWIDTH_THRESHOLD_LOW;
+        public bool IsResourceConstrained => IsMemoryConstrained || CurrentBandwidth < BandwidthThresholdLow;
         public event EventHandler<SystemMetrics> MetricsUpdated;
         public event EventHandler<MemoryUsageEventArgs> MemoryUsageChanged;
         public event EventHandler<AppMemoryUsageLevel> MemoryPressureChanged;
@@ -290,7 +292,7 @@ namespace Gelatinarm.Services
                     {
                         _monitoringTimer = new DispatcherTimer
                         {
-                            Interval = TimeSpan.FromSeconds(RetryConstants.SYSTEM_MONITOR_INTERVAL_SECONDS)
+                            Interval = TimeSpan.FromSeconds(RetryConstants.SystemMonitorIntervalSeconds)
                         };
                         _monitoringTimer.Tick += OnMonitoringTick;
                         _monitoringTimer.Start();
@@ -497,15 +499,15 @@ namespace Gelatinarm.Services
                 metrics.AvailableMemory = memoryLimit - memoryUsage;
                 metrics.MemoryUsage = (double)memoryUsage / memoryLimit * 100.0;
 
-                if (metrics.MemoryUsage > SystemConstants.HIGH_MEMORY_USAGE_THRESHOLD)
+                if (metrics.MemoryUsage > SystemConstants.HighMemoryUsageThreshold)
                 {
                     metrics.MemoryPressure = AppMemoryUsageLevel.OverLimit;
                 }
-                else if (metrics.MemoryUsage > SystemConstants.MEDIUM_HIGH_MEMORY_USAGE_THRESHOLD)
+                else if (metrics.MemoryUsage > SystemConstants.MediumHighMemoryUsageThreshold)
                 {
                     metrics.MemoryPressure = AppMemoryUsageLevel.High;
                 }
-                else if (metrics.MemoryUsage > SystemConstants.MEDIUM_MEMORY_USAGE_THRESHOLD)
+                else if (metrics.MemoryUsage > SystemConstants.MediumMemoryUsageThreshold)
                 {
                     metrics.MemoryPressure = AppMemoryUsageLevel.Medium;
                 }
@@ -514,7 +516,7 @@ namespace Gelatinarm.Services
                     metrics.MemoryPressure = AppMemoryUsageLevel.Low;
                 }
 
-                metrics.IsMemoryConstrained = metrics.AvailableMemory < MEMORY_THRESHOLD_LOW ||
+                metrics.IsMemoryConstrained = metrics.AvailableMemory < MemoryThresholdLow ||
                                               metrics.MemoryPressure == AppMemoryUsageLevel.High;
 
                 await Task.CompletedTask.ConfigureAwait(false);
@@ -590,9 +592,7 @@ namespace Gelatinarm.Services
                     metrics.CurrentBandwidth = 0;
                     metrics.NetworkMetrics = new NetworkMetrics
                     {
-                        IsConnected = false,
-                        ConnectionType = 0,
-                        LastUpdated = DateTimeOffset.UtcNow
+                        IsConnected = false, ConnectionType = 0, LastUpdated = DateTimeOffset.UtcNow
                     };
                     return;
                 }
@@ -652,8 +652,8 @@ namespace Gelatinarm.Services
                 }
             }
 
-            var isNetworkConstrained = current.CurrentBandwidth < BANDWIDTH_THRESHOLD_LOW;
-            var wasNetworkConstrained = previous?.CurrentBandwidth < BANDWIDTH_THRESHOLD_LOW;
+            var isNetworkConstrained = current.CurrentBandwidth < BandwidthThresholdLow;
+            var wasNetworkConstrained = previous?.CurrentBandwidth < BandwidthThresholdLow;
 
             if (isNetworkConstrained != wasNetworkConstrained)
             {
@@ -687,10 +687,8 @@ namespace Gelatinarm.Services
                 MemoryPressureChanged?.Invoke(this, current.MemoryPressure);
 
                 // Also raise IMemoryMonitor.MemoryPressureChanged for interface consumers
-                _memoryPressureChangedForInterface?.Invoke(this, new MemoryPressureEventArgs
-                {
-                    Pressure = (MemoryPressure)(int)current.MemoryPressure
-                });
+                MemoryPressureChangedForInterface?.Invoke(this,
+                    new MemoryPressureEventArgs { Pressure = (MemoryPressure)(int)current.MemoryPressure });
 
                 _lastMemoryPressure = current.MemoryPressure;
             }
@@ -712,7 +710,7 @@ namespace Gelatinarm.Services
                 BandwidthChanged?.Invoke(this, current.CurrentBandwidth);
 
                 // Also raise INetworkMonitor.BandwidthChanged for interface consumers
-                _bandwidthChangedForInterface?.Invoke(this, new BandwidthEventArgs
+                BandwidthChangedForInterface?.Invoke(this, new BandwidthEventArgs
                 {
                     BandwidthKbps = (int)(current.CurrentBandwidth / 1000) // Convert to Kbps
                 });
@@ -731,7 +729,7 @@ namespace Gelatinarm.Services
                 var quality = DetermineConnectionQuality(current.CurrentBandwidth);
                 if (_lastConnectionQuality != quality)
                 {
-                    _connectionQualityChangedForInterface?.Invoke(this, new ConnectionQualityEventArgs
+                    ConnectionQualityChangedForInterface?.Invoke(this, new ConnectionQualityEventArgs
                     {
                         Quality = quality,
                         LatencyMs = 0, // Would need actual measurement
@@ -748,9 +746,7 @@ namespace Gelatinarm.Services
                 NetworkConditionsChanged?.Invoke(this,
                     new NetworkConditionsEventArgs
                     {
-                        Bandwidth = (long)current.CurrentBandwidth,
-                        Latency = 0,
-                        PacketLoss = 0.0
+                        Bandwidth = (long)current.CurrentBandwidth, Latency = 0, PacketLoss = 0.0
                     });
             }
         }
@@ -762,18 +758,18 @@ namespace Gelatinarm.Services
             {
                 return ConnectionQuality.Excellent;
             }
-            else if (bandwidthBps >= 10_000_000) // 10 Mbps+ (HD streaming)
+
+            if (bandwidthBps >= 10_000_000) // 10 Mbps+ (HD streaming)
             {
                 return ConnectionQuality.Good;
             }
-            else if (bandwidthBps >= 5_000_000) // 5 Mbps+ = Fair (SD streaming)
+
+            if (bandwidthBps >= 5_000_000) // 5 Mbps+ = Fair (SD streaming)
             {
                 return ConnectionQuality.Fair;
             }
-            else
-            {
-                return ConnectionQuality.Poor;
-            }
+
+            return ConnectionQuality.Poor;
         }
 
         private ConnectionType GetConnectionType(ConnectionProfile profile)
@@ -883,17 +879,17 @@ namespace Gelatinarm.Services
                 var seconds = stopwatch.Elapsed.TotalSeconds;
                 var bitsPerSecond = bytes * 8 / seconds;
 
-                if (stopwatch.ElapsedMilliseconds < RetryConstants.BANDWIDTH_TEST_EXCELLENT_THRESHOLD_MS)
+                if (stopwatch.ElapsedMilliseconds < RetryConstants.BandwidthTestExcellentThresholdMs)
                 {
                     return _isXboxSeries ? 100_000_000 : 80_000_000;
                 }
 
-                if (stopwatch.ElapsedMilliseconds < RetryConstants.BANDWIDTH_TEST_GOOD_THRESHOLD_MS)
+                if (stopwatch.ElapsedMilliseconds < RetryConstants.BandwidthTestGoodThresholdMs)
                 {
                     return _isXboxSeries ? 80_000_000 : 50_000_000;
                 }
 
-                if (stopwatch.ElapsedMilliseconds < RetryConstants.BANDWIDTH_TEST_FAIR_THRESHOLD_MS)
+                if (stopwatch.ElapsedMilliseconds < RetryConstants.BandwidthTestFairThresholdMs)
                 {
                     return _isXboxSeries ? 50_000_000 : 30_000_000;
                 }
@@ -957,14 +953,6 @@ namespace Gelatinarm.Services
             }
         }
 
-        #region IMemoryMonitor Implementation
-
-        #endregion
-
-        #region INetworkMonitor Compatibility
-
-        #endregion
-
         #region Memory Manager Event Handlers
 
         private async void OnAppMemoryUsageIncreased(object sender, object e)
@@ -974,7 +962,7 @@ namespace Gelatinarm.Services
                 return; // Guard against null dispatcher
             }
 
-            await UIHelper.RunOnUIThreadAsync(async () =>
+            await UiHelper.RunOnUIThreadAsync(async () =>
             {
                 await UpdateMetricsAsync().ConfigureAwait(false);
             }, _dispatcher, Logger);
@@ -987,7 +975,7 @@ namespace Gelatinarm.Services
                 return;
             }
 
-            await UIHelper.RunOnUIThreadAsync(async () =>
+            await UiHelper.RunOnUIThreadAsync(async () =>
             {
                 await UpdateMetricsAsync().ConfigureAwait(false);
             }, _dispatcher, Logger);
@@ -1000,7 +988,7 @@ namespace Gelatinarm.Services
                 return;
             }
 
-            await UIHelper.RunOnUIThreadAsync(async () =>
+            await UiHelper.RunOnUIThreadAsync(async () =>
             {
                 await UpdateMetricsAsync().ConfigureAwait(false);
             }, _dispatcher, Logger);
@@ -1013,7 +1001,7 @@ namespace Gelatinarm.Services
                 return;
             }
 
-            await UIHelper.RunOnUIThreadAsync(async () =>
+            await UiHelper.RunOnUIThreadAsync(async () =>
             {
                 await UpdateMetricsAsync().ConfigureAwait(false);
             }, _dispatcher, Logger);

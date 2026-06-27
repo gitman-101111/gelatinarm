@@ -3,12 +3,12 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Gelatinarm.Helpers;
-using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.Logging;
 using Windows.UI.Core;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
+using Gelatinarm.Helpers;
+using Jellyfin.Sdk.Generated.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
 {
@@ -119,7 +119,7 @@ namespace Gelatinarm.Services
 
                 if (imageSource != null && !cancellationToken.IsCancellationRequested)
                 {
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         try
                         {
@@ -163,7 +163,7 @@ namespace Gelatinarm.Services
 
                 if (bitmapImage != null && !cancellationToken.IsCancellationRequested)
                 {
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         try
                         {

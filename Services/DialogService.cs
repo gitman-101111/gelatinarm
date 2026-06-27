@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
-using Gelatinarm.Models;
-using Microsoft.Extensions.Logging;
 using Windows.UI.Popups;
 using Windows.UI.Xaml.Controls;
+using Gelatinarm.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
 {
@@ -81,7 +81,7 @@ namespace Gelatinarm.Services
             }
             catch (Exception ex)
             {
-                return await ErrorHandler.HandleErrorAsync(ex, context, ContentDialogResult.None, false);
+                return await ErrorHandler.HandleErrorAsync(ex, context, ContentDialogResult.None);
             }
         }
     }

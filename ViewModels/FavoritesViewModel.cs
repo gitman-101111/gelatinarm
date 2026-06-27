@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Windows.UI.Xaml;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
@@ -12,7 +13,6 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml;
 
 namespace Gelatinarm.ViewModels
 {

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
@@ -14,7 +15,6 @@ using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media;
 
 namespace Gelatinarm.ViewModels
 {
@@ -176,7 +176,8 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         public void ClearState()
         {
-            Logger?.LogInformation("Clearing SeasonDetailsViewModel state"); Seasons.Clear();
+            Logger?.LogInformation("Clearing SeasonDetailsViewModel state");
+            Seasons.Clear();
             Episodes.Clear();
 
             // Clear current items
@@ -197,7 +198,8 @@ namespace Gelatinarm.ViewModels
             CanResume = false;
             BackdropImage = null;
             EpisodeThumbnail = null;
-            SeriesPoster = null; SelectedSeasonIndex = -1;
+            SeriesPoster = null;
+            SelectedSeasonIndex = -1;
             SelectedEpisodeIndex = -1;
 
             // Reset visibility flags
@@ -277,7 +279,7 @@ namespace Gelatinarm.ViewModels
                     {
                         // Handle back navigation from MediaPlayerPage
                         Logger?.LogInformation(
-                            $"SeasonDetailsViewModel.InitializeAsync - Received MediaPlaybackParams, extracting NavigationSourceParameter");
+                            "SeasonDetailsViewModel.InitializeAsync - Received MediaPlaybackParams, extracting NavigationSourceParameter");
 
                         // Store the last played item ID to restore selection after loading
                         Guid? lastPlayedItemId = null;
@@ -285,7 +287,8 @@ namespace Gelatinarm.ViewModels
                             TryGetGuidFromParameter(playbackParams.ItemId, out var itemGuid))
                         {
                             lastPlayedItemId = itemGuid;
-                            Logger?.LogInformation($"Will restore selection to last played episode: {lastPlayedItemId}");
+                            Logger?.LogInformation(
+                                $"Will restore selection to last played episode: {lastPlayedItemId}");
                         }
 
                         // Use the NavigationSourceParameter which contains the original season/series data
@@ -309,13 +312,15 @@ namespace Gelatinarm.ViewModels
                                 }
                                 else
                                 {
-                                    Logger?.LogWarning($"Could not find episode {lastPlayedItemId} in current episode list");
+                                    Logger?.LogWarning(
+                                        $"Could not find episode {lastPlayedItemId} in current episode list");
                                 }
                             }
                         }
                         else
                         {
-                            Logger?.LogWarning("MediaPlaybackParams.NavigationSourceParameter is null, cannot restore state");
+                            Logger?.LogWarning(
+                                "MediaPlaybackParams.NavigationSourceParameter is null, cannot restore state");
                             NavigationService.GoBack();
                         }
                     }
@@ -397,7 +402,7 @@ namespace Gelatinarm.ViewModels
                         // Fetch fresh episode data to get the authoritative UserData (watched status,
                         // playback position). The navigation parameter may be stale — fetching here
                         // synchronously guarantees we display accurate state without any timed retries.
-                        BaseItemDto freshEpisode = item;
+                        var freshEpisode = item;
                         if (item.Id.HasValue)
                         {
                             try
@@ -406,7 +411,10 @@ namespace Gelatinarm.ViewModels
                                 {
                                     config.QueryParameters.UserId = UserIdGuid.Value;
                                 }, _loadingCts.Token);
-                                if (refreshed != null) freshEpisode = refreshed;
+                                if (refreshed != null)
+                                {
+                                    freshEpisode = refreshed;
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -518,7 +526,8 @@ namespace Gelatinarm.ViewModels
                             }
                             else
                             {
-                                Logger?.LogWarning($"Target episode '{episodeToSelect.Name}' not found in list; selecting first");
+                                Logger?.LogWarning(
+                                    $"Target episode '{episodeToSelect.Name}' not found in list; selecting first");
                                 targetIndex = 0;
                             }
                         }
@@ -693,7 +702,10 @@ namespace Gelatinarm.ViewModels
 
         private async Task SelectEpisodeAsync(BaseItemDto episode)
         {
-            if (episode == null) return;
+            if (episode == null)
+            {
+                return;
+            }
 
             Logger?.LogInformation($"SelectEpisodeAsync called for episode: {episode.Name}");
 
@@ -740,7 +752,8 @@ namespace Gelatinarm.ViewModels
             ImageSource thumbnailSource = null;
             try
             {
-                thumbnailSource = await ImageHelper.GetImageSourceAsync(episode, "Primary", 400, 225).ConfigureAwait(false);
+                thumbnailSource = await ImageHelper.GetImageSourceAsync(episode, "Primary", 400, 225)
+                    .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -988,7 +1001,9 @@ namespace Gelatinarm.ViewModels
                     PlayButtonText = "Play";
                     IsShuffleButtonVisible = true;
                     IsMarkWatchedButtonVisible = true;
-                    MarkWatchedText = Series?.UserData?.Played == true ? "Mark Series Unwatched" : "Mark Series Watched";
+                    MarkWatchedText = Series?.UserData?.Played == true
+                        ? "Mark Series Unwatched"
+                        : "Mark Series Watched";
 
                     // Update favorite button
                     IsFavorite = Series?.UserData?.IsFavorite ?? false;
@@ -1170,7 +1185,9 @@ namespace Gelatinarm.ViewModels
                     var isWatched = episodeToUpdate.UserData?.Played ?? false;
                     var newWatchedStatus = !isWatched;
 
-                    var updatedData = await UserDataService.ToggleWatchedAsync(episodeToUpdate.Id.Value, newWatchedStatus, UserIdGuid);
+                    var updatedData =
+                        await UserDataService.ToggleWatchedAsync(episodeToUpdate.Id.Value, newWatchedStatus,
+                            UserIdGuid);
 
                     if (episodeToUpdate.UserData == null)
                     {
@@ -1217,7 +1234,8 @@ namespace Gelatinarm.ViewModels
                             {
                                 SelectedEpisodeIndex = currentSelectedIndex;
                             });
-                            Logger?.LogInformation($"Restored SelectedEpisodeIndex to {currentSelectedIndex} after episode update");
+                            Logger?.LogInformation(
+                                $"Restored SelectedEpisodeIndex to {currentSelectedIndex} after episode update");
                         }
                     }
                 }
@@ -1267,6 +1285,7 @@ namespace Gelatinarm.ViewModels
                         Logger?.LogError("Shuffled queue is empty");
                         return;
                     }
+
                     var playbackParams = new MediaPlaybackParams
                     {
                         ItemId = shuffledQueue[0].Id.ToString(),
@@ -1359,7 +1378,7 @@ namespace Gelatinarm.ViewModels
         {
             // Refresh episode UserData to get the latest playback position
             // This is critical when navigating from Continue Watching which may have stale data
-            BaseItemDto refreshedEpisode = episode;
+            var refreshedEpisode = episode;
             if (resume && episode?.Id != null)
             {
                 try
@@ -1377,7 +1396,8 @@ namespace Gelatinarm.ViewModels
                         var newPosition = refreshedItem.UserData?.PlaybackPositionTicks ?? 0;
                         if (oldPosition != newPosition)
                         {
-                            Logger?.LogInformation($"Resume position updated from {TimeSpan.FromTicks(oldPosition):mm\\:ss} to {TimeSpan.FromTicks(newPosition):mm\\:ss}");
+                            Logger?.LogInformation(
+                                $"Resume position updated from {TimeSpan.FromTicks(oldPosition):mm\\:ss} to {TimeSpan.FromTicks(newPosition):mm\\:ss}");
                         }
                     }
                 }
@@ -1444,7 +1464,8 @@ namespace Gelatinarm.ViewModels
             var playbackParams = new MediaPlaybackParams
             {
                 ItemId = refreshedEpisode.Id.Value.ToString(),
-                StartPositionTicks = resume ? refreshedEpisode.UserData?.PlaybackPositionTicks : fromBeginning ? 0 : null,
+                StartPositionTicks =
+                    resume ? refreshedEpisode.UserData?.PlaybackPositionTicks : fromBeginning ? 0 : null,
                 QueueItems = episodeQueue,
                 StartIndex = startIndex,
                 NavigationSourcePage = typeof(SeasonDetailsPage),
@@ -1486,7 +1507,7 @@ namespace Gelatinarm.ViewModels
                     firstUnwatchedEpisode = episodesResult.Items.FirstOrDefault(ep =>
                         ep.UserData?.Played != true ||
                         (ep.UserData?.PlaybackPositionTicks > 0 &&
-                         ep.UserData?.PlayedPercentage < MediaConstants.WATCHED_PERCENTAGE_THRESHOLD));
+                         ep.UserData?.PlayedPercentage < MediaConstants.WatchedPercentageThreshold));
 
                     if (firstUnwatchedEpisode != null)
                     {

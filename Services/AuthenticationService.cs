@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Security.Credentials;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
@@ -9,7 +10,6 @@ using Jellyfin.Sdk.Generated.Models;
 using Jellyfin.Sdk.Generated.QuickConnect.Connect;
 using Microsoft.Extensions.Logging;
 using Microsoft.Kiota.Abstractions;
-using Windows.Security.Credentials;
 
 namespace Gelatinarm.Services
 {
@@ -18,7 +18,7 @@ namespace Gelatinarm.Services
     /// </summary>
     public class AuthenticationService : BaseService, IAuthenticationService
     {
-        private readonly string RESOURCE_NAME = BrandingConstants.APP_NAME;
+        private readonly string _resourceName = BrandingConstants.AppName;
         private readonly ICacheManagerService _cacheManagerService;
         private readonly IUnifiedDeviceService _deviceInfoService;
         private readonly IPreferencesService _preferencesService;
@@ -85,8 +85,7 @@ namespace Gelatinarm.Services
 
                 var authRequest = new AuthenticateUserByName
                 {
-                    Username = username,
-                    Pw = password ?? string.Empty // Ensure password is never null
+                    Username = username, Pw = password ?? string.Empty // Ensure password is never null
                 };
 
                 Logger.LogDebug($"Sending authentication request to: {ServerUrl}/Users/AuthenticateByName");
@@ -212,6 +211,7 @@ namespace Gelatinarm.Services
             {
                 return null;
             }
+
             Logger.LogInformation($"Initiating Quick Connect with server URL: {ServerUrl}");
 
             // Ensure we have an API client with the current server URL
@@ -414,7 +414,8 @@ namespace Gelatinarm.Services
             // Update the SDK settings with the current server URL and access token
             if (!string.IsNullOrEmpty(ServerUrl))
             {
-                Logger.LogDebug($"Updating SDK settings - Server: {ServerUrl}, Has Token: {!string.IsNullOrEmpty(AccessToken)}");
+                Logger.LogDebug(
+                    $"Updating SDK settings - Server: {ServerUrl}, Has Token: {!string.IsNullOrEmpty(AccessToken)}");
                 _sdkSettings.SetServerUrl(ServerUrl);
                 _sdkSettings.SetAccessToken(AccessToken);
             }
@@ -434,7 +435,7 @@ namespace Gelatinarm.Services
                     try
                     {
                         var vault = new PasswordVault();
-                        var credential = vault.Retrieve(RESOURCE_NAME, Username);
+                        var credential = vault.Retrieve(_resourceName, Username);
                         credential.RetrievePassword();
                         AccessToken = credential.Password;
 
@@ -468,7 +469,7 @@ namespace Gelatinarm.Services
             {
                 // Clear stored credentials
                 var vault = new PasswordVault();
-                var credentials = vault.FindAllByResource(RESOURCE_NAME);
+                var credentials = vault.FindAllByResource(_resourceName);
                 foreach (var credential in credentials)
                 {
                     vault.Remove(credential);
@@ -540,7 +541,7 @@ namespace Gelatinarm.Services
                     // Remove any existing credential for this user first
                     try
                     {
-                        var existingCred = vault.Retrieve(RESOURCE_NAME, Username);
+                        var existingCred = vault.Retrieve(_resourceName, Username);
                         vault.Remove(existingCred);
                     }
                     catch
@@ -549,7 +550,7 @@ namespace Gelatinarm.Services
                     }
 
                     // Add the new credential
-                    var credential = new PasswordCredential(RESOURCE_NAME, Username, AccessToken);
+                    var credential = new PasswordCredential(_resourceName, Username, AccessToken);
                     vault.Add(credential);
                     Logger.LogInformation("Access token stored securely in PasswordVault");
                 }
@@ -572,7 +573,7 @@ namespace Gelatinarm.Services
             {
                 // Clear stored credentials from vault
                 var vault = new PasswordVault();
-                var credentials = vault.FindAllByResource(RESOURCE_NAME);
+                var credentials = vault.FindAllByResource(_resourceName);
                 foreach (var credential in credentials)
                 {
                     vault.Remove(credential);
@@ -582,6 +583,7 @@ namespace Gelatinarm.Services
             {
                 Logger.LogWarning(ex, "Error clearing stored credentials from vault");
             }
+
             _preferencesService.RemoveValue(PreferenceConstants.AccessToken);
 
             // Clear in-memory values

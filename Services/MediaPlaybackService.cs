@@ -25,14 +25,14 @@ namespace Gelatinarm.Services
         private readonly IPreferencesService _preferencesService;
         private readonly IUserProfileService _userProfileService;
         private BaseItemDto _currentItem;
-        private bool _hasReportedStart = false;
-        private bool _hasReportedStop = false;
+        private bool _hasReportedStart;
+        private bool _hasReportedStop;
         private IMusicPlayerService _musicPlayerService;
         private string _playSessionId;
 
         // Session management state
         private MediaPlaybackParams _playbackParams;
-        private int _positionReportCounter = 0;
+        private int _positionReportCounter;
         private Task _activeProgressReportTask;
 
         public MediaPlaybackService(
@@ -89,11 +89,14 @@ namespace Gelatinarm.Services
 
                 if (_playbackParams?.SubtitleStreamIndex.HasValue == true)
                 {
-                    Logger.LogInformation($"Requesting playback info with SubtitleStreamIndex: {_playbackParams.SubtitleStreamIndex}");
+                    Logger.LogInformation(
+                        $"Requesting playback info with SubtitleStreamIndex: {_playbackParams.SubtitleStreamIndex}");
                 }
+
                 if (_playbackParams?.AudioStreamIndex.HasValue == true)
                 {
-                    Logger.LogInformation($"Requesting playback info with AudioStreamIndex: {_playbackParams.AudioStreamIndex}");
+                    Logger.LogInformation(
+                        $"Requesting playback info with AudioStreamIndex: {_playbackParams.AudioStreamIndex}");
                 }
 
                 // The SDK uses a POST request to get playback info
@@ -267,14 +270,16 @@ namespace Gelatinarm.Services
                         {
                             config.QueryParameters.SubtitleStreamIndex = _playbackParams.SubtitleStreamIndex.Value;
                             // Note: SubtitleMethod is set via enum in SDK
-                            Logger.LogInformation($"Added SubtitleStreamIndex={_playbackParams.SubtitleStreamIndex.Value} to stream URL");
+                            Logger.LogInformation(
+                                $"Added SubtitleStreamIndex={_playbackParams.SubtitleStreamIndex.Value} to stream URL");
                         }
 
                         // Add AudioStreamIndex if specified
                         if (_playbackParams?.AudioStreamIndex >= 0)
                         {
                             config.QueryParameters.AudioStreamIndex = _playbackParams.AudioStreamIndex.Value;
-                            Logger.LogInformation($"Added AudioStreamIndex={_playbackParams.AudioStreamIndex.Value} to stream URL");
+                            Logger.LogInformation(
+                                $"Added AudioStreamIndex={_playbackParams.AudioStreamIndex.Value} to stream URL");
                         }
                     });
 
@@ -301,7 +306,8 @@ namespace Gelatinarm.Services
                 {
                     var separator = transcodingUrl.Contains("?") ? "&" : "?";
                     transcodingUrl += $"{separator}SubtitleStreamIndex={_playbackParams.SubtitleStreamIndex.Value}";
-                    Logger.LogInformation($"Added SubtitleStreamIndex={_playbackParams.SubtitleStreamIndex.Value} to transcoding URL");
+                    Logger.LogInformation(
+                        $"Added SubtitleStreamIndex={_playbackParams.SubtitleStreamIndex.Value} to transcoding URL");
                 }
 
                 // Add AudioStreamIndex if specified and not already in URL
@@ -311,7 +317,8 @@ namespace Gelatinarm.Services
                 {
                     var separator = transcodingUrl.Contains("?") ? "&" : "?";
                     transcodingUrl += $"{separator}AudioStreamIndex={_playbackParams.AudioStreamIndex.Value}";
-                    Logger.LogInformation($"Added AudioStreamIndex={_playbackParams.AudioStreamIndex.Value} to transcoding URL");
+                    Logger.LogInformation(
+                        $"Added AudioStreamIndex={_playbackParams.AudioStreamIndex.Value} to transcoding URL");
                 }
 
                 var url = string.Concat(serverUrl, transcodingUrl);
@@ -421,9 +428,7 @@ namespace Gelatinarm.Services
                     {
                         var playbackParams = new MediaPlaybackParams
                         {
-                            Item = item,
-                            ItemId = item.Id?.ToString(),
-                            StartPositionTicks = startPositionTicks
+                            Item = item, ItemId = item.Id?.ToString(), StartPositionTicks = startPositionTicks
                         };
                         navigationService.Navigate(typeof(MediaPlayerPage), playbackParams);
                         return true;
@@ -439,7 +444,7 @@ namespace Gelatinarm.Services
                     }
 
                     Logger.LogWarning("Cannot play audio item - MusicPlayerService is not available");
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         PlaybackError?.Invoke(this, "Audio playback service is not available");
                     }, logger: Logger);
@@ -513,7 +518,7 @@ namespace Gelatinarm.Services
                     $"SubtitleStreamIndex={_playbackParams?.SubtitleStreamIndex}");
 
                 using (var cts = new CancellationTokenSource(
-                           TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS)))
+                           TimeSpan.FromSeconds(MediaPlayerConstants.ApiCallTimeoutSeconds)))
                 {
                     await _apiClient.Sessions.Playing.PostAsync(playbackStartInfo, cancellationToken: cts.Token)
                         .ConfigureAwait(false);
@@ -563,7 +568,7 @@ namespace Gelatinarm.Services
 
                 // Throttle progress reports
                 _positionReportCounter++;
-                if (_positionReportCounter % MediaPlayerConstants.POSITION_REPORT_INTERVAL_TICKS != 0)
+                if (_positionReportCounter % MediaPlayerConstants.PositionReportIntervalTicks != 0)
                 {
                     return;
                 }
@@ -595,7 +600,7 @@ namespace Gelatinarm.Services
                     try
                     {
                         using var cts = new CancellationTokenSource(
-                            TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS));
+                            TimeSpan.FromSeconds(MediaPlayerConstants.ApiCallTimeoutSeconds));
                         await _apiClient.Sessions.Playing.Progress.PostAsync(progressInfo, cancellationToken: cts.Token)
                             .ConfigureAwait(false);
                         Logger.LogDebug(
@@ -656,7 +661,7 @@ namespace Gelatinarm.Services
                     $"[PLAYBACK-STOP] ItemId={currentItem.Id.Value}, Session={playSessionId}, PositionTicks={positionTicks}");
 
                 using (var cts = new CancellationTokenSource(
-                           TimeSpan.FromSeconds(MediaPlayerConstants.API_CALL_TIMEOUT_SECONDS)))
+                           TimeSpan.FromSeconds(MediaPlayerConstants.ApiCallTimeoutSeconds)))
                 {
                     await _apiClient.Sessions.Playing.Stopped.PostAsync(stopInfo, cancellationToken: cts.Token)
                         .ConfigureAwait(false);
@@ -771,7 +776,7 @@ namespace Gelatinarm.Services
                 var percentWatched = (double)positionTicks / runtime * 100;
 
                 // Mark as watched once playback passes the completion threshold
-                if (percentWatched > MediaConstants.WATCHED_PERCENTAGE_THRESHOLD && _currentItem.Id.HasValue)
+                if (percentWatched > MediaConstants.WatchedPercentageThreshold && _currentItem.Id.HasValue)
                 {
                     await MarkWatchedAsync(_currentItem.Id.Value.ToString());
                 }

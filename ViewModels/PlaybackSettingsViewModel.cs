@@ -28,19 +28,21 @@ namespace Gelatinarm.ViewModels
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
-        private bool _hasUnsavedChanges = false;
+        private bool _hasUnsavedChanges;
         private string _validationError;
 
-        private bool _allowAudioStreamCopy = false;
-        private bool _audioNormalizationEnabled = false;
+        private bool _allowAudioStreamCopy;
+        private bool _audioNormalizationEnabled;
 
         // Playback settings
         private bool _autoPlayNextEpisode = true;
-        private bool _autoSkipIntros = false;
+        private bool _autoSkipIntros;
+
         private int _controlsHideDelay = 3;
+
         // Quality and format settings
         private bool _enableDirectPlay = true;
-        private bool _pauseOnFocusLoss = false;
+        private bool _pauseOnFocusLoss;
         private string _videoStretchMode = "Uniform";
 
         public PlaybackSettingsViewModel(
@@ -253,8 +255,7 @@ namespace Gelatinarm.ViewModels
             {
                 return Task.FromResult(new ValidationResult
                 {
-                    IsValid = false,
-                    ErrorMessage = "Controls hide delay must be between 1 and 10 seconds"
+                    IsValid = false, ErrorMessage = "Controls hide delay must be between 1 and 10 seconds"
                 });
             }
 
@@ -312,9 +313,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _autoPlayNextEpisode, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.AutoPlayNextEpisode = value,
-                            nameof(AutoPlayNextEpisode)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.AutoPlayNextEpisode = value,
+                        nameof(AutoPlayNextEpisode)));
                 }
             }
         }
@@ -326,9 +326,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _pauseOnFocusLoss, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.PauseOnFocusLoss = value,
-                            nameof(PauseOnFocusLoss)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.PauseOnFocusLoss = value,
+                        nameof(PauseOnFocusLoss)));
                 }
             }
         }
@@ -340,9 +339,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _autoSkipIntros, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.AutoSkipIntroEnabled = value,
-                            nameof(AutoSkipIntros)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.AutoSkipIntroEnabled = value,
+                        nameof(AutoSkipIntros)));
                 }
             }
         }
@@ -354,9 +352,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _controlsHideDelay, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.ControlsHideDelay = value,
-                            nameof(ControlsHideDelay)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.ControlsHideDelay = value,
+                        nameof(ControlsHideDelay)));
                 }
             }
         }
@@ -368,9 +365,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _enableDirectPlay, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.EnableDirectPlay = value,
-                            nameof(EnableDirectPlay)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.EnableDirectPlay = value,
+                        nameof(EnableDirectPlay)));
                     // Media optimization service doesn't have InvalidateRecommendations method                    Logger.LogInformation("Direct play setting changed to {Value}", value);
                 }
             }
@@ -383,9 +379,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _allowAudioStreamCopy, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.AllowAudioStreamCopy = value,
-                            nameof(AllowAudioStreamCopy)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.AllowAudioStreamCopy = value,
+                        nameof(AllowAudioStreamCopy)));
                     // Media optimization service doesn't have InvalidateRecommendations method                    Logger.LogInformation("Audio stream copy setting changed to {Value}", value);
                 }
             }
@@ -398,9 +393,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _videoStretchMode, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.VideoStretchMode = value,
-                            nameof(VideoStretchMode)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.VideoStretchMode = value,
+                        nameof(VideoStretchMode)));
                 }
             }
         }
@@ -412,9 +406,8 @@ namespace Gelatinarm.ViewModels
             {
                 if (SetSettingProperty(ref _audioNormalizationEnabled, value))
                 {
-                    FireAndForget(
-                        () => UpdateAppPreferenceAsync(prefs => prefs.AudioNormalizationEnabled = value,
-                            nameof(AudioNormalizationEnabled)));
+                    FireAndForget(() => UpdateAppPreferenceAsync(prefs => prefs.AudioNormalizationEnabled = value,
+                        nameof(AudioNormalizationEnabled)));
                 }
             }
         }

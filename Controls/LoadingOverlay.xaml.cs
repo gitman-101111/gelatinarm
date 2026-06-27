@@ -1,8 +1,8 @@
-using Gelatinarm.Helpers;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
+using Gelatinarm.Helpers;
 
 namespace Gelatinarm.Controls
 {
@@ -43,7 +43,7 @@ namespace Gelatinarm.Controls
                     // When loading starts, capture focus to prevent navigation
                     AsyncHelper.FireAndForget(async () =>
                     {
-                        await UIHelper.RunOnUIThreadAsync(() =>
+                        await UiHelper.RunOnUIThreadAsync(() =>
                         {
                             overlay.FocusCapture.Focus(FocusState.Programmatic);
                         }, overlay.Dispatcher);

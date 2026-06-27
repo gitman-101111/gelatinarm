@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Windows.ApplicationModel.Core;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
@@ -14,17 +15,17 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.ApplicationModel.Core;
+
 // Add System.Threading for CancellationTokenSource
 
 namespace Gelatinarm.ViewModels
 {
     public class MainViewModel : BaseViewModel
     {
-        private const int CACHE_VALIDITY_MINUTES = 30;
+        private const int CacheValidityMinutes = 30;
 
         private readonly TimeSpan _cacheExpiration =
-            TimeSpan.FromMinutes(RetryConstants.MAIN_VIEW_CACHE_EXPIRATION_MINUTES);
+            TimeSpan.FromMinutes(RetryConstants.MainViewCacheExpirationMinutes);
 
         private readonly ICacheManagerService _cacheManager;
         private readonly JellyfinApiClient _jellyfinApiClient;
@@ -32,13 +33,13 @@ namespace Gelatinarm.ViewModels
         private readonly IMediaDiscoveryService _mediaDiscoveryService;
         private readonly INavigationService _navigationService;
         private readonly IUserProfileService _userProfileService;
-        private bool _hasContinueWatching = false;
-        private bool _hasLatestMovies = false;
-        private bool _hasLatestTVShows = false;
-        private bool _hasLoadedData = false;
-        private bool _hasNextUp = false;
-        private bool _hasRecentlyAdded = false;
-        private bool _hasRecommended = false;
+        private bool _hasContinueWatching;
+        private bool _hasLatestMovies;
+        private bool _hasLatestTvShows;
+        private bool _hasLoadedData;
+        private bool _hasNextUp;
+        private bool _hasRecentlyAdded;
+        private bool _hasRecommended;
         private DateTime _lastDataLoadTime = DateTime.MinValue;
 
         public MainViewModel(IMediaDiscoveryService mediaDiscoveryService,
@@ -59,14 +60,14 @@ namespace Gelatinarm.ViewModels
 
             ContinueWatchingItems = new ObservableCollection<BaseItemDto>();
             LatestMovies = new ObservableCollection<BaseItemDto>();
-            LatestTVShows = new ObservableCollection<BaseItemDto>();
+            LatestTvShows = new ObservableCollection<BaseItemDto>();
             RecentlyAdded = new ObservableCollection<BaseItemDto>();
             Recommended = new ObservableCollection<BaseItemDto>();
             NextUpItems = new ObservableCollection<BaseItemDto>();
 
             HasContinueWatching = false;
             HasLatestMovies = false;
-            HasLatestTVShows = false;
+            HasLatestTvShows = false;
             HasRecentlyAdded = false;
             HasRecommended = false;
             HasNextUp = false;
@@ -75,7 +76,7 @@ namespace Gelatinarm.ViewModels
             // Event handlers - will be unsubscribed in Dispose
             ContinueWatchingItems.CollectionChanged += OnContinueWatchingItemsChanged;
             LatestMovies.CollectionChanged += OnLatestMoviesChanged;
-            LatestTVShows.CollectionChanged += OnLatestTVShowsChanged;
+            LatestTvShows.CollectionChanged += OnLatestTVShowsChanged;
             RecentlyAdded.CollectionChanged += OnRecentlyAddedChanged;
             Recommended.CollectionChanged += OnRecommendedChanged;
 
@@ -85,7 +86,7 @@ namespace Gelatinarm.ViewModels
             NavigateToSettingsCommand = new RelayCommand(() => _navigationService?.NavigateToSettings());
             ContinueWatchingItemClickCommand = new RelayCommand<BaseItemDto>(OnContinueWatchingItemClick);
             MovieItemClickCommand = new RelayCommand<BaseItemDto>(OnMovieItemClick);
-            TVShowItemClickCommand = new RelayCommand<BaseItemDto>(OnTVShowItemClick);
+            TvShowItemClickCommand = new RelayCommand<BaseItemDto>(OnTVShowItemClick);
 
             // Commands initialized
         }
@@ -102,10 +103,10 @@ namespace Gelatinarm.ViewModels
             set => SetProperty(ref _hasLatestMovies, value);
         }
 
-        public bool HasLatestTVShows
+        public bool HasLatestTvShows
         {
-            get => _hasLatestTVShows;
-            set => SetProperty(ref _hasLatestTVShows, value);
+            get => _hasLatestTvShows;
+            set => SetProperty(ref _hasLatestTvShows, value);
         }
 
         public bool HasRecentlyAdded
@@ -128,7 +129,7 @@ namespace Gelatinarm.ViewModels
 
         public ObservableCollection<BaseItemDto> ContinueWatchingItems { get; }
         public ObservableCollection<BaseItemDto> LatestMovies { get; }
-        public ObservableCollection<BaseItemDto> LatestTVShows { get; }
+        public ObservableCollection<BaseItemDto> LatestTvShows { get; }
         public ObservableCollection<BaseItemDto> RecentlyAdded { get; }
         public ObservableCollection<BaseItemDto> Recommended { get; }
         public ObservableCollection<BaseItemDto> NextUpItems { get; }
@@ -139,12 +140,12 @@ namespace Gelatinarm.ViewModels
         public ICommand NavigateToSettingsCommand { get; }
         public ICommand ContinueWatchingItemClickCommand { get; }
         public ICommand MovieItemClickCommand { get; }
-        public ICommand TVShowItemClickCommand { get; }
+        public ICommand TvShowItemClickCommand { get; }
 
         public async Task LoadDataAsync(bool forceRefresh = false)
         {
             // Use the standardized base class LoadDataAsync
-            await base.LoadDataAsync(forceRefresh, TimeSpan.FromMinutes(CACHE_VALIDITY_MINUTES));
+            await base.LoadDataAsync(forceRefresh, TimeSpan.FromMinutes(CacheValidityMinutes));
         }
 
         protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
@@ -167,14 +168,14 @@ namespace Gelatinarm.ViewModels
             {
                 ContinueWatchingItems?.Clear();
                 LatestMovies?.Clear();
-                LatestTVShows?.Clear();
+                LatestTvShows?.Clear();
                 RecentlyAdded?.Clear();
                 Recommended?.Clear();
                 NextUpItems?.Clear();
 
                 HasContinueWatching = false;
                 HasLatestMovies = false;
-                HasLatestTVShows = false;
+                HasLatestTvShows = false;
                 HasRecentlyAdded = false;
                 HasRecommended = false;
                 HasNextUp = false;
@@ -203,7 +204,7 @@ namespace Gelatinarm.ViewModels
                 else
                 {
                     // Batch initial UI updates
-                    await UpdateUIAsync(() =>
+                    await UpdateUiAsync(() =>
                     {
                         IsError = false;
                         ErrorMessage = string.Empty;
@@ -224,7 +225,7 @@ namespace Gelatinarm.ViewModels
             if (!forceRefresh && _hasLoadedData)
             {
                 var timeSinceLastLoad = DateTime.Now - _lastDataLoadTime;
-                if (timeSinceLastLoad.TotalMinutes < CACHE_VALIDITY_MINUTES)
+                if (timeSinceLastLoad.TotalMinutes < CacheValidityMinutes)
                 {
                     // Using cached home screen data
                     return;
@@ -235,7 +236,7 @@ namespace Gelatinarm.ViewModels
             try
             {
                 // Set loading state
-                await UpdateUIAsync(() => IsLoading = true).ConfigureAwait(false);
+                await UpdateUiAsync(() => IsLoading = true).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -282,74 +283,85 @@ namespace Gelatinarm.ViewModels
                 await Task.WhenAll(
                     FetchAndUpdateAsync("ContinueWatching",
                         async () => await BaseService.RetryAsync(
-                            () => _mediaDiscoveryService.GetContinueWatchingAsync(20, cancellationToken),
-                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                            cancellationToken, nameof(_mediaDiscoveryService.GetContinueWatchingAsync)).ConfigureAwait(false),
+                                () => _mediaDiscoveryService.GetContinueWatchingAsync(20, cancellationToken),
+                                _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
+                                cancellationToken, nameof(_mediaDiscoveryService.GetContinueWatchingAsync))
+                            .ConfigureAwait(false),
                         items =>
                         {
                             ContinueWatchingItems.ReplaceAll(items);
                             HasContinueWatching = ContinueWatchingItems.Any();
-                            _logger?.LogInformation($"Updated ContinueWatching: {ContinueWatchingItems.Count} items, HasContinueWatching: {HasContinueWatching}");
+                            _logger?.LogInformation(
+                                $"Updated ContinueWatching: {ContinueWatchingItems.Count} items, HasContinueWatching: {HasContinueWatching}");
                         },
                         cancellationToken),
                     FetchAndUpdateAsync("NextUp",
                         async () => await BaseService.RetryAsync(
                             () => _mediaDiscoveryService.GetNextUpAsync(cancellationToken),
-                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
                             cancellationToken, nameof(_mediaDiscoveryService.GetNextUpAsync)).ConfigureAwait(false),
                         items =>
                         {
                             NextUpItems.ReplaceAll(items);
                             HasNextUp = NextUpItems.Any();
-                            _logger?.LogInformation($"Updated NextUpItems: {NextUpItems.Count} items, HasNextUp: {HasNextUp}");
+                            _logger?.LogInformation(
+                                $"Updated NextUpItems: {NextUpItems.Count} items, HasNextUp: {HasNextUp}");
                         },
                         cancellationToken),
                     FetchAndUpdateAsync("LatestMovies",
                         async () => await BaseService.RetryAsync(
-                            () => _mediaDiscoveryService.GetLatestMoviesAsync(20, cancellationToken),
-                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                            cancellationToken, nameof(_mediaDiscoveryService.GetLatestMoviesAsync)).ConfigureAwait(false),
+                                () => _mediaDiscoveryService.GetLatestMoviesAsync(20, cancellationToken),
+                                _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
+                                cancellationToken, nameof(_mediaDiscoveryService.GetLatestMoviesAsync))
+                            .ConfigureAwait(false),
                         items =>
                         {
                             LatestMovies.ReplaceAll(items);
                             HasLatestMovies = LatestMovies.Any();
-                            _logger?.LogInformation($"Updated LatestMovies: {LatestMovies.Count} items, HasLatestMovies: {HasLatestMovies}");
+                            _logger?.LogInformation(
+                                $"Updated LatestMovies: {LatestMovies.Count} items, HasLatestMovies: {HasLatestMovies}");
                         },
                         cancellationToken),
                     FetchAndUpdateAsync("LatestShows",
                         async () => await BaseService.RetryAsync(
-                            () => _mediaDiscoveryService.GetLatestShowsAsync(20, cancellationToken),
-                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                            cancellationToken, nameof(_mediaDiscoveryService.GetLatestShowsAsync)).ConfigureAwait(false),
+                                () => _mediaDiscoveryService.GetLatestShowsAsync(20, cancellationToken),
+                                _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
+                                cancellationToken, nameof(_mediaDiscoveryService.GetLatestShowsAsync))
+                            .ConfigureAwait(false),
                         items =>
                         {
-                            LatestTVShows.ReplaceAll(items);
-                            HasLatestTVShows = LatestTVShows.Any();
-                            _logger?.LogInformation($"Updated LatestTVShows: {LatestTVShows.Count} items, HasLatestTVShows: {HasLatestTVShows}");
+                            LatestTvShows.ReplaceAll(items);
+                            HasLatestTvShows = LatestTvShows.Any();
+                            _logger?.LogInformation(
+                                $"Updated LatestTvShows: {LatestTvShows.Count} items, HasLatestTvShows: {HasLatestTvShows}");
                         },
                         cancellationToken),
                     FetchAndUpdateAsync("RecentlyAdded",
                         async () => await BaseService.RetryAsync(
-                            () => _mediaDiscoveryService.GetRecentlyAddedAsync(20, cancellationToken),
-                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                            cancellationToken, nameof(_mediaDiscoveryService.GetRecentlyAddedAsync)).ConfigureAwait(false),
+                                () => _mediaDiscoveryService.GetRecentlyAddedAsync(20, cancellationToken),
+                                _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
+                                cancellationToken, nameof(_mediaDiscoveryService.GetRecentlyAddedAsync))
+                            .ConfigureAwait(false),
                         items =>
                         {
                             RecentlyAdded.ReplaceAll(items);
                             HasRecentlyAdded = RecentlyAdded.Any();
-                            _logger?.LogInformation($"Updated RecentlyAdded: {RecentlyAdded.Count} items, HasRecentlyAdded: {HasRecentlyAdded}");
+                            _logger?.LogInformation(
+                                $"Updated RecentlyAdded: {RecentlyAdded.Count} items, HasRecentlyAdded: {HasRecentlyAdded}");
                         },
                         cancellationToken),
                     FetchAndUpdateAsync("Recommended",
                         async () => await BaseService.RetryAsync(
-                            () => _mediaDiscoveryService.GetRecommendedAsync(20, cancellationToken),
-                            _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
-                            cancellationToken, nameof(_mediaDiscoveryService.GetRecommendedAsync)).ConfigureAwait(false),
+                                () => _mediaDiscoveryService.GetRecommendedAsync(20, cancellationToken),
+                                _logger, 2, TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
+                                cancellationToken, nameof(_mediaDiscoveryService.GetRecommendedAsync))
+                            .ConfigureAwait(false),
                         items =>
                         {
                             Recommended.ReplaceAll(items);
                             HasRecommended = Recommended.Any();
-                            _logger?.LogInformation($"Updated Recommended: {Recommended.Count} items, HasRecommended: {HasRecommended}");
+                            _logger?.LogInformation(
+                                $"Updated Recommended: {Recommended.Count} items, HasRecommended: {HasRecommended}");
                         },
                         cancellationToken)
                 ).ConfigureAwait(false);
@@ -358,7 +370,7 @@ namespace Gelatinarm.ViewModels
 
                 // Data loading completed successfully
 
-                await UpdateUIAsync(() =>
+                await UpdateUiAsync(() =>
                 {
                     _hasLoadedData = true;
                     _lastDataLoadTime = DateTime.Now;
@@ -373,7 +385,7 @@ namespace Gelatinarm.ViewModels
             var finallyContext = CreateErrorContext("ClearLoadingState", ErrorCategory.User);
             try
             {
-                await UpdateUIAsync(() => IsLoading = false).ConfigureAwait(false);
+                await UpdateUiAsync(() => IsLoading = false).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -399,7 +411,7 @@ namespace Gelatinarm.ViewModels
                     () => _mediaDiscoveryService.GetContinueWatchingAsync(20, cancellationToken),
                     _logger,
                     2,
-                    TimeSpan.FromMilliseconds(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS),
+                    TimeSpan.FromMilliseconds(RetryConstants.QuickConnectPollDelayMs),
                     cancellationToken,
                     nameof(_mediaDiscoveryService.GetContinueWatchingAsync)).ConfigureAwait(false);
 
@@ -423,7 +435,7 @@ namespace Gelatinarm.ViewModels
                 if (continueWatching != null)
                 {
                     _cacheManager?.Set(GetCacheKey("ContinueWatching"), continueWatching,
-                        TimeSpan.FromMinutes(CACHE_VALIDITY_MINUTES));
+                        TimeSpan.FromMinutes(CacheValidityMinutes));
                 }
             }
             catch (Exception ex)
@@ -446,7 +458,7 @@ namespace Gelatinarm.ViewModels
             {
                 ContinueWatchingItems?.Clear();
                 LatestMovies?.Clear();
-                LatestTVShows?.Clear();
+                LatestTvShows?.Clear();
                 RecentlyAdded?.Clear();
                 Recommended?.Clear();
                 NextUpItems?.Clear();
@@ -457,7 +469,7 @@ namespace Gelatinarm.ViewModels
             {
                 HasContinueWatching = false;
                 HasLatestMovies = false;
-                HasLatestTVShows = false;
+                HasLatestTvShows = false;
                 HasRecentlyAdded = false;
                 HasRecommended = false;
                 HasNextUp = false;
@@ -484,7 +496,7 @@ namespace Gelatinarm.ViewModels
                     if (_navigationService == null)
                     {
                         _logger?.LogError("NavigationService is null in OnContinueWatchingItemClick");
-                        await UpdateUIAsync(() =>
+                        await UpdateUiAsync(() =>
                         {
                             IsError = true;
                             ErrorMessage = "Navigation service is not available.";
@@ -521,7 +533,7 @@ namespace Gelatinarm.ViewModels
                     if (_navigationService == null)
                     {
                         _logger?.LogError("NavigationService is null in OnMovieItemClick");
-                        await UpdateUIAsync(() =>
+                        await UpdateUiAsync(() =>
                         {
                             IsError = true;
                             ErrorMessage = "Navigation service is not available.";
@@ -558,7 +570,7 @@ namespace Gelatinarm.ViewModels
                     if (_navigationService == null)
                     {
                         _logger?.LogError("NavigationService is null in OnTVShowItemClick");
-                        await UpdateUIAsync(() =>
+                        await UpdateUiAsync(() =>
                         {
                             IsError = true;
                             ErrorMessage = "Navigation service is not available.";
@@ -619,11 +631,11 @@ namespace Gelatinarm.ViewModels
             return $"MainViewModel_{key}";
         }
 
-        private async Task UpdateUIAsync(Action action)
+        private async Task UpdateUiAsync(Action action)
         {
             if (CoreApplication.MainView?.CoreWindow?.Dispatcher == null)
             {
-                _logger?.LogWarning("Dispatcher is null in UpdateUIAsync");
+                _logger?.LogWarning("Dispatcher is null in UpdateUiAsync");
                 return;
             }
 
@@ -731,9 +743,9 @@ namespace Gelatinarm.ViewModels
                 LatestMovies.CollectionChanged -= OnLatestMoviesChanged;
             }
 
-            if (LatestTVShows != null)
+            if (LatestTvShows != null)
             {
-                LatestTVShows.CollectionChanged -= OnLatestTVShowsChanged;
+                LatestTvShows.CollectionChanged -= OnLatestTVShowsChanged;
             }
 
             if (RecentlyAdded != null)
@@ -749,7 +761,7 @@ namespace Gelatinarm.ViewModels
             // Clear collections to free memory
             ContinueWatchingItems?.Clear();
             LatestMovies?.Clear();
-            LatestTVShows?.Clear();
+            LatestTvShows?.Clear();
             RecentlyAdded?.Clear();
             Recommended?.Clear();
             NextUpItems?.Clear();
@@ -802,7 +814,7 @@ namespace Gelatinarm.ViewModels
             {
                 try
                 {
-                    // LatestTVShows collection changed
+                    // LatestTvShows collection changed
                     await Task.CompletedTask;
                 }
                 catch (Exception ex)

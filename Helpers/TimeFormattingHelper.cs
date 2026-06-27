@@ -12,8 +12,8 @@ namespace Gelatinarm.Helpers
         public static string FormatTime(TimeSpan time)
         {
             var format = time.TotalHours >= 1
-                ? MediaPlayerConstants.TIME_FORMAT_HOURS
-                : MediaPlayerConstants.TIME_FORMAT_MINUTES;
+                ? MediaPlayerConstants.TimeFormatHours
+                : MediaPlayerConstants.TimeFormatMinutes;
 
             try
             {
@@ -39,12 +39,11 @@ namespace Gelatinarm.Helpers
                 var hours = (int)duration.TotalHours;
                 var minutes = duration.Minutes;
                 return minutes > 0
-                    ? string.Format(MediaPlayerConstants.TIME_FORMAT_HOURS_DISPLAY, hours, minutes)
-                    : string.Format(MediaPlayerConstants.TIME_FORMAT_HOURS_ONLY, hours);
+                    ? string.Format(MediaPlayerConstants.TimeFormatHoursDisplay, hours, minutes)
+                    : string.Format(MediaPlayerConstants.TimeFormatHoursOnly, hours);
             }
 
-            return string.Format(MediaPlayerConstants.TIME_FORMAT_MINUTES_ONLY, (int)duration.TotalMinutes);
+            return string.Format(MediaPlayerConstants.TimeFormatMinutesOnly, (int)duration.TotalMinutes);
         }
-
     }
 }

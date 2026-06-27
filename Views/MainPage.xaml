@@ -193,7 +193,7 @@
 
                 <!-- Latest TV Shows Section -->
                 <Grid Margin="{StaticResource SectionMargin}"
-                      Visibility="{x:Bind ViewModel.HasLatestTVShows, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      Visibility="{x:Bind ViewModel.HasLatestTvShows, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -208,8 +208,8 @@
                                   HorizontalScrollMode="Enabled"
                                   VerticalScrollMode="Disabled"
                                   HorizontalScrollBarVisibility="Hidden">
-                        <GridView x:Name="LatestTVShows"
-                                  ItemsSource="{x:Bind ViewModel.LatestTVShows, Mode=OneWay}"
+                        <GridView x:Name="LatestTvShows"
+                                  ItemsSource="{x:Bind ViewModel.LatestTvShows, Mode=OneWay}"
                                   SelectionMode="None"
                                   IsItemClickEnabled="True"
                                   ItemClick="GridView_ItemClick"

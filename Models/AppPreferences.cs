@@ -35,7 +35,7 @@ namespace Gelatinarm.Models
         public double TextSize { get; set; } = 14.0;
 
         // === Connection Settings ===
-        public int ConnectionTimeout { get; set; } = SystemConstants.DEFAULT_TIMEOUT_SECONDS;
+        public int ConnectionTimeout { get; set; } = SystemConstants.DefaultTimeoutSeconds;
         public bool IgnoreCertificateErrors { get; set; } = true;
 
         // === Metadata ===

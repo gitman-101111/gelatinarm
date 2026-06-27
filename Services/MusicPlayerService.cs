@@ -3,18 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Gelatinarm.Constants;
-using Gelatinarm.Helpers;
-using Gelatinarm.Models;
-using Jellyfin.Sdk;
-using Jellyfin.Sdk.Generated.Models;
-using Microsoft.Extensions.Logging;
 using Windows.Media;
 using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage.Streams;
 using Windows.Web.Http;
 using Windows.Web.Http.Headers;
+using Gelatinarm.Constants;
+using Gelatinarm.Helpers;
+using Gelatinarm.Models;
+using Jellyfin.Sdk;
+using Jellyfin.Sdk.Generated.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Services
 {
@@ -33,7 +33,7 @@ namespace Gelatinarm.Services
         private readonly IUserProfileService _userProfileService;
         private MediaSourceInfo _currentMediaSource;
         private string _currentPlaySessionId;
-        private bool _isInFallbackMode = false;
+        private bool _isInFallbackMode;
         private SystemMediaTransportControls _systemMediaTransportControls;
         private DateTime _smtcSuppressStoppedUntilUtc = DateTime.MinValue;
 
@@ -43,8 +43,8 @@ namespace Gelatinarm.Services
         private CancellationTokenSource _transportControlsUpdateCts;
         private CancellationTokenSource _playbackStatusUpdateCts;
         private Timer _progressReportTimer;
-        private bool _isSmtcInitialized = false;
-        private bool _isSubscribedToEvents = false;
+        private bool _isSmtcInitialized;
+        private bool _isSubscribedToEvents;
 
         public MusicPlayerService(
             ILogger<MusicPlayerService> logger,
@@ -414,6 +414,7 @@ namespace Gelatinarm.Services
                     _mediaControlService.MediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
                     Logger.LogInformation("Background playback enabled");
                 }
+
                 return true;
             }
             catch (Exception ex)
@@ -433,6 +434,7 @@ namespace Gelatinarm.Services
                     _mediaControlService.MediaPlayer.AudioCategory = MediaPlayerAudioCategory.Media;
                     Logger.LogInformation("Background playback disabled");
                 }
+
                 return true;
             }
             catch (Exception ex)
@@ -569,8 +571,7 @@ namespace Gelatinarm.Services
                     Logger.LogInformation("Creating MediaPlayer for audio playback");
                     var audioMediaPlayer = new MediaPlayer
                     {
-                        AudioCategory = MediaPlayerAudioCategory.Media,
-                        Volume = 1.0
+                        AudioCategory = MediaPlayerAudioCategory.Media, Volume = 1.0
                     };
 
                     // Initialize MediaControlService with the audio MediaPlayer
@@ -588,7 +589,10 @@ namespace Gelatinarm.Services
         private void OnNowPlayingChanged(object sender, BaseItemDto item)
         {
             var session = _playbackCancellationTokenSource;
-            if (session == null || session.IsCancellationRequested) return;
+            if (session == null || session.IsCancellationRequested)
+            {
+                return;
+            }
 
             NowPlayingChanged?.Invoke(this, item);
 
@@ -596,7 +600,8 @@ namespace Gelatinarm.Services
             {
                 if (!_isSmtcInitialized && _mediaControlService.MediaPlayer != null)
                 {
-                    Logger.LogInformation($"Initializing System Media Transport Controls for music playback: {item.Name}");
+                    Logger.LogInformation(
+                        $"Initializing System Media Transport Controls for music playback: {item.Name}");
                     InitializeSystemMediaTransportControls(_mediaControlService.MediaPlayer);
                     _isSmtcInitialized = true;
                 }
@@ -625,7 +630,10 @@ namespace Gelatinarm.Services
 
         private bool IsAudioItem(BaseItemDto item)
         {
-            if (item == null) return false;
+            if (item == null)
+            {
+                return false;
+            }
 
             // Check if it's an audio item type
             return item.Type == BaseItemDto_Type.Audio ||
@@ -638,7 +646,10 @@ namespace Gelatinarm.Services
         private void OnMediaOpened(object sender, object args)
         {
             var session = _playbackCancellationTokenSource;
-            if (session == null || session.IsCancellationRequested) return;
+            if (session == null || session.IsCancellationRequested)
+            {
+                return;
+            }
 
             Logger.LogInformation("Media opened successfully");
 
@@ -646,7 +657,8 @@ namespace Gelatinarm.Services
             var currentItem = _mediaControlService.CurrentItem;
             if (!_isSmtcInitialized && currentItem != null && IsAudioItem(currentItem))
             {
-                Logger.LogInformation($"Initializing System Media Transport Controls for music playback: {currentItem.Name}");
+                Logger.LogInformation(
+                    $"Initializing System Media Transport Controls for music playback: {currentItem.Name}");
                 InitializeSystemMediaTransportControls(_mediaControlService.MediaPlayer);
                 _isSmtcInitialized = true;
             }
@@ -760,7 +772,9 @@ namespace Gelatinarm.Services
         {
             var smtc = _systemMediaTransportControls;
             if (smtc == null)
+            {
                 return;
+            }
 
             if ((state == MediaPlaybackState.None || state == MediaPlaybackState.Paused) &&
                 DateTime.UtcNow < _smtcSuppressStoppedUntilUtc)
@@ -809,12 +823,14 @@ namespace Gelatinarm.Services
         {
             var smtc = _systemMediaTransportControls;
             if (smtc == null || item == null)
+            {
                 return;
+            }
 
             var context = CreateErrorContext("UpdateDisplay", ErrorCategory.Media);
             try
             {
-                await UIHelper.RunOnUIThreadAsync(async () =>
+                await UiHelper.RunOnUIThreadAsync(async () =>
                 {
                     var updater = smtc.DisplayUpdater;
                     if (updater == null)
@@ -825,7 +841,8 @@ namespace Gelatinarm.Services
 
                     updater.Type = MediaPlaybackType.Music;
                     updater.MusicProperties.Title = item.Name ?? "Unknown Title";
-                    updater.MusicProperties.Artist = item.AlbumArtist ?? item.Artists?.FirstOrDefault() ?? "Unknown Artist";
+                    updater.MusicProperties.Artist =
+                        item.AlbumArtist ?? item.Artists?.FirstOrDefault() ?? "Unknown Artist";
                     updater.MusicProperties.AlbumTitle = item.Album ?? string.Empty;
 
                     await SetAlbumArtwork(updater, item);
@@ -844,23 +861,28 @@ namespace Gelatinarm.Services
         {
             var smtc = _systemMediaTransportControls;
             if (smtc == null)
+            {
                 return;
+            }
 
             var context = CreateErrorContext("UpdateButtonStates", ErrorCategory.Media);
             FireAndForget(async () =>
             {
                 try
                 {
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         if (!smtc.IsEnabled)
+                        {
                             smtc.IsEnabled = true;
+                        }
 
                         smtc.IsNextEnabled = canGoNext;
                         smtc.IsPreviousEnabled = canGoPrevious;
                     }, logger: Logger).ConfigureAwait(false);
 
-                    Logger.LogInformation($"Updated transport controls buttons: Next={canGoNext}, Previous={canGoPrevious}");
+                    Logger.LogInformation(
+                        $"Updated transport controls buttons: Next={canGoNext}, Previous={canGoPrevious}");
                     await Task.CompletedTask;
                 }
                 catch (Exception ex)
@@ -874,14 +896,16 @@ namespace Gelatinarm.Services
         {
             var smtc = _systemMediaTransportControls;
             if (smtc == null)
+            {
                 return;
+            }
 
             var context = CreateErrorContext("SetShuffleEnabled", ErrorCategory.Media);
             FireAndForget(async () =>
             {
                 try
                 {
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         smtc.ShuffleEnabled = enabled;
                     }, logger: Logger).ConfigureAwait(false);
@@ -900,14 +924,16 @@ namespace Gelatinarm.Services
         {
             var smtc = _systemMediaTransportControls;
             if (smtc == null)
+            {
                 return;
+            }
 
             var context = CreateErrorContext("SetRepeatMode", ErrorCategory.Media);
             FireAndForget(async () =>
             {
                 try
                 {
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         smtc.AutoRepeatMode = mode switch
                         {
@@ -932,7 +958,9 @@ namespace Gelatinarm.Services
         {
             var smtc = _systemMediaTransportControls;
             if (smtc == null)
+            {
                 return;
+            }
 
             var context = CreateErrorContext("ClearDisplay", ErrorCategory.Media);
             FireAndForget(async () =>
@@ -1426,7 +1454,8 @@ namespace Gelatinarm.Services
                         // If container indicates a direct file format and server might return direct file
                         else if (!string.IsNullOrEmpty(mediaSource.Container))
                         {
-                            var directStreamContainers = new[] { "mp3", "m4a", "aac", "flac", "alac", "wav", "wma", "amr" };
+                            var directStreamContainers =
+                                new[] { "mp3", "m4a", "aac", "flac", "alac", "wav", "wma", "amr" };
                             if (directStreamContainers.Contains(mediaSource.Container.ToLower()) &&
                                 mediaSource.SupportsDirectStream == true &&
                                 !mediaUrl.Contains("transcodingProtocol=hls"))
@@ -1675,8 +1704,8 @@ namespace Gelatinarm.Services
                         {
                             await ReportProgress(cancellationToken).ConfigureAwait(false);
                         }
-                    }, null, TimeSpan.FromSeconds(RetryConstants.PLAYBACK_PROGRESS_INTERVAL_SECONDS),
-                    TimeSpan.FromSeconds(RetryConstants.PLAYBACK_PROGRESS_INTERVAL_SECONDS));
+                    }, null, TimeSpan.FromSeconds(RetryConstants.PlaybackProgressIntervalSeconds),
+                    TimeSpan.FromSeconds(RetryConstants.PlaybackProgressIntervalSeconds));
             }
             catch (Exception ex)
             {
@@ -1872,7 +1901,8 @@ namespace Gelatinarm.Services
                         }
 
                         Logger.LogInformation($"Universal endpoint URL: {mediaUrl}");
-                        Logger.LogInformation($"Using /Audio/{item.Id}/universal endpoint for server-side transcoding to MP3");
+                        Logger.LogInformation(
+                            $"Using /Audio/{item.Id}/universal endpoint for server-side transcoding to MP3");
                         Logger.LogInformation("Server will handle format conversion and metadata stripping");
 
                         // Create media source from the universal URL
@@ -1883,7 +1913,7 @@ namespace Gelatinarm.Services
                         Logger.LogInformation("Clearing current MediaPlayer source");
                         _smtcSuppressStoppedUntilUtc = DateTime.UtcNow.AddSeconds(3);
                         _mediaControlService.ClearMediaSource();
-                        await Task.Delay(MediaConstants.MEDIA_SOURCE_CLEAR_DELAY_MS).ConfigureAwait(false);
+                        await Task.Delay(MediaConstants.MediaSourceClearDelayMs).ConfigureAwait(false);
 
                         Logger.LogInformation("Setting transcoded MediaPlaybackItem as source");
                         await _mediaControlService.SetMediaSource(playbackItem, item).ConfigureAwait(false);

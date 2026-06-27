@@ -1,12 +1,12 @@
 using System;
 using System.Threading.Tasks;
-using Gelatinarm.Constants;
-using Microsoft.Extensions.Logging;
 using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
+using Gelatinarm.Constants;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Controls
 {
@@ -161,7 +161,7 @@ namespace Gelatinarm.Controls
 
                         if (initialFocusControl != null)
                         {
-                            await Task.Delay(UIConstants.UI_SETTLE_DELAY_MS);
+                            await Task.Delay(UiConstants.UiSettleDelayMs);
                             SetInitialFocus(initialFocusControl, logger);
                         }
                         else
@@ -169,12 +169,12 @@ namespace Gelatinarm.Controls
                             var firstFocusable = FindFirstFocusableControl(page);
                             if (firstFocusable != null)
                             {
-                                await Task.Delay(UIConstants.UI_SETTLE_DELAY_MS);
+                                await Task.Delay(UiConstants.UiSettleDelayMs);
                                 SetInitialFocus(firstFocusable, logger);
                             }
                         }
 
-                        await Task.Delay(UIConstants.UI_SETTLE_DELAY_MS);
+                        await Task.Delay(UiConstants.UiSettleDelayMs);
                     }
                     catch (Exception ex)
                     {
@@ -194,7 +194,7 @@ namespace Gelatinarm.Controls
         /// </summary>
         /// <param name="element">The element to configure</param>
         /// <param name="logger">Optional logger for error reporting</param>
-        public static void EnableXYFocusNavigation(FrameworkElement element, ILogger logger = null)
+        public static void EnableXyFocusNavigation(FrameworkElement element, ILogger logger = null)
         {
             if (element == null)
             {
@@ -293,7 +293,7 @@ namespace Gelatinarm.Controls
                     else if (child is FrameworkElement element)
                     {
                         // Enable XY focus navigation for all framework elements
-                        EnableXYFocusNavigation(element, logger);
+                        EnableXyFocusNavigation(element, logger);
                     }
 
                     // Recursively check children

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
@@ -8,7 +9,6 @@ using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Gelatinarm.Views;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml;
 using Exception = System.Exception;
 
 namespace Gelatinarm.ViewModels
@@ -149,7 +149,7 @@ namespace Gelatinarm.ViewModels
                         ConnectionStatus = "✅ Connected successfully! Redirecting";
 
                         Logger?.LogInformation("Waiting for storage operations to complete...");
-                        await Task.Delay(RetryConstants.QUICK_CONNECT_POLL_DELAY_MS);
+                        await Task.Delay(RetryConstants.QuickConnectPollDelayMs);
 
                         if (!await EnsureUserProfileLoadedAsync("Quick Connect success"))
                         {
@@ -163,7 +163,7 @@ namespace Gelatinarm.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        await ErrorHandler.HandleErrorAsync(ex, innerContext, true);
+                        await ErrorHandler.HandleErrorAsync(ex, innerContext);
                         if (IsError)
                         {
                             ConnectionStatus = $"❌ Navigation failed: {ErrorMessage}";
@@ -224,7 +224,7 @@ namespace Gelatinarm.ViewModels
             // Create a timer that polls every 5 seconds
             _pollingTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(RetryConstants.QUICK_CONNECT_POLL_INTERVAL_SECONDS)
+                Interval = TimeSpan.FromSeconds(RetryConstants.QuickConnectPollIntervalSeconds)
             };
             _pollingTimer.Tick += async (sender, e) => await PollQuickConnectStatus();
             _pollingTimer.Start();
@@ -269,7 +269,7 @@ namespace Gelatinarm.ViewModels
                     // Ensure user profile is loaded before navigating
                     await EnsureUserProfileLoadedAsync("Quick Connect");
 
-                    await Task.Delay(RetryConstants.QUICK_CONNECT_SUCCESS_DELAY_MS);
+                    await Task.Delay(RetryConstants.QuickConnectSuccessDelayMs);
 
                     await RunOnUIThreadAsync(() =>
                     {
@@ -355,7 +355,7 @@ namespace Gelatinarm.ViewModels
             ConnectionStatus = "❌ Quick Connect cancelled";
 
             // Wait before redirecting
-            await Task.Delay(TimeSpan.FromSeconds(UIConstants.QUICK_CONNECT_CANCEL_REDIRECT_SECONDS));
+            await Task.Delay(TimeSpan.FromSeconds(UiConstants.QuickConnectCancelRedirectSeconds));
 
             if (_navigationService.CanGoBack)
             {

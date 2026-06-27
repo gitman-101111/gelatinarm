@@ -22,14 +22,14 @@ namespace Gelatinarm.Helpers
         public static async Task<T> ExecuteWithRetryAsync<T>(
             Func<Task<T>> operation,
             ILogger logger = null,
-            int maxRetries = RetryConstants.DEFAULT_API_RETRY_ATTEMPTS,
+            int maxRetries = RetryConstants.DefaultApiRetryAttempts,
             TimeSpan? initialDelay = null,
             CancellationToken cancellationToken = default,
             [CallerMemberName] string memberName = "",
             Func<Exception, bool> shouldRetry = null)
         {
             var retryCount = 0;
-            var delay = initialDelay ?? TimeSpan.FromMilliseconds(RetryConstants.INITIAL_RETRY_DELAY_MS);
+            var delay = initialDelay ?? TimeSpan.FromMilliseconds(RetryConstants.InitialRetryDelayMs);
 
             while (true)
             {
@@ -75,9 +75,11 @@ namespace Gelatinarm.Helpers
                     else if (ex is ApiException apiEx)
                     {
                         // For server restart scenarios (502, 503, 504), use longer delays
-                        if (apiEx.ResponseStatusCode == 502 || apiEx.ResponseStatusCode == 503 || apiEx.ResponseStatusCode == 504)
+                        if (apiEx.ResponseStatusCode == 502 || apiEx.ResponseStatusCode == 503 ||
+                            apiEx.ResponseStatusCode == 504)
                         {
-                            logger?.LogInformation($"Server appears to be restarting (HTTP {apiEx.ResponseStatusCode}). Waiting before retry {retryCount}/{maxRetries}...");
+                            logger?.LogInformation(
+                                $"Server appears to be restarting (HTTP {apiEx.ResponseStatusCode}). Waiting before retry {retryCount}/{maxRetries}...");
                             // Use longer delay for server restart scenarios
                             delay = TimeSpan.FromSeconds(Math.Min(5 * retryCount, 15)); // 5s, 10s, 15s
                         }
@@ -109,9 +111,9 @@ namespace Gelatinarm.Helpers
                     delay = TimeSpan.FromMilliseconds((delay.TotalMilliseconds * 2) + jitter);
 
                     // Cap the delay at maximum retry delay
-                    if (delay.TotalSeconds > RetryConstants.MAX_RETRY_DELAY_SECONDS)
+                    if (delay.TotalSeconds > RetryConstants.MaxRetryDelaySeconds)
                     {
-                        delay = TimeSpan.FromSeconds(RetryConstants.MAX_RETRY_DELAY_SECONDS);
+                        delay = TimeSpan.FromSeconds(RetryConstants.MaxRetryDelaySeconds);
                     }
                 }
             }
@@ -123,7 +125,7 @@ namespace Gelatinarm.Helpers
         public static async Task ExecuteWithRetryAsync(
             Func<Task> operation,
             ILogger logger = null,
-            int maxRetries = RetryConstants.DEFAULT_API_RETRY_ATTEMPTS,
+            int maxRetries = RetryConstants.DefaultApiRetryAttempts,
             TimeSpan? initialDelay = null,
             CancellationToken cancellationToken = default,
             [CallerMemberName] string memberName = "",

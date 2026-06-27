@@ -1,7 +1,7 @@
 using System;
+using Windows.UI.Xaml.Data;
 using Gelatinarm.Helpers;
 using Jellyfin.Sdk.Generated.Models;
-using Windows.UI.Xaml.Data;
 
 namespace Gelatinarm.Converters.Image
 {

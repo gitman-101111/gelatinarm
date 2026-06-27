@@ -4,6 +4,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.Core;
+using Windows.Media.Playback;
+using Windows.System;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Constants;
@@ -13,9 +18,6 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Playback;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 
 namespace Gelatinarm.ViewModels
 {
@@ -24,8 +26,8 @@ namespace Gelatinarm.ViewModels
     /// </summary>
     public partial class MediaPlayerViewModel : BaseViewModel
     {
-        private const double SKIP_CHECK_THRESHOLD_SECONDS = 0.5;
-        private volatile bool _isDisposed = false; // Track disposal state
+        private const double SkipCheckThresholdSeconds = 0.5;
+        private volatile bool _isDisposed; // Track disposal state
         private readonly IMediaControlService _mediaControlService;
         private readonly IControllerInputService _controllerInputService;
         private readonly IMediaNavigationService _mediaNavigationService;
@@ -59,23 +61,23 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private string _endsAtTimeText;
 
-        private bool _hasAutoPlayedNext = false;
+        private bool _hasAutoPlayedNext;
 
         // Track/quality change tracking
-        private int _progressReportCounter = 0;
+        private int _progressReportCounter;
         private TimeSpan _actualResumePosition = TimeSpan.Zero; // Track actual resume position for corruption detection
         private MediaPlaybackState _lastPlaybackState = MediaPlaybackState.None;
         private bool _hasPlaybackStateSnapshot;
 
         // Track when video playback has started
-        private bool _hasVideoStarted = false;
+        private bool _hasVideoStarted;
 
         // Track cleanup state to prevent race conditions
         private Task _cleanupTask;
         private readonly SemaphoreSlim _initializationSemaphore = new SemaphoreSlim(1, 1);
 
         // Track whether auto-play next episode is enabled
-        private bool _autoPlayNextEpisode = false;
+        private bool _autoPlayNextEpisode;
 
         [ObservableProperty] private bool _isAudioVisualizationActive;
 
@@ -90,11 +92,11 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private bool _isEndsAtTimeVisible;
 
-        private bool _isIntroSkipAvailable = false;
+        private bool _isIntroSkipAvailable;
 
-        private bool _isNextEpisodeAvailable = false;
+        private bool _isNextEpisodeAvailable;
 
-        private bool _isOutroSkipAvailable = false;
+        private bool _isOutroSkipAvailable;
 
         public bool IsPaused
         {
@@ -129,7 +131,7 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private BaseItemDto _nextEpisode;
 
-        private bool _nextEpisodeButtonOverlayVisible = false;
+        private bool _nextEpisodeButtonOverlayVisible;
         private string _playSessionId;
         private readonly PlaybackSessionState _sessionState = new PlaybackSessionState();
 
@@ -137,13 +139,13 @@ namespace Gelatinarm.ViewModels
         private MediaPlaybackParams _playbackParams;
 
         private TimeSpan _position = TimeSpan.Zero;
+
         public TimeSpan Position
         {
-            get
-            {
+            get =>
                 // For HLS streams, we may need to add manifest offset from PlaybackControlService.
-                return _sessionState.GetDisplayPosition(_position, _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
-            }
+                _sessionState.GetDisplayPosition(_position,
+                    _playbackControlService?.HlsManifestOffset ?? TimeSpan.Zero);
             set => SetProperty(ref _position, value);
         }
 
@@ -160,7 +162,7 @@ namespace Gelatinarm.ViewModels
         private DispatcherTimer _statsUpdateTimer;
         private DispatcherTimer _bufferingTimeoutTimer;
         private DateTime? _bufferingStartTime;
-        private const int BUFFERING_TIMEOUT_SECONDS = 30; // Default buffering timeout
+        private const int BufferingTimeoutSeconds = 30; // Default buffering timeout
         private readonly BufferingStateCoordinator _bufferingStateCoordinator;
         private readonly PlaybackStateCoordinator _playbackStateCoordinator;
         private readonly SeekCompletionCoordinator _seekCompletionCoordinator;
@@ -189,7 +191,7 @@ namespace Gelatinarm.ViewModels
             _mediaControlService = GetRequiredService<IMediaControlService>();
             _apiClient = GetRequiredService<JellyfinApiClient>();
 
-            _bufferingStateCoordinator = new BufferingStateCoordinator(logger, BUFFERING_TIMEOUT_SECONDS);
+            _bufferingStateCoordinator = new BufferingStateCoordinator(logger, BufferingTimeoutSeconds);
             _playbackStateCoordinator = new PlaybackStateCoordinator(logger, _bufferingStateCoordinator);
             _seekCompletionCoordinator = new SeekCompletionCoordinator(logger);
             InitializeTimers();
@@ -238,6 +240,7 @@ namespace Gelatinarm.ViewModels
         // Computed property for Episodes button visibility
         // Hide it when the Next Episode overlay is visible to avoid duplicate buttons
         public bool IsEpisodesButtonVisible => IsNextEpisodeAvailable && !NextEpisodeButtonOverlayVisible;
+
         public bool NextEpisodeButtonOverlayVisible
         {
             get => _nextEpisodeButtonOverlayVisible;
@@ -275,13 +278,13 @@ namespace Gelatinarm.ViewModels
         {
             _positionTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(MediaPlayerConstants.POSITION_TIMER_INTERVAL_MS)
+                Interval = TimeSpan.FromMilliseconds(MediaPlayerConstants.PositionTimerIntervalMs)
             };
             _positionTimer.Tick += OnPositionTimerTick;
 
             _controlVisibilityTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(MediaPlayerConstants.CONTROLS_HIDE_CHECK_INTERVAL_MS)
+                Interval = TimeSpan.FromMilliseconds(MediaPlayerConstants.ControlsHideCheckIntervalMs)
             };
             _controlVisibilityTimer.Tick += OnControlVisibilityTimerTick;
 
@@ -328,7 +331,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -377,7 +380,7 @@ namespace Gelatinarm.ViewModels
                     return;
                 }
 
-                var skipSeconds = GetSkipSeconds(parameter, MediaPlayerConstants.SKIP_BACKWARD_SECONDS);
+                var skipSeconds = GetSkipSeconds(parameter, MediaPlayerConstants.SkipBackwardSeconds);
 
                 if (await TryHandleHlsBackwardSeekBeforeManifestStartAsync(skipSeconds))
                 {
@@ -391,7 +394,7 @@ namespace Gelatinarm.ViewModels
                 await UpdatePositionImmediateAsync();
 
                 // Show skip indicator
-                ShowSkipIndicator(FormatSkipIndicator(skipSeconds, forward: false));
+                ShowSkipIndicator(FormatSkipIndicator(skipSeconds, false));
 
                 // Always notify about skip - the view will decide how to handle it based on timing
                 ToggleControlsRequested?.Invoke(this, EventArgs.Empty);
@@ -423,7 +426,7 @@ namespace Gelatinarm.ViewModels
                     return;
                 }
 
-                var skipSeconds = GetSkipSeconds(parameter, MediaPlayerConstants.SKIP_FORWARD_SECONDS);
+                var skipSeconds = GetSkipSeconds(parameter, MediaPlayerConstants.SkipForwardSeconds);
 
                 if (!TryPrepareHlsForwardSeek(ref skipSeconds))
                 {
@@ -435,7 +438,7 @@ namespace Gelatinarm.ViewModels
                 await UpdatePositionImmediateAsync();
 
                 // Show skip indicator
-                ShowSkipIndicator(FormatSkipIndicator(skipSeconds, forward: true));
+                ShowSkipIndicator(FormatSkipIndicator(skipSeconds, true));
 
                 // Always notify about skip - the view will decide how to handle it based on timing
                 ToggleControlsRequested?.Invoke(this, EventArgs.Empty);
@@ -540,7 +543,8 @@ namespace Gelatinarm.ViewModels
                 actualTargetPosition = TimeSpan.Zero;
             }
 
-            Logger.LogInformation($"[HLS-SEEK] Backward seek would go before manifest start. Restarting at {actualTargetPosition:mm\\:ss}");
+            Logger.LogInformation(
+                $"[HLS-SEEK] Backward seek would go before manifest start. Restarting at {actualTargetPosition:mm\\:ss}");
 
             var restartTicks = actualTargetPosition.Ticks;
             var wasPlaying = IsPlaying;
@@ -578,7 +582,8 @@ namespace Gelatinarm.ViewModels
                 targetPos = TimeSpan.Zero;
             }
 
-            Logger.LogInformation($"[HLS] Large backward seek: {skipSeconds}s from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} - server may create new manifest");
+            Logger.LogInformation(
+                $"[HLS] Large backward seek: {skipSeconds}s from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} - server may create new manifest");
         }
 
         private bool TryPrepareHlsForwardSeek(ref int skipSeconds)
@@ -599,7 +604,8 @@ namespace Gelatinarm.ViewModels
 
             if (metadataDuration > TimeSpan.Zero && targetPos >= metadataDuration - TimeSpan.FromSeconds(30))
             {
-                Logger.LogWarning($"[HLS] Preventing seek to {targetPos:mm\\:ss} - too close to end ({metadataDuration:mm\\:ss}). This could corrupt the HLS manifest.");
+                Logger.LogWarning(
+                    $"[HLS] Preventing seek to {targetPos:mm\\:ss} - too close to end ({metadataDuration:mm\\:ss}). This could corrupt the HLS manifest.");
 
                 var safeEndPosition = metadataDuration - TimeSpan.FromSeconds(35);
                 if (currentPosWithOffset < safeEndPosition)
@@ -618,7 +624,8 @@ namespace Gelatinarm.ViewModels
 
             if (skipSeconds >= 60 && hlsManifestOffset > TimeSpan.Zero)
             {
-                Logger.LogInformation($"[HLS-MANIFEST-OFFSET] Large seek with offset. Current raw: {rawPosition:mm\\:ss}, offset: {hlsManifestOffset:mm\\:ss}, target absolute: {targetPos:mm\\:ss}");
+                Logger.LogInformation(
+                    $"[HLS-MANIFEST-OFFSET] Large seek with offset. Current raw: {rawPosition:mm\\:ss}, offset: {hlsManifestOffset:mm\\:ss}, target absolute: {targetPos:mm\\:ss}");
                 _mediaControlService.SeekTo(rawPosition + TimeSpan.FromSeconds(skipSeconds));
                 _sessionState.RecordLargeSeek(targetPos);
                 return false;
@@ -627,7 +634,8 @@ namespace Gelatinarm.ViewModels
             if (skipSeconds >= 60)
             {
                 _sessionState.RecordLargeSeek(targetPos);
-                Logger.LogInformation($"[HLS] Large seek detected: {skipSeconds}s forward from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} (pending seeks: {_sessionState.PendingSeekCount})");
+                Logger.LogInformation(
+                    $"[HLS] Large seek detected: {skipSeconds}s forward from {currentPosWithOffset:mm\\:ss} to {targetPos:mm\\:ss} (pending seeks: {_sessionState.PendingSeekCount})");
             }
 
             return true;
@@ -954,6 +962,7 @@ namespace Gelatinarm.ViewModels
                     {
                         await sessionService.InitializeAsync(playbackParams);
                     }
+
                     await _controllerInputService.InitializeAsync(MediaPlayerElement.MediaPlayer);
                     await _mediaControlService.InitializeAsync(MediaPlayerElement.MediaPlayer);
 
@@ -1125,12 +1134,16 @@ namespace Gelatinarm.ViewModels
 
                 // If we only got one audio track from playback info but the item has more,
                 // load all audio tracks from the item's MediaStreams
-                if (AudioTracks.Count <= 1 && CurrentItem?.MediaStreams?.Any(s => s.Type == MediaStream_Type.Audio) == true)
+                if (AudioTracks.Count <= 1 &&
+                    CurrentItem?.MediaStreams?.Any(s => s.Type == MediaStream_Type.Audio) == true)
                 {
-                    var itemAudioStreams = CurrentItem?.MediaStreams?.Where(s => s.Type == MediaStream_Type.Audio).ToList() ?? new List<MediaStream>();
+                    var itemAudioStreams =
+                        CurrentItem?.MediaStreams?.Where(s => s.Type == MediaStream_Type.Audio).ToList() ??
+                        new List<MediaStream>();
                     if (itemAudioStreams.Count > 1)
                     {
-                        Logger.LogInformation($"Found {itemAudioStreams.Count} audio tracks in item MediaStreams, loading all tracks");
+                        Logger.LogInformation(
+                            $"Found {itemAudioStreams.Count} audio tracks in item MediaStreams, loading all tracks");
                         AudioTracks.Clear();
 
                         foreach (var stream in itemAudioStreams)
@@ -1182,14 +1195,15 @@ namespace Gelatinarm.ViewModels
                         // Set selected audio track
                         if (_playbackParams?.AudioStreamIndex.HasValue == true)
                         {
-                            SelectedAudioTrack = AudioTracks.FirstOrDefault(a => a.ServerStreamIndex == _playbackParams.AudioStreamIndex.Value)
-                                               ?? AudioTracks.FirstOrDefault(a => a.IsDefault)
-                                               ?? AudioTracks.FirstOrDefault();
+                            SelectedAudioTrack = AudioTracks.FirstOrDefault(a =>
+                                                     a.ServerStreamIndex == _playbackParams.AudioStreamIndex.Value)
+                                                 ?? AudioTracks.FirstOrDefault(a => a.IsDefault)
+                                                 ?? AudioTracks.FirstOrDefault();
                         }
                         else
                         {
                             SelectedAudioTrack = AudioTracks.FirstOrDefault(a => a.IsDefault)
-                                               ?? AudioTracks.FirstOrDefault();
+                                                 ?? AudioTracks.FirstOrDefault();
                         }
                     }
                 }
@@ -1215,7 +1229,8 @@ namespace Gelatinarm.ViewModels
 
                 // Report playback start position
                 // For HLS streams, always report 0 to avoid server restart issues
-                var isHlsStream = playbackInfo.MediaSources?.FirstOrDefault()?.TranscodingUrl?.Contains(".m3u8") == true;
+                var isHlsStream = playbackInfo.MediaSources?.FirstOrDefault()?.TranscodingUrl?.Contains(".m3u8") ==
+                                  true;
                 _sessionState.IsHlsStream = isHlsStream; // Store for later use
 
                 // For HLS streams with resume, we'll do a client-side seek after playback starts
@@ -1223,11 +1238,12 @@ namespace Gelatinarm.ViewModels
                 // starts the manifest from the beginning, not from the resume position
                 if (isHlsStream && _playbackParams.StartPositionTicks > 0)
                 {
-                    Logger.LogInformation($"[HLS] Will apply client-side resume to {TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value):mm\\:ss}");
+                    Logger.LogInformation(
+                        $"[HLS] Will apply client-side resume to {TimeSpan.FromTicks(_playbackParams.StartPositionTicks.Value):mm\\:ss}");
                     // Don't set up offset tracking - this is a normal client-side seek
                 }
 
-                var reportPosition = isHlsStream ? 0 : (_playbackParams.StartPositionTicks ?? 0);
+                var reportPosition = isHlsStream ? 0 : _playbackParams.StartPositionTicks ?? 0;
 
                 if (_mediaPlaybackService is IMediaSessionService sessionService)
                 {
@@ -1239,7 +1255,6 @@ namespace Gelatinarm.ViewModels
                 {
                     FireAndForget(async () => await PreloadNextEpisodeAsync());
                 }
-
             }
             catch (Exception ex)
             {
@@ -1253,7 +1268,7 @@ namespace Gelatinarm.ViewModels
             var context = CreateErrorContext("PreloadNextEpisode", ErrorCategory.Media, ErrorSeverity.Warning);
             try
             {
-                await Task.Delay(MediaPlayerConstants.NEXT_EPISODE_PRELOAD_DELAY_MS);
+                await Task.Delay(MediaPlayerConstants.NextEpisodePreloadDelayMs);
                 await _mediaNavigationService.PreloadNextItemAsync();
                 NextEpisode = await _mediaNavigationService.GetNextEpisodeAsync();
                 IsNextEpisodeAvailable = _mediaNavigationService.HasNextItem();
@@ -1315,8 +1330,8 @@ namespace Gelatinarm.ViewModels
                 {
                     var session = MediaPlayerElement.MediaPlayer.PlaybackSession;
 
-                    TimeSpan currentPosition = TimeSpan.Zero;
-                    TimeSpan duration = TimeSpan.Zero;
+                    var currentPosition = TimeSpan.Zero;
+                    var duration = TimeSpan.Zero;
 
                     // Safely get position
                     try
@@ -1339,7 +1354,8 @@ namespace Gelatinarm.ViewModels
                     }
                     catch (Exception durEx)
                     {
-                        Logger.LogError($"[POSITION-TIMER] Failed to get NaturalDuration - HResult: 0x{durEx.HResult:X8}");
+                        Logger.LogError(
+                            $"[POSITION-TIMER] Failed to get NaturalDuration - HResult: 0x{durEx.HResult:X8}");
                         duration = metadataDuration; // Fall back to metadata
                     }
 
@@ -1347,14 +1363,17 @@ namespace Gelatinarm.ViewModels
                     if (duration == TimeSpan.Zero || duration < TimeSpan.FromSeconds(1))
                     {
                         // Don't update duration if it's invalid
-                        Logger.LogDebug($"[POSITION-TIMER] Skipping position update - invalid duration: {duration:mm\\:ss}, position: {currentPosition:mm\\:ss}");
+                        Logger.LogDebug(
+                            $"[POSITION-TIMER] Skipping position update - invalid duration: {duration:mm\\:ss}, position: {currentPosition:mm\\:ss}");
                         return;
                     }
 
                     // Log if we detect HLS corruption (duration becomes unreasonably short)
-                    if (_sessionState.IsHlsStream && metadataDuration > TimeSpan.FromMinutes(5) && duration < TimeSpan.FromMinutes(1))
+                    if (_sessionState.IsHlsStream && metadataDuration > TimeSpan.FromMinutes(5) &&
+                        duration < TimeSpan.FromMinutes(1))
                     {
-                        Logger.LogError($"[HLS-CORRUPTION] Duration corruption detected! Natural: {duration:mm\\:ss}, Metadata: {metadataDuration:mm\\:ss}, Position: {currentPosition:mm\\:ss}");
+                        Logger.LogError(
+                            $"[HLS-CORRUPTION] Duration corruption detected! Natural: {duration:mm\\:ss}, Metadata: {metadataDuration:mm\\:ss}, Position: {currentPosition:mm\\:ss}");
                     }
 
                     TryApplyHlsManifestChangeAfterBackwardSeek(currentPosition);
@@ -1386,7 +1405,7 @@ namespace Gelatinarm.ViewModels
                     // Check if position has changed significantly to reduce frequency of skip button checks
                     var positionDelta = Math.Abs((Position - _lastSkipCheckPosition).TotalSeconds);
 
-                    if (positionDelta >= SKIP_CHECK_THRESHOLD_SECONDS)
+                    if (positionDelta >= SkipCheckThresholdSeconds)
                     {
                         _lastSkipCheckPosition = Position;
 
@@ -1395,7 +1414,8 @@ namespace Gelatinarm.ViewModels
                     }
 
                     // Report progress periodically on background thread (non-blocking)
-                    _ = Task.Run(async () => await ReportProgressIfNeeded(), _progressReportCancellationTokenSource?.Token ?? CancellationToken.None);
+                    _ = Task.Run(async () => await ReportProgressIfNeeded(),
+                        _progressReportCancellationTokenSource?.Token ?? CancellationToken.None);
 
                     // Check for auto-play next - ensure this runs on UI thread since it updates UI properties
                     await RunOnUIThreadAsync(() =>
@@ -1436,8 +1456,7 @@ namespace Gelatinarm.ViewModels
                 {
                     config.QueryParameters.IncludeSegmentTypes = new[]
                     {
-                        MediaSegmentType.Intro,
-                        MediaSegmentType.Outro
+                        MediaSegmentType.Intro, MediaSegmentType.Outro
                     };
                 }).ConfigureAwait(false);
 
@@ -1490,6 +1509,7 @@ namespace Gelatinarm.ViewModels
                     {
                         playbackSession.Position = _introEndTime.Value;
                     }
+
                     _hasAutoSkippedIntro = true;
                     return;
                 }
@@ -1507,6 +1527,7 @@ namespace Gelatinarm.ViewModels
                     {
                         playbackSession.Position = _outroEndTime.Value;
                     }
+
                     _hasAutoSkippedOutro = true;
                 }
             }
@@ -1556,13 +1577,14 @@ namespace Gelatinarm.ViewModels
             }
 
             var bufferingDuration = DateTime.UtcNow - _bufferingStartTime.Value;
-            if (bufferingDuration.TotalSeconds < BUFFERING_TIMEOUT_SECONDS)
+            if (bufferingDuration.TotalSeconds < BufferingTimeoutSeconds)
             {
                 return false;
             }
 
             var actualPosition = GetCurrentPlaybackPosition();
-            Logger.LogWarning($"[BUFFERING-TIMEOUT] Buffering timeout reached after {bufferingDuration.TotalSeconds:F1}s at position {actualPosition:mm\\:ss}, HLS: {_sessionState.IsHlsStream}");
+            Logger.LogWarning(
+                $"[BUFFERING-TIMEOUT] Buffering timeout reached after {bufferingDuration.TotalSeconds:F1}s at position {actualPosition:mm\\:ss}, HLS: {_sessionState.IsHlsStream}");
 
             if (TryRecoverHlsBuffering())
             {
@@ -1629,7 +1651,7 @@ namespace Gelatinarm.ViewModels
             {
                 await Task.Delay(3000);
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     IsError = false;
                     ErrorMessage = string.Empty;
@@ -1786,6 +1808,7 @@ namespace Gelatinarm.ViewModels
                 {
                     return "HDR10";
                 }
+
                 if (transfer.Contains("arib-std-b67") || transfer.Contains("hlg"))
                 {
                     return "HLG";
@@ -1803,9 +1826,10 @@ namespace Gelatinarm.ViewModels
         private string GetAudioCodecInfo()
         {
             var audioStream = _statsMediaSource?.MediaStreams?
-                .FirstOrDefault(s => s.Type == MediaStream_Type.Audio &&
-                                     (s.IsDefault == true || s.Index == _statsMediaSource?.DefaultAudioStreamIndex))
-                ?? _statsMediaSource?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+                                  .FirstOrDefault(s => s.Type == MediaStream_Type.Audio &&
+                                                       (s.IsDefault == true || s.Index ==
+                                                           _statsMediaSource?.DefaultAudioStreamIndex))
+                              ?? _statsMediaSource?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
 
             return audioStream?.Codec?.ToUpper();
         }
@@ -1813,9 +1837,10 @@ namespace Gelatinarm.ViewModels
         private string GetAudioChannels()
         {
             var audioStream = _statsMediaSource?.MediaStreams?
-                .FirstOrDefault(s => s.Type == MediaStream_Type.Audio &&
-                                     (s.IsDefault == true || s.Index == _statsMediaSource?.DefaultAudioStreamIndex))
-                ?? _statsMediaSource?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+                                  .FirstOrDefault(s => s.Type == MediaStream_Type.Audio &&
+                                                       (s.IsDefault == true || s.Index ==
+                                                           _statsMediaSource?.DefaultAudioStreamIndex))
+                              ?? _statsMediaSource?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
 
             if (audioStream?.Channels != null)
             {
@@ -1840,9 +1865,10 @@ namespace Gelatinarm.ViewModels
         private string GetAudioSampleRate()
         {
             var audioStream = _statsMediaSource?.MediaStreams?
-                .FirstOrDefault(s => s.Type == MediaStream_Type.Audio &&
-                                     (s.IsDefault == true || s.Index == _statsMediaSource?.DefaultAudioStreamIndex))
-                ?? _statsMediaSource?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
+                                  .FirstOrDefault(s => s.Type == MediaStream_Type.Audio &&
+                                                       (s.IsDefault == true || s.Index ==
+                                                           _statsMediaSource?.DefaultAudioStreamIndex))
+                              ?? _statsMediaSource?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Audio);
 
             return audioStream?.SampleRate != null ? $"{audioStream.SampleRate} Hz" : null;
         }
@@ -1900,10 +1926,12 @@ namespace Gelatinarm.ViewModels
                 {
                     return "HLS";
                 }
+
                 if (_statsMediaSource.TranscodingUrl.Contains(".mpd"))
                 {
                     return "DASH";
                 }
+
                 return "HTTP";
             }
 
@@ -2015,10 +2043,11 @@ namespace Gelatinarm.ViewModels
                 return;
             }
 
-            var context = CreateErrorContext("ResumePlayback", ErrorCategory.Media, ErrorSeverity.Error);
-            var resumeException = new ResumeStuckException(failureContext.CurrentPosition, failureContext.TargetPosition, failureContext.RetryCount);
+            var context = CreateErrorContext("ResumePlayback", ErrorCategory.Media);
+            var resumeException = new ResumeStuckException(failureContext.CurrentPosition,
+                failureContext.TargetPosition, failureContext.RetryCount);
 
-            ErrorHandler?.HandleError(resumeException, context, showUserMessage: true);
+            ErrorHandler?.HandleError(resumeException, context, true);
 
             await Task.Delay(100);
 
@@ -2057,6 +2086,7 @@ namespace Gelatinarm.ViewModels
                         {
                             await SkipForward(forwardSeconds);
                         }
+
                         break;
                     case MediaAction.Rewind:
                         // Trigger - skip backward by parameter seconds (should be 600 for 10 minutes)
@@ -2064,6 +2094,7 @@ namespace Gelatinarm.ViewModels
                         {
                             await SkipBackward(backwardSeconds);
                         }
+
                         break;
                     default:
                         // For other actions with parameters, just call the regular action
@@ -2122,8 +2153,10 @@ namespace Gelatinarm.ViewModels
                         }
                         else if (_currentPlaybackParams?.NavigationSourcePage != null)
                         {
-                            Logger.LogInformation($"Smart back navigation: Going to {_currentPlaybackParams.NavigationSourcePage.Name}");
-                            _navigationService.Navigate(_currentPlaybackParams.NavigationSourcePage, _currentPlaybackParams.NavigationSourceParameter);
+                            Logger.LogInformation(
+                                $"Smart back navigation: Going to {_currentPlaybackParams.NavigationSourcePage.Name}");
+                            _navigationService.Navigate(_currentPlaybackParams.NavigationSourcePage,
+                                _currentPlaybackParams.NavigationSourceParameter);
                         }
                         else if (_navigationService.CanGoBack)
                         {
@@ -2136,8 +2169,8 @@ namespace Gelatinarm.ViewModels
                         // Fire event to request control visibility toggle
                         ToggleControlsRequested?.Invoke(this, EventArgs.Empty);
                         break;
-                        // Note: VolumeUp, VolumeDown, Mute actions are handled by Xbox system
-                        // Audio/subtitle selection is done through UI flyouts
+                    // Note: VolumeUp, VolumeDown, Mute actions are handled by Xbox system
+                    // Audio/subtitle selection is done through UI flyouts
                 }
             }
             catch (Exception ex)
@@ -2152,21 +2185,24 @@ namespace Gelatinarm.ViewModels
 
         private void OnMediaOpened(MediaPlayer sender, object args)
         {
-            if (_isDisposed) return;
+            if (_isDisposed)
+            {
+                return;
+            }
 
             try
             {
                 var sessionSnapshot = PlaybackSessionSnapshot.Capture(
                     sender.PlaybackSession,
-                    skipBufferingProgress: _sessionState.IsHlsStream);
+                    _sessionState.IsHlsStream);
                 Logger.LogInformation(
                     $"[MEDIA-OPENED] Natural duration: {sessionSnapshot.NaturalDuration.TotalSeconds}s, " +
                     $"CanSeek: {sessionSnapshot.CanSeek}, " +
                     $"IsProtected: {sessionSnapshot.IsProtected}");
 
                 // Log memory after media opens
-                var memoryUsage = Windows.System.MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
-                var memoryLimit = Windows.System.MemoryManager.AppMemoryUsageLimit / (1024.0 * 1024.0);
+                var memoryUsage = MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
+                var memoryLimit = MemoryManager.AppMemoryUsageLimit / (1024.0 * 1024.0);
                 Logger.LogInformation($"[MEMORY] After media opened: {memoryUsage:F2} MB / {memoryLimit:F2} MB");
 
                 // Pass the session to avoid cross-thread access to MediaPlayerElement
@@ -2259,7 +2295,10 @@ namespace Gelatinarm.ViewModels
 
         private async void OnSeekCompleted(MediaPlayer sender, object args)
         {
-            if (_isDisposed) return;
+            if (_isDisposed)
+            {
+                return;
+            }
 
             try
             {
@@ -2312,25 +2351,30 @@ namespace Gelatinarm.ViewModels
 
         private void TryHandleHlsManifestChange(TimeSpan position, TimeSpan naturalDuration, TimeSpan metadataDuration)
         {
-            if (!_sessionState.IsHlsStream || naturalDuration >= metadataDuration || _sessionState.ExpectedHlsSeekTarget <= TimeSpan.Zero)
+            if (!_sessionState.IsHlsStream || naturalDuration >= metadataDuration ||
+                _sessionState.ExpectedHlsSeekTarget <= TimeSpan.Zero)
             {
                 return;
             }
 
-            var percentageOfOriginal = (naturalDuration.TotalSeconds / metadataDuration.TotalSeconds) * 100;
-            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected new HLS manifest after seek. Natural duration is {percentageOfOriginal:F1}% of metadata duration");
-            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] New manifest starts at {_sessionState.ExpectedHlsSeekTarget:mm\\:ss}, duration: {naturalDuration:mm\\:ss}");
+            var percentageOfOriginal = naturalDuration.TotalSeconds / metadataDuration.TotalSeconds * 100;
+            Logger.LogInformation(
+                $"[HLS-MANIFEST-CHANGE] Detected new HLS manifest after seek. Natural duration is {percentageOfOriginal:F1}% of metadata duration");
+            Logger.LogInformation(
+                $"[HLS-MANIFEST-CHANGE] New manifest starts at {_sessionState.ExpectedHlsSeekTarget:mm\\:ss}, duration: {naturalDuration:mm\\:ss}");
 
             var timeSinceLastSeek = DateTime.UtcNow - _sessionState.LastSeekTime;
             var shouldProcessManifest = _sessionState.PendingSeekCount == 0 || timeSinceLastSeek.TotalSeconds > 2;
 
             if (!shouldProcessManifest)
             {
-                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Skipping manifest offset due to {_sessionState.PendingSeekCount} pending seeks");
+                Logger.LogInformation(
+                    $"[HLS-MANIFEST-CHANGE] Skipping manifest offset due to {_sessionState.PendingSeekCount} pending seeks");
                 return;
             }
 
-            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Processing manifest change (pending seeks: {_sessionState.PendingSeekCount}, time since last seek: {timeSinceLastSeek.TotalSeconds:F1}s)");
+            Logger.LogInformation(
+                $"[HLS-MANIFEST-CHANGE] Processing manifest change (pending seeks: {_sessionState.PendingSeekCount}, time since last seek: {timeSinceLastSeek.TotalSeconds:F1}s)");
 
             _sessionState.PendingSeekCount = 0;
             SetHlsManifestOffset(_sessionState.ExpectedHlsSeekTarget, false, "Setting up offset tracking.");
@@ -2341,7 +2385,8 @@ namespace Gelatinarm.ViewModels
                 NoteSeekStarted("manifest change");
                 MediaPlayerElement.MediaPlayer.PlaybackSession.Position = TimeSpan.Zero;
                 CompleteHlsResumeFix();
-                Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Seeked to position 0, playback should continue from {_playbackControlService?.HlsManifestOffset:mm\\:ss}");
+                Logger.LogInformation(
+                    $"[HLS-MANIFEST-CHANGE] Seeked to position 0, playback should continue from {_playbackControlService?.HlsManifestOffset:mm\\:ss}");
             }
         }
 
@@ -2364,23 +2409,28 @@ namespace Gelatinarm.ViewModels
             }
 
             _sessionState.PendingSeekCount = Math.Max(0, _sessionState.PendingSeekCount - 1);
-            Logger.LogInformation($"[HLS-MANIFEST-CHANGE] Detected new manifest creation after backward seek (pending: {_sessionState.PendingSeekCount})");
-            SetHlsManifestOffset(_sessionState.ExpectedHlsSeekTarget, true, "Detected new manifest creation after backward seek.");
+            Logger.LogInformation(
+                $"[HLS-MANIFEST-CHANGE] Detected new manifest creation after backward seek (pending: {_sessionState.PendingSeekCount})");
+            SetHlsManifestOffset(_sessionState.ExpectedHlsSeekTarget, true,
+                "Detected new manifest creation after backward seek.");
         }
 
         private void OnMediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
         {
-            if (_isDisposed) return;
+            if (_isDisposed)
+            {
+                return;
+            }
 
             try
             {
                 Logger.LogError($"[MEDIA-FAILED] Error: {args.Error}, " +
-                    $"ExtendedError HResult: 0x{args.ExtendedErrorCode?.HResult:X8}, " +
-                    $"Message: {args.ErrorMessage}");
+                                $"ExtendedError HResult: 0x{args.ExtendedErrorCode?.HResult:X8}, " +
+                                $"Message: {args.ErrorMessage}");
 
                 // Log memory at time of failure
-                var memoryUsage = Windows.System.MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
-                var memoryLimit = Windows.System.MemoryManager.AppMemoryUsageLimit / (1024.0 * 1024.0);
+                var memoryUsage = MemoryManager.AppMemoryUsage / (1024.0 * 1024.0);
+                var memoryLimit = MemoryManager.AppMemoryUsageLimit / (1024.0 * 1024.0);
                 Logger.LogError($"[MEMORY] At media failure: {memoryUsage:F2} MB / {memoryLimit:F2} MB");
 
                 // Log common media error HRESULTs
@@ -2428,7 +2478,8 @@ namespace Gelatinarm.ViewModels
                 // Don't report progress during seeks to prevent incorrect positions
                 if (_sessionState.PendingSeekCount > 0)
                 {
-                    Logger.LogDebug($"Skipping progress report - seek in progress (PendingSeeks: {_sessionState.PendingSeekCount})");
+                    Logger.LogDebug(
+                        $"Skipping progress report - seek in progress (PendingSeeks: {_sessionState.PendingSeekCount})");
                     return;
                 }
 
@@ -2448,7 +2499,8 @@ namespace Gelatinarm.ViewModels
 #if DEBUG
                         if (_progressReportCounter % 50 == 0) // Log every 50 reports (~12.5 seconds)
                         {
-                            Logger.LogDebug($"Progress Report #{_progressReportCounter}: Position={Position:mm\\:ss}, Percentage={(positionSeconds / metadataDuration.TotalSeconds * 100):F1}%");
+                            Logger.LogDebug(
+                                $"Progress Report #{_progressReportCounter}: Position={Position:mm\\:ss}, Percentage={positionSeconds / metadataDuration.TotalSeconds * 100:F1}%");
                         }
 #endif
 
@@ -2474,6 +2526,7 @@ namespace Gelatinarm.ViewModels
             {
                 return TimeSpan.FromTicks(CurrentItem.RunTimeTicks.Value);
             }
+
             return TimeSpan.Zero;
         }
 
@@ -2494,7 +2547,8 @@ namespace Gelatinarm.ViewModels
                 var durationDifference = Math.Abs((metadataDuration - Duration).TotalSeconds);
                 if (durationDifference > 60) // More than 1 minute difference
                 {
-                    Logger.LogWarning($"Duration mismatch detected - Metadata: {metadataDuration:mm\\:ss}, MediaPlayer: {Duration:mm\\:ss}. Skipping auto-play check.");
+                    Logger.LogWarning(
+                        $"Duration mismatch detected - Metadata: {metadataDuration:mm\\:ss}, MediaPlayer: {Duration:mm\\:ss}. Skipping auto-play check.");
                     return;
                 }
             }
@@ -2508,15 +2562,18 @@ namespace Gelatinarm.ViewModels
                 var shouldShow = percentComplete >= 95 && NextEpisode != null;
                 if (shouldShow != NextEpisodeButtonOverlayVisible)
                 {
-                    Logger.LogInformation($"[OVERLAY] NextEpisode overlay changing from {NextEpisodeButtonOverlayVisible} to {shouldShow} at {percentComplete:F2}% complete");
+                    Logger.LogInformation(
+                        $"[OVERLAY] NextEpisode overlay changing from {NextEpisodeButtonOverlayVisible} to {shouldShow} at {percentComplete:F2}% complete");
                     NextEpisodeButtonOverlayVisible = shouldShow;
                 }
 
                 // Only auto-play if the preference is enabled
-                if (_autoPlayNextEpisode && percentComplete >= MediaPlayerConstants.AUTO_PLAY_NEXT_THRESHOLD_PERCENT && NextEpisode != null)
+                if (_autoPlayNextEpisode && percentComplete >= MediaPlayerConstants.AutoPlayNextThresholdPercent &&
+                    NextEpisode != null)
                 {
                     _hasAutoPlayedNext = true;
-                    Logger.LogWarning($"Auto-playing next episode at {percentComplete:F2}% (Position={Position:mm\\:ss}, MetadataDuration={metadataDuration:mm\\:ss})");
+                    Logger.LogWarning(
+                        $"Auto-playing next episode at {percentComplete:F2}% (Position={Position:mm\\:ss}, MetadataDuration={metadataDuration:mm\\:ss})");
                     FireAndForget(async () => await PlayNextEpisode());
                 }
             }
@@ -2524,7 +2581,10 @@ namespace Gelatinarm.ViewModels
 
         public async Task UpdatePositionImmediateAsync()
         {
-            if (_isDisposed) return;
+            if (_isDisposed)
+            {
+                return;
+            }
 
             try
             {
@@ -2726,6 +2786,7 @@ namespace Gelatinarm.ViewModels
                         _bufferingTimeoutTimer?.Start();
                         Logger.LogInformation("[BUFFERING-TIMEOUT] Resume sync detected buffering; starting timer");
                     }
+
                     return;
                 }
 
@@ -2770,7 +2831,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         private TimeSpan GetCurrentPlaybackPosition(MediaPlaybackSession session = null)
         {
-            TimeSpan rawPosition = TimeSpan.Zero;
+            var rawPosition = TimeSpan.Zero;
 
             try
             {
@@ -2780,7 +2841,7 @@ namespace Gelatinarm.ViewModels
                     rawPosition = session.Position;
                 }
                 // Only access MediaPlayerElement if we're on UI thread
-                else if (Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.HasThreadAccess)
+                else if (CoreApplication.MainView.CoreWindow.Dispatcher.HasThreadAccess)
                 {
                     rawPosition = MediaPlayerElement?.MediaPlayer?.PlaybackSession?.Position ?? TimeSpan.Zero;
                 }
@@ -2860,7 +2921,7 @@ namespace Gelatinarm.ViewModels
                     return;
                 }
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     ApplyHlsManifestOffsetSeek(MediaPlayerElement?.MediaPlayer?.PlaybackSession);
                 }, logger: Logger);
@@ -2881,7 +2942,8 @@ namespace Gelatinarm.ViewModels
 
             // Apply fix for track changes or large seeks that create new manifests
             var shouldApply = _sessionState.IsHlsTrackChange ||
-                (_playbackControlService?.HlsManifestOffset > TimeSpan.Zero && !_sessionState.HlsManifestOffsetApplied);
+                              (_playbackControlService?.HlsManifestOffset > TimeSpan.Zero &&
+                               !_sessionState.HlsManifestOffsetApplied);
             if (!shouldApply)
             {
                 return false;
@@ -2901,7 +2963,8 @@ namespace Gelatinarm.ViewModels
             }
 
             var currentState = session.PlaybackState;
-            Logger.LogInformation($"[HLS-RESUME] Applying fix - current state: {currentState}, position before: {session.Position:mm\\:ss}");
+            Logger.LogInformation(
+                $"[HLS-RESUME] Applying fix - current state: {currentState}, position before: {session.Position:mm\\:ss}");
 
             // Pause briefly to ensure clean audio buffer transition
             var wasPlaying = currentState == MediaPlaybackState.Playing || currentState == MediaPlaybackState.Buffering;

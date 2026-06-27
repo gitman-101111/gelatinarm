@@ -176,9 +176,7 @@ namespace Gelatinarm.ViewModels
 
                     var parameters = new QuickConnectInstructionsParameters
                     {
-                        Code = quickConnectResult.Code,
-                        ServerUrl = _serverUrl,
-                        Secret = quickConnectResult.Secret
+                        Code = quickConnectResult.Code, ServerUrl = _serverUrl, Secret = quickConnectResult.Secret
                     };
 
                     _navigationService.Navigate(typeof(QuickConnectInstructionsPage), parameters);

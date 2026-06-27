@@ -1,6 +1,6 @@
-using Jellyfin.Sdk.Generated.Models;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Jellyfin.Sdk.Generated.Models;
 
 namespace Gelatinarm.Controls
 {

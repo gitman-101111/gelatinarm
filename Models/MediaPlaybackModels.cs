@@ -115,5 +115,4 @@ namespace Gelatinarm.Models
         PreviousAudioTrack,
         NavigateBack
     }
-
 }

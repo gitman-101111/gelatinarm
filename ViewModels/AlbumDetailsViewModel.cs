@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
@@ -12,7 +13,6 @@ using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.ViewModels
 {
@@ -56,7 +56,7 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private ObservableCollection<BaseItemDto> _tracks = new();
 
-        private bool _hasMultipleDiscs = false;
+        private bool _hasMultipleDiscs;
         public bool HasMultipleDiscs => _hasMultipleDiscs;
 
         [ObservableProperty] private string _year;
@@ -173,7 +173,7 @@ namespace Gelatinarm.ViewModels
             }
 
             // Update UI on UI thread
-            await RunOnUIThreadAsync(() => UpdateAlbumUI());
+            await RunOnUIThreadAsync(() => UpdateAlbumUi());
 
             // Load tracks
             await LoadTracksAsync(cancellationToken);
@@ -182,7 +182,7 @@ namespace Gelatinarm.ViewModels
                 $"AlbumDetailsViewModel: Loaded album: {CurrentItem.Name} with {Tracks.Count} tracks");
         }
 
-        private void UpdateAlbumUI()
+        private void UpdateAlbumUi()
         {
             if (CurrentItem == null)
             {
@@ -279,7 +279,7 @@ namespace Gelatinarm.ViewModels
                 {
                     config.QueryParameters.ParentId = CurrentItem.Id.Value;
                     config.QueryParameters.UserId = UserIdGuid.Value;
-                    config.QueryParameters.SortBy = new ItemSortBy[] { ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber };
+                    config.QueryParameters.SortBy = new[] { ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber };
                 }, cancellationToken).ConfigureAwait(false);
 
                 if (response?.Items != null)

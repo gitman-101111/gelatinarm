@@ -1,7 +1,7 @@
 using System;
-using Jellyfin.Sdk.Generated.Models;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
+using Jellyfin.Sdk.Generated.Models;
 
 namespace Gelatinarm.Converters
 {
@@ -183,7 +183,8 @@ namespace Gelatinarm.Converters
             if (value is double percentage)
             {
                 // Ensure percentage is between 0 and 100
-                percentage = Math.Max(0, Math.Min(100, percentage)); return new GridLength(100 - percentage, GridUnitType.Star);
+                percentage = Math.Max(0, Math.Min(100, percentage));
+                return new GridLength(100 - percentage, GridUnitType.Star);
             }
 
             return new GridLength(100, GridUnitType.Star);

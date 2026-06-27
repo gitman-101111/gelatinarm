@@ -1,16 +1,16 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Windows.ApplicationModel.Core;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Helpers
 {
     /// <summary>
     ///     Helper class for common UI operations and patterns
     /// </summary>
-    public static class UIHelper
+    public static class UiHelper
     {
         /// <summary>
         ///     Execute an action on the UI thread
@@ -137,6 +137,5 @@ namespace Gelatinarm.Helpers
 
             return await tcs.Task.ConfigureAwait(false);
         }
-
     }
 }

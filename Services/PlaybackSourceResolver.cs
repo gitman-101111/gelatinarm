@@ -40,7 +40,8 @@ namespace Gelatinarm.Services
             // Log details of each source
             foreach (var source in sources)
             {
-                _logger.LogInformation($"  Source: Id={source.Id}, DirectPlay={source.SupportsDirectPlay}, DirectStream={source.SupportsDirectStream}, Transcoding={source.SupportsTranscoding}");
+                _logger.LogInformation(
+                    $"  Source: Id={source.Id}, DirectPlay={source.SupportsDirectPlay}, DirectStream={source.SupportsDirectStream}, Transcoding={source.SupportsTranscoding}");
                 _logger.LogInformation($"    TranscodingUrl: {source.TranscodingUrl}");
                 _logger.LogInformation($"    Path: {source.Path}");
                 _logger.LogInformation($"    Container: {source.Container}");
@@ -69,6 +70,7 @@ namespace Gelatinarm.Services
             {
                 _logger.LogInformation($"Selected Transcoding source: {transcodingSource.Id}");
             }
+
             return transcodingSource;
         }
 
@@ -140,7 +142,8 @@ namespace Gelatinarm.Services
                 {
                     var separator = url.Contains('?') ? "&" : "?";
                     url += $"{separator}AudioStreamIndex={playbackParams.AudioStreamIndex.Value}";
-                    _logger.LogInformation($"Added AudioStreamIndex={playbackParams.AudioStreamIndex.Value} to transcoding URL");
+                    _logger.LogInformation(
+                        $"Added AudioStreamIndex={playbackParams.AudioStreamIndex.Value} to transcoding URL");
                 }
 
                 // Add SubtitleStreamIndex if present and not already in URL
@@ -149,8 +152,10 @@ namespace Gelatinarm.Services
                     !url.Contains("SubtitleStreamIndex="))
                 {
                     var separator = url.Contains('?') ? "&" : "?";
-                    url += $"{separator}SubtitleStreamIndex={playbackParams.SubtitleStreamIndex.Value}&SubtitleMethod=Encode";
-                    _logger.LogInformation($"Added SubtitleStreamIndex={playbackParams.SubtitleStreamIndex.Value} to transcoding URL");
+                    url +=
+                        $"{separator}SubtitleStreamIndex={playbackParams.SubtitleStreamIndex.Value}&SubtitleMethod=Encode";
+                    _logger.LogInformation(
+                        $"Added SubtitleStreamIndex={playbackParams.SubtitleStreamIndex.Value} to transcoding URL");
                 }
             }
 
@@ -168,15 +173,18 @@ namespace Gelatinarm.Services
                 // 2. Client-side seek will be applied after playback starts
                 // 3. For HLS, we'll track manifest offset if server creates new manifest
 
-                _logger.LogInformation($"[RESUME-STRATEGY] StartTimeTicks sent to server: {playbackParams.StartPositionTicks.Value} ({resumeTime:hh\\:mm\\:ss})");
+                _logger.LogInformation(
+                    $"[RESUME-STRATEGY] StartTimeTicks sent to server: {playbackParams.StartPositionTicks.Value} ({resumeTime:hh\\:mm\\:ss})");
 
                 if (mediaSource.TranscodingUrl?.Contains(".m3u8") == true)
                 {
-                    _logger.LogInformation("[RESUME-STRATEGY] HLS stream detected - will use client-side seek with offset tracking if server doesn't honor StartTimeTicks");
+                    _logger.LogInformation(
+                        "[RESUME-STRATEGY] HLS stream detected - will use client-side seek with offset tracking if server doesn't honor StartTimeTicks");
                 }
                 else
                 {
-                    _logger.LogInformation("[RESUME-STRATEGY] Non-HLS stream - will use client-side seek if server doesn't honor StartTimeTicks");
+                    _logger.LogInformation(
+                        "[RESUME-STRATEGY] Non-HLS stream - will use client-side seek if server doesn't honor StartTimeTicks");
                 }
             }
 

@@ -1,6 +1,6 @@
 using System;
-using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Helpers
 {
@@ -36,6 +36,7 @@ namespace Gelatinarm.Helpers
                 {
                     context.SetActualResumePosition?.Invoke(context.Position);
                 }
+
                 context.MarkInitialSeekPerformed?.Invoke();
             }
 
@@ -63,8 +64,8 @@ namespace Gelatinarm.Helpers
             if (context.IsHlsStream && context.NaturalDuration.Value < context.MetadataDuration * 0.5)
             {
                 _logger.LogWarning("[HLS-MANIFEST] Manifest appears truncated after resume seek");
-                _logger.LogWarning($"[HLS-MANIFEST] Natural duration is only " +
-                                   $"{(context.NaturalDuration.Value.TotalSeconds / context.MetadataDuration.TotalSeconds * 100):F1}% of expected");
+                _logger.LogWarning("[HLS-MANIFEST] Natural duration is only " +
+                                   $"{context.NaturalDuration.Value.TotalSeconds / context.MetadataDuration.TotalSeconds * 100:F1}% of expected");
 
                 if (context.PlaybackState == MediaPlaybackState.Paused)
                 {
@@ -78,12 +79,15 @@ namespace Gelatinarm.Helpers
                 context.Position > context.NaturalDuration.Value &&
                 context.ActualResumePosition > TimeSpan.Zero)
             {
-                _logger.LogError($"[HLS-CORRUPT-RESUME] Manifest corrupted after resume to {context.ActualResumePosition:mm\\:ss}");
-                _logger.LogError($"[HLS-CORRUPT-RESUME] Natural duration is only {context.NaturalDuration.Value:mm\\:ss}, position is {context.Position:mm\\:ss}");
+                _logger.LogError(
+                    $"[HLS-CORRUPT-RESUME] Manifest corrupted after resume to {context.ActualResumePosition:mm\\:ss}");
+                _logger.LogError(
+                    $"[HLS-CORRUPT-RESUME] Natural duration is only {context.NaturalDuration.Value:mm\\:ss}, position is {context.Position:mm\\:ss}");
                 return;
             }
 
-            context.TryHandleHlsManifestChange?.Invoke(context.Position, context.NaturalDuration.Value, context.MetadataDuration);
+            context.TryHandleHlsManifestChange?.Invoke(context.Position, context.NaturalDuration.Value,
+                context.MetadataDuration);
         }
     }
 

@@ -1,21 +1,21 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Media.Playback;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Playback;
 
 namespace Gelatinarm.Services
 {
     internal enum ResumeState
     {
-        NotStarted,      // Resume not yet attempted
-        InProgress,      // Initial resume seek applied
-        Verifying,       // Checking if position is advancing at target
-        RecoveryNeeded,  // Stuck, applying recovery techniques
-        Succeeded,       // Resume completed successfully
-        Failed           // Resume failed after all attempts
+        NotStarted, // Resume not yet attempted
+        InProgress, // Initial resume seek applied
+        Verifying, // Checking if position is advancing at target
+        RecoveryNeeded, // Stuck, applying recovery techniques
+        Succeeded, // Resume completed successfully
+        Failed // Resume failed after all attempts
     }
 
     internal struct RetryConfig
@@ -26,16 +26,14 @@ namespace Gelatinarm.Services
 
         public static RetryConfig ForHls => new RetryConfig
         {
-            MaxAttempts = 8,  // HLS needs more time for server to transcode
-            DelayMs = 5000,   // Give server time to restart transcode and generate segments
-            ToleranceSeconds = 10.0  // Accounts for segment boundaries + keyframe alignment
+            MaxAttempts = 8, // HLS needs more time for server to transcode
+            DelayMs = 5000, // Give server time to restart transcode and generate segments
+            ToleranceSeconds = 10.0 // Accounts for segment boundaries + keyframe alignment
         };
 
         public static RetryConfig ForDirectPlay => new RetryConfig
         {
-            MaxAttempts = 5,
-            DelayMs = 1000,
-            ToleranceSeconds = 5.0  // Accounts for keyframe alignment and buffering
+            MaxAttempts = 5, DelayMs = 1000, ToleranceSeconds = 5.0 // Accounts for keyframe alignment and buffering
         };
     }
 
@@ -75,7 +73,7 @@ namespace Gelatinarm.Services
     {
         private TimeSpan _lastVerifiedPosition = TimeSpan.Zero;
         private DateTime _lastPositionCheckTime = DateTime.MinValue;
-        private int _stuckPositionCount = 0;
+        private int _stuckPositionCount;
 
         public TimeSpan LastVerifiedPosition => _lastVerifiedPosition;
         public DateTime LastPositionCheckTime => _lastPositionCheckTime;
@@ -206,10 +204,12 @@ namespace Gelatinarm.Services
                                            $"(target was {targetPosition:mm\\:ss}, diff: {diff:F1}s)");
                 }
 
-                if (context.SessionState?.IsHlsStream == true && (context.GetManifestOffset?.Invoke() ?? TimeSpan.Zero) > TimeSpan.Zero)
+                if (context.SessionState?.IsHlsStream == true &&
+                    (context.GetManifestOffset?.Invoke() ?? TimeSpan.Zero) > TimeSpan.Zero)
                 {
                     var resumePos = context.GetManifestOffset?.Invoke() ?? TimeSpan.Zero;
-                    _logger.LogInformation($"[HLS-RESUME] PlaybackControlService applied manifest offset workaround at {resumePos:hh\\:mm\\:ss}");
+                    _logger.LogInformation(
+                        $"[HLS-RESUME] PlaybackControlService applied manifest offset workaround at {resumePos:hh\\:mm\\:ss}");
 
                     context.SessionState.HlsManifestOffsetApplied = false;
                     context.OnHlsResumeFixCompleted?.Invoke();
@@ -253,7 +253,8 @@ namespace Gelatinarm.Services
 
             if (resumePolicy.NeedsClientSeek)
             {
-                return ApplyHlsResumePosition(mediaPlayer, ref pendingResumePosition, resumePolicy, originalTarget, setManifestOffset);
+                return ApplyHlsResumePosition(mediaPlayer, ref pendingResumePosition, resumePolicy, originalTarget,
+                    setManifestOffset);
             }
 
             return ApplySimpleResumePosition(mediaPlayer, ref pendingResumePosition, resumePolicy);
@@ -272,19 +273,23 @@ namespace Gelatinarm.Services
                 return;
             }
 
-            _logger.LogInformation($"[RESUME-CANCEL] {reason} - clearing pending resume at {pendingResumePosition:hh\\:hh\\:mm\\:ss}");
+            _logger.LogInformation(
+                $"[RESUME-CANCEL] {reason} - clearing pending resume at {pendingResumePosition:hh\\:hh\\:mm\\:ss}");
             pendingResumePosition = null;
             _resumeState = ResumeState.Failed;
             _hlsResumeAttempts = 0;
             _resumeStartTime = DateTime.MinValue;
         }
 
-        public (bool InProgress, int Attempts, TimeSpan? Target) GetStatus(IStreamResumePolicy resumePolicy, TimeSpan? pendingResumePosition)
+        public (bool InProgress, int Attempts, TimeSpan? Target) GetStatus(IStreamResumePolicy resumePolicy,
+            TimeSpan? pendingResumePosition)
         {
-            return (IsInProgress(resumePolicy, pendingResumePosition.HasValue), _hlsResumeAttempts, pendingResumePosition);
+            return (IsInProgress(resumePolicy, pendingResumePosition.HasValue), _hlsResumeAttempts,
+                pendingResumePosition);
         }
 
-        private bool ApplySimpleResumePosition(MediaPlayer mediaPlayer, ref TimeSpan? pendingResumePosition, IStreamResumePolicy resumePolicy)
+        private bool ApplySimpleResumePosition(MediaPlayer mediaPlayer, ref TimeSpan? pendingResumePosition,
+            IStreamResumePolicy resumePolicy)
         {
             if (!pendingResumePosition.HasValue || mediaPlayer?.PlaybackSession == null)
             {
@@ -305,7 +310,8 @@ namespace Gelatinarm.Services
                 var totalElapsed = DateTime.UtcNow - _resumeStartTime;
                 if (totalElapsed.TotalSeconds > 20) // 20 second timeout for DirectPlay (shorter than HLS)
                 {
-                    _logger.LogError($"[DirectPlay-TIMEOUT] Resume operation timed out after {totalElapsed.TotalSeconds:F1}s");
+                    _logger.LogError(
+                        $"[DirectPlay-TIMEOUT] Resume operation timed out after {totalElapsed.TotalSeconds:F1}s");
                     pendingResumePosition = null;
                     return false;
                 }
@@ -321,7 +327,8 @@ namespace Gelatinarm.Services
                 // Check if media is ready for seeking
                 if (currentState == MediaPlaybackState.Opening)
                 {
-                    _logger.LogInformation($"[DirectPlay] Media still opening, deferring resume to {resumePosition:hh\\:hh\\:mm\\:ss}");
+                    _logger.LogInformation(
+                        $"[DirectPlay] Media still opening, deferring resume to {resumePosition:hh\\:hh\\:mm\\:ss}");
                     return false; // Will be retried
                 }
 
@@ -342,7 +349,8 @@ namespace Gelatinarm.Services
                     if (_resumeVerification.LastPositionCheckTime == DateTime.MinValue)
                     {
                         // First time reaching target position - start monitoring
-                        _logger.LogInformation($"[DirectPlay] Reached target position {currentPosition:hh\\:hh\\:mm\\:ss}, verifying playback is advancing...");
+                        _logger.LogInformation(
+                            $"[DirectPlay] Reached target position {currentPosition:hh\\:hh\\:mm\\:ss}, verifying playback is advancing...");
                         _resumeVerification.StartVerification(currentPosition);
                         return false; // Need to verify position advances
                     }
@@ -355,11 +363,13 @@ namespace Gelatinarm.Services
                     if (positionChange < StuckPositionTolerance)
                     {
                         var stuckCount = _resumeVerification.IncrementStuckCount();
-                        _logger.LogWarning($"[DirectPlay-STUCK] Position not advancing at resume point {currentPosition:hh\\:hh\\:mm\\:ss} (count: {stuckCount}/{MaxStuckChecks})");
+                        _logger.LogWarning(
+                            $"[DirectPlay-STUCK] Position not advancing at resume point {currentPosition:hh\\:hh\\:mm\\:ss} (count: {stuckCount}/{MaxStuckChecks})");
 
                         if (stuckCount >= MaxStuckChecks)
                         {
-                            _logger.LogError($"[DirectPlay-STUCK] Playback is stuck at {currentPosition:hh\\:hh\\:mm\\:ss} after resume. Giving up.");
+                            _logger.LogError(
+                                $"[DirectPlay-STUCK] Playback is stuck at {currentPosition:hh\\:hh\\:mm\\:ss} after resume. Giving up.");
                             pendingResumePosition = null;
                             return false; // Report failure
                         }
@@ -370,9 +380,9 @@ namespace Gelatinarm.Services
                             _logger.LogInformation("[DirectPlay-STUCK] Attempting to unstick with pause/play");
                             mediaPlayer.Pause();
                             // Use async delay without blocking
-                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            _ = Task.Run(async () =>
                             {
-                                await System.Threading.Tasks.Task.Delay(100).ConfigureAwait(false);
+                                await Task.Delay(100).ConfigureAwait(false);
                                 mediaPlayer.Play();
                             });
                         }
@@ -386,34 +396,35 @@ namespace Gelatinarm.Services
                         _resumeVerification.UpdateLastCheck(currentPosition);
                         return false; // Continue checking
                     }
-                    else
+
+                    // Position changed, but need to verify it's not just our recovery seek
+                    if (ResumeVerificationHelper.IsRecoverySeekOnly(_recoveryAttemptLevel, positionChange))
                     {
-                        // Position changed, but need to verify it's not just our recovery seek
-                        if (ResumeVerificationHelper.IsRecoverySeekOnly(_recoveryAttemptLevel, positionChange))
+                        // Position only advanced due to our recovery seek, not actual playback
+                        _logger.LogWarning(
+                            $"[DirectPlay-STUCK] Position change ({positionChange:F1}s) appears to be from recovery seek, not actual playback");
+                        _recoveryAttemptLevel = 0;
+                        var stuckCount = _resumeVerification.IncrementStuckCount();
+
+                        if (stuckCount >= MaxStuckChecks)
                         {
-                            // Position only advanced due to our recovery seek, not actual playback
-                            _logger.LogWarning($"[DirectPlay-STUCK] Position change ({positionChange:F1}s) appears to be from recovery seek, not actual playback");
-                            _recoveryAttemptLevel = 0;
-                            var stuckCount = _resumeVerification.IncrementStuckCount();
-
-                            if (stuckCount >= MaxStuckChecks)
-                            {
-                                _logger.LogError($"[DirectPlay-STUCK] Playback is stuck at {currentPosition:hh\\:hh\\:mm\\:ss} after resume. Giving up.");
-                                pendingResumePosition = null;
-                                return false;
-                            }
-
-                            _resumeVerification.UpdateLastCheck(currentPosition);
+                            _logger.LogError(
+                                $"[DirectPlay-STUCK] Playback is stuck at {currentPosition:hh\\:hh\\:mm\\:ss} after resume. Giving up.");
+                            pendingResumePosition = null;
                             return false;
                         }
 
-                        // Position is truly advancing! Resume successful
-                        _logger.LogInformation($"[DirectPlay] Resume successful! Position advancing from {_resumeVerification.LastVerifiedPosition:hh\\:hh\\:mm\\:ss} to {currentPosition:hh\\:hh\\:mm\\:ss}");
-                        pendingResumePosition = null;
-                        _resumeVerification.ClearStuckCount();
-                        _recoveryAttemptLevel = 0;
-                        return true;
+                        _resumeVerification.UpdateLastCheck(currentPosition);
+                        return false;
                     }
+
+                    // Position is truly advancing! Resume successful
+                    _logger.LogInformation(
+                        $"[DirectPlay] Resume successful! Position advancing from {_resumeVerification.LastVerifiedPosition:hh\\:hh\\:mm\\:ss} to {currentPosition:hh\\:hh\\:mm\\:ss}");
+                    pendingResumePosition = null;
+                    _resumeVerification.ClearStuckCount();
+                    _recoveryAttemptLevel = 0;
+                    return true;
                 }
 
                 // Validate resume position against duration if available
@@ -421,20 +432,24 @@ namespace Gelatinarm.Services
                 {
                     // Adjust resume position to be 10 seconds before the end
                     resumePosition = naturalDuration - TimeSpan.FromSeconds(10);
-                    _logger.LogWarning($"[DirectPlay] Resume position adjusted from {pendingResumePosition.Value:hh\\:hh\\:mm\\:ss} to {resumePosition:hh\\:hh\\:mm\\:ss}");
+                    _logger.LogWarning(
+                        $"[DirectPlay] Resume position adjusted from {pendingResumePosition.Value:hh\\:hh\\:mm\\:ss} to {resumePosition:hh\\:hh\\:mm\\:ss}");
                 }
 
                 // Apply the seek
-                _logger.LogInformation($"[DirectPlay] Seeking from {currentPosition:hh\\:hh\\:mm\\:ss} to {resumePosition:hh\\:hh\\:mm\\:ss}");
+                _logger.LogInformation(
+                    $"[DirectPlay] Seeking from {currentPosition:hh\\:hh\\:mm\\:ss} to {resumePosition:hh\\:hh\\:mm\\:ss}");
                 playbackSession.Position = resumePosition;
 
                 // Don't clear pending position yet - wait for verification that playback advances
-                _logger.LogInformation($"[DirectPlay] Seek initiated to {resumePosition:hh\\:hh\\:mm\\:ss}, will verify on next check");
+                _logger.LogInformation(
+                    $"[DirectPlay] Seek initiated to {resumePosition:hh\\:hh\\:mm\\:ss}, will verify on next check");
                 return false; // Will verify on next attempt
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"[DirectPlay] Failed to set resume position to {resumePosition:hh\\:hh\\:mm\\:ss}");
+                _logger.LogError(ex,
+                    $"[DirectPlay] Failed to set resume position to {resumePosition:hh\\:hh\\:mm\\:ss}");
                 // Keep pending position so it can be retried
                 return false;
             }
@@ -489,13 +504,15 @@ namespace Gelatinarm.Services
                 var naturalDuration = playbackSession.NaturalDuration;
                 var positionDiff = Math.Abs((currentPosition - resumePosition).TotalSeconds);
 
-                _logger.LogInformation($"[HLS-RESUME] Attempt {_hlsResumeAttempts}: State={currentState}, Pos={currentPosition:hh\\:mm\\:ss}, Duration={naturalDuration:hh\\:mm\\:ss}");
+                _logger.LogInformation(
+                    $"[HLS-RESUME] Attempt {_hlsResumeAttempts}: State={currentState}, Pos={currentPosition:hh\\:mm\\:ss}, Duration={naturalDuration:hh\\:mm\\:ss}");
 
                 // Early accept: playback already starts near the target position
                 if (currentState == MediaPlaybackState.Playing &&
                     positionDiff <= toleranceSeconds)
                 {
-                    _logger.LogInformation($"[HLS-RESUME] Already at resume position {currentPosition:hh\\:mm\\:ss} (target {resumePosition:hh\\:mm\\:ss}, diff {positionDiff:F1}s). Skipping resume workflow.");
+                    _logger.LogInformation(
+                        $"[HLS-RESUME] Already at resume position {currentPosition:hh\\:mm\\:ss} (target {resumePosition:hh\\:mm\\:ss}, diff {positionDiff:F1}s). Skipping resume workflow.");
                     _resumeState = ResumeState.Succeeded;
                     pendingResumePosition = null;
                     return true;
@@ -530,8 +547,10 @@ namespace Gelatinarm.Services
                     _hlsResumeAttempts >= 2 && currentState == MediaPlaybackState.Buffering &&
                     positionDiff <= 15.0) // Within 15 seconds of target (typical keyframe distance)
                 {
-                    _logger.LogWarning($"[HLS-RESUME] Detected stuck buffering at {currentPosition:hh\\:mm\\:ss} (target was {resumePosition:hh\\:mm\\:ss})");
-                    _logger.LogInformation("[HLS-RESUME] Server created new manifest with -noaccurate_seek. Applying HLS offset workaround.");
+                    _logger.LogWarning(
+                        $"[HLS-RESUME] Detected stuck buffering at {currentPosition:hh\\:mm\\:ss} (target was {resumePosition:hh\\:mm\\:ss})");
+                    _logger.LogInformation(
+                        "[HLS-RESUME] Server created new manifest with -noaccurate_seek. Applying HLS offset workaround.");
 
                     // The server has created a new manifest starting at roughly the resume position
                     // Store the offset so MediaPlayerViewModel can display correct position
@@ -540,7 +559,8 @@ namespace Gelatinarm.Services
                     // Seek to position 0 to play from the start of this new manifest
                     playbackSession.Position = TimeSpan.Zero;
 
-                    _logger.LogInformation($"[HLS-OFFSET] Set manifest offset to {currentPosition:hh\\:mm\\:ss}. Position 0 = {currentPosition:hh\\:mm\\:ss} in actual media time.");
+                    _logger.LogInformation(
+                        $"[HLS-OFFSET] Set manifest offset to {currentPosition:hh\\:mm\\:ss}. Position 0 = {currentPosition:hh\\:mm\\:ss} in actual media time.");
 
                     // Mark as succeeded since we've applied the workaround
                     _resumeState = ResumeState.Succeeded;
@@ -560,7 +580,8 @@ namespace Gelatinarm.Services
                         var totalElapsed = DateTime.UtcNow - _resumeStartTime;
                         if (totalElapsed.TotalSeconds > 30) // 30 second overall timeout
                         {
-                            _logger.LogError($"[HLS-RESUME-TIMEOUT] Resume operation timed out after {totalElapsed.TotalSeconds:F1}s at position {currentPosition:hh\\:mm\\:ss}");
+                            _logger.LogError(
+                                $"[HLS-RESUME-TIMEOUT] Resume operation timed out after {totalElapsed.TotalSeconds:F1}s at position {currentPosition:hh\\:mm\\:ss}");
                             pendingResumePosition = null;
                             _resumeState = ResumeState.Failed;
                             return false;
@@ -571,7 +592,8 @@ namespace Gelatinarm.Services
                     {
                         // First time reaching target position - start monitoring
                         _resumeState = ResumeState.Verifying;
-                        _logger.LogInformation($"[HLS-RESUME] Reached target position {currentPosition:hh\\:mm\\:ss}, verifying playback is advancing...");
+                        _logger.LogInformation(
+                            $"[HLS-RESUME] Reached target position {currentPosition:hh\\:mm\\:ss}, verifying playback is advancing...");
                         _resumeVerification.StartVerification(currentPosition);
                         return false; // Need to verify position advances
                     }
@@ -585,14 +607,16 @@ namespace Gelatinarm.Services
                     if (positionChange < StuckPositionTolerance)
                     {
                         var stuckCount = _resumeVerification.IncrementStuckCount();
-                        _logger.LogWarning($"[HLS-STUCK] Position not advancing at resume point {currentPosition:hh\\:mm\\:ss} (count: {stuckCount}/{MaxStuckChecks})");
+                        _logger.LogWarning(
+                            $"[HLS-STUCK] Position not advancing at resume point {currentPosition:hh\\:mm\\:ss} (count: {stuckCount}/{MaxStuckChecks})");
 
                         // Update last check time and position for next comparison
                         _resumeVerification.UpdateLastCheck(currentPosition);
 
                         if (stuckCount >= MaxStuckChecks)
                         {
-                            _logger.LogError($"[HLS-STUCK] Playback is stuck at {currentPosition:hh\\:mm\\:ss} after resume. Giving up.");
+                            _logger.LogError(
+                                $"[HLS-STUCK] Playback is stuck at {currentPosition:hh\\:mm\\:ss} after resume. Giving up.");
                             pendingResumePosition = null;
                             _resumeState = ResumeState.Failed;
                             return false;
@@ -611,9 +635,9 @@ namespace Gelatinarm.Services
                             _logger.LogInformation("[HLS-STUCK] Recovery level 1: Attempting pause/play toggle");
                             mediaPlayer.Pause();
                             // Use async delay without blocking
-                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            _ = Task.Run(async () =>
                             {
-                                await System.Threading.Tasks.Task.Delay(100).ConfigureAwait(false);
+                                await Task.Delay(100).ConfigureAwait(false);
                                 mediaPlayer.Play();
                             });
                         }
@@ -626,54 +650,60 @@ namespace Gelatinarm.Services
                         {
                             _logger.LogInformation("[HLS-STUCK] Recovery level 3: Seek back 5 seconds");
                             var restartPosition = currentPosition - TimeSpan.FromSeconds(5);
-                            if (restartPosition < TimeSpan.Zero) restartPosition = TimeSpan.Zero;
+                            if (restartPosition < TimeSpan.Zero)
+                            {
+                                restartPosition = TimeSpan.Zero;
+                            }
+
                             playbackSession.Position = restartPosition;
                         }
 
                         _resumeVerification.UpdateLastCheck(currentPosition);
                         return false; // Continue checking
                     }
-                    else
+
+                    // Position changed, but need to verify it's not just our recovery seek
+                    if (ResumeVerificationHelper.IsRecoverySeekOnly(_recoveryAttemptLevel, positionChange))
                     {
-                        // Position changed, but need to verify it's not just our recovery seek
-                        if (ResumeVerificationHelper.IsRecoverySeekOnly(_recoveryAttemptLevel, positionChange))
+                        // Position only advanced due to our recovery seek, not actual playback
+                        _logger.LogWarning(
+                            $"[HLS-STUCK] Position change ({positionChange:F1}s) appears to be from recovery seek, not actual playback");
+                        _recoveryAttemptLevel++; // Move to next recovery level
+                        var stuckCount = _resumeVerification.IncrementStuckCount();
+
+                        if (stuckCount >= MaxStuckChecks)
                         {
-                            // Position only advanced due to our recovery seek, not actual playback
-                            _logger.LogWarning($"[HLS-STUCK] Position change ({positionChange:F1}s) appears to be from recovery seek, not actual playback");
-                            _recoveryAttemptLevel++; // Move to next recovery level
-                            var stuckCount = _resumeVerification.IncrementStuckCount();
-
-                            if (stuckCount >= MaxStuckChecks)
-                            {
-                                _logger.LogError($"[HLS-STUCK] Playback is stuck at {currentPosition:hh\\:mm\\:ss} after resume. Giving up.");
-                                pendingResumePosition = null;
-                                _resumeState = ResumeState.Failed;
-                                return false;
-                            }
-
-                            _resumeVerification.UpdateLastCheck(currentPosition);
+                            _logger.LogError(
+                                $"[HLS-STUCK] Playback is stuck at {currentPosition:hh\\:mm\\:ss} after resume. Giving up.");
+                            pendingResumePosition = null;
+                            _resumeState = ResumeState.Failed;
                             return false;
                         }
 
-                        // Position is truly advancing! Resume successful
-                        _logger.LogInformation($"[HLS-RESUME] Resume successful! Position advancing from {_resumeVerification.LastVerifiedPosition:hh\\:mm\\:ss} to {currentPosition:hh\\:mm\\:ss}");
-
-                        // Log if we accepted an inaccurate seek
-                        if (originalTarget.HasValue)
-                        {
-                            var acceptedDiff = Math.Abs((currentPosition - originalTarget.Value).TotalSeconds);
-                            if (acceptedDiff > 3.0)
-                            {
-                                _logger.LogInformation($"[HLS-RESUME] Playback resumed at {currentPosition:hh\\:mm\\:ss} (originally requested {originalTarget.Value:hh\\:mm\\:ss}, diff: {acceptedDiff:F1}s)");
-                            }
-                        }
-
-                        _resumeState = ResumeState.Succeeded;
-                        pendingResumePosition = null;
-                        _resumeVerification.ClearStuckCount();
-                        _recoveryAttemptLevel = 0;
-                        return true;
+                        _resumeVerification.UpdateLastCheck(currentPosition);
+                        return false;
                     }
+
+                    // Position is truly advancing! Resume successful
+                    _logger.LogInformation(
+                        $"[HLS-RESUME] Resume successful! Position advancing from {_resumeVerification.LastVerifiedPosition:hh\\:mm\\:ss} to {currentPosition:hh\\:mm\\:ss}");
+
+                    // Log if we accepted an inaccurate seek
+                    if (originalTarget.HasValue)
+                    {
+                        var acceptedDiff = Math.Abs((currentPosition - originalTarget.Value).TotalSeconds);
+                        if (acceptedDiff > 3.0)
+                        {
+                            _logger.LogInformation(
+                                $"[HLS-RESUME] Playback resumed at {currentPosition:hh\\:mm\\:ss} (originally requested {originalTarget.Value:hh\\:mm\\:ss}, diff: {acceptedDiff:F1}s)");
+                        }
+                    }
+
+                    _resumeState = ResumeState.Succeeded;
+                    pendingResumePosition = null;
+                    _resumeVerification.ClearStuckCount();
+                    _recoveryAttemptLevel = 0;
+                    return true;
                 }
 
                 // Validate and adjust resume position
@@ -681,7 +711,8 @@ namespace Gelatinarm.Services
                 if (adjustedPosition >= naturalDuration)
                 {
                     adjustedPosition = naturalDuration - TimeSpan.FromSeconds(10);
-                    _logger.LogWarning($"[HLS-RESUME] Adjusted position from {resumePosition:hh\\:mm\\:ss} to {adjustedPosition:hh\\:mm\\:ss}");
+                    _logger.LogWarning(
+                        $"[HLS-RESUME] Adjusted position from {resumePosition:hh\\:mm\\:ss} to {adjustedPosition:hh\\:mm\\:ss}");
                 }
 
                 // Only perform the seek on the first attempt, then verify on subsequent attempts
@@ -696,7 +727,8 @@ namespace Gelatinarm.Services
                     }
 
                     // Apply the seek (only on first attempt)
-                    _logger.LogInformation($"[HLS-RESUME] Seeking from {currentPosition:hh\\:mm\\:ss} to {adjustedPosition:hh\\:mm\\:ss}");
+                    _logger.LogInformation(
+                        $"[HLS-RESUME] Seeking from {currentPosition:hh\\:mm\\:ss} to {adjustedPosition:hh\\:mm\\:ss}");
                     playbackSession.Position = adjustedPosition;
 
                     _logger.LogInformation("[HLS-RESUME] Seek initiated, will verify on next check");
@@ -704,7 +736,8 @@ namespace Gelatinarm.Services
                 }
 
                 // On subsequent attempts, verify the seek was successful
-                _logger.LogInformation($"[HLS-RESUME] Verifying position (attempt {_hlsResumeAttempts}), current: {currentPosition:hh\\:mm\\:ss}, target: {adjustedPosition:hh\\:mm\\:ss}");
+                _logger.LogInformation(
+                    $"[HLS-RESUME] Verifying position (attempt {_hlsResumeAttempts}), current: {currentPosition:hh\\:mm\\:ss}, target: {adjustedPosition:hh\\:mm\\:ss}");
 
                 // Check if we're at or past the resume position (within tolerance)
                 // After a successful seek, we should be at or slightly past the target
@@ -712,7 +745,7 @@ namespace Gelatinarm.Services
 
                 // Calculate how much time has elapsed since we started the resume process
                 // Each retry has a 5 second delay, plus time for processing
-                var expectedElapsedTime = (_hlsResumeAttempts - 1) * 5.0 + 10.0; // Add 10s buffer for processing
+                var expectedElapsedTime = ((_hlsResumeAttempts - 1) * 5.0) + 10.0; // Add 10s buffer for processing
                 _ = expectedElapsedTime;
 
                 // Success conditions:
@@ -723,14 +756,16 @@ namespace Gelatinarm.Services
                 {
                     // We're at or past the target - resume successful!
                     // Don't worry about being "too far" past - that just means playback continued normally
-                    _logger.LogInformation($"[HLS-RESUME] Resume successful! Position {currentPosition:hh\\:mm\\:ss} is at/past target {adjustedPosition:hh\\:mm\\:ss} (diff: {timeSinceTarget:F1}s)");
+                    _logger.LogInformation(
+                        $"[HLS-RESUME] Resume successful! Position {currentPosition:hh\\:mm\\:ss} is at/past target {adjustedPosition:hh\\:mm\\:ss} (diff: {timeSinceTarget:F1}s)");
                     _resumeState = ResumeState.Succeeded;
                     pendingResumePosition = null;
                     return true;
                 }
 
                 // If we're still before the target by more than 10 seconds, the seek may have failed
-                _logger.LogWarning($"[HLS-RESUME] Position {currentPosition:hh\\:mm\\:ss} is still {-timeSinceTarget:F1}s before target {adjustedPosition:hh\\:mm\\:ss}. Seek may have failed.");
+                _logger.LogWarning(
+                    $"[HLS-RESUME] Position {currentPosition:hh\\:mm\\:ss} is still {-timeSinceTarget:F1}s before target {adjustedPosition:hh\\:mm\\:ss}. Seek may have failed.");
                 // Continue retrying
                 return false;
             }
@@ -773,7 +808,8 @@ namespace Gelatinarm.Services
 
     public sealed class ResumeFlowOutcome
     {
-        public ResumeFlowOutcome(bool success, int retryCount, string streamType, TimeSpan targetPosition, TimeSpan actualPosition)
+        public ResumeFlowOutcome(bool success, int retryCount, string streamType, TimeSpan targetPosition,
+            TimeSpan actualPosition)
         {
             Success = success;
             RetryCount = retryCount;

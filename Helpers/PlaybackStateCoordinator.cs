@@ -1,15 +1,15 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Windows.Media.Playback;
 using Windows.UI.Xaml;
+using Microsoft.Extensions.Logging;
 
 namespace Gelatinarm.Helpers
 {
     internal sealed class PlaybackStateCoordinator
     {
         private const double PositionEpsilonSeconds = 0.5;
-        private static readonly TimeSpan DuplicateWindow = TimeSpan.FromMilliseconds(250);
+        private static readonly TimeSpan _duplicateWindow = TimeSpan.FromMilliseconds(250);
         private readonly ILogger _logger;
         private readonly BufferingStateCoordinator _bufferingStateCoordinator;
         private MediaPlaybackState _lastState = MediaPlaybackState.None;
@@ -41,7 +41,7 @@ namespace Gelatinarm.Helpers
                     {
                         var snapshot = PlaybackSessionSnapshot.Capture(
                             context.Session,
-                            skipBufferingProgress: context.SessionState?.IsHlsStream == true);
+                            context.SessionState?.IsHlsStream == true);
                         if (!snapshot.HasSession)
                         {
                             _logger.LogWarning("[VM-PLAYBACK-STATE] Playback session missing, ignoring event");
@@ -71,9 +71,10 @@ namespace Gelatinarm.Helpers
                         var canSeek = snapshot.CanSeek;
 
                         var hadBufferingStart = context.GetBufferingStartTime().HasValue;
-                        _logger.LogInformation($"PlaybackStateChanged: {newState}, Position: {position.TotalSeconds:F2}s, " +
-                                               $"BufferingProgress: {bufferingProgress:F2}, CanSeek: {canSeek}, " +
-                                               $"HadBufferingStart: {hadBufferingStart}");
+                        _logger.LogInformation(
+                            $"PlaybackStateChanged: {newState}, Position: {position.TotalSeconds:F2}s, " +
+                            $"BufferingProgress: {bufferingProgress:F2}, CanSeek: {canSeek}, " +
+                            $"HadBufferingStart: {hadBufferingStart}");
 
                         var isBuffering = newState == MediaPlaybackState.Buffering;
                         context.NotifyIsBufferingChanged?.Invoke();
@@ -168,7 +169,7 @@ namespace Gelatinarm.Helpers
                 return false;
             }
 
-            return DateTime.UtcNow - _lastProcessedAt < DuplicateWindow;
+            return DateTime.UtcNow - _lastProcessedAt < _duplicateWindow;
         }
 
         private void RememberSnapshot(PlaybackSessionSnapshot snapshot)

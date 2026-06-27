@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
@@ -13,7 +14,6 @@ using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.ViewModels
 {
@@ -157,13 +157,15 @@ namespace Gelatinarm.ViewModels
             {
                 return;
             }
-            await RunOnUIThreadAsync(() => UpdateCollectionUI()); await LoadCollectionItemsAsync(cancellationToken);
+
+            await RunOnUIThreadAsync(() => UpdateCollectionUi());
+            await LoadCollectionItemsAsync(cancellationToken);
 
             Logger?.LogInformation(
                 $"CollectionDetailsViewModel: Loaded collection: {CurrentItem.Name} with {Items.Count} items");
         }
 
-        private void UpdateCollectionUI()
+        private void UpdateCollectionUi()
         {
             if (CurrentItem == null)
             {

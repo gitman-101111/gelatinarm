@@ -1,10 +1,10 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Windows.Networking.Connectivity;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
 using Microsoft.Extensions.Logging;
-using Windows.Networking.Connectivity;
 
 namespace Gelatinarm.Helpers
 {
@@ -17,7 +17,8 @@ namespace Gelatinarm.Helpers
         /// Checks if network is available and shows error dialog if not
         /// </summary>
         /// <returns>True if network is available, false otherwise</returns>
-        public static async Task<bool> CheckNetworkAsync(IErrorHandlingService errorHandler = null, ILogger logger = null)
+        public static async Task<bool> CheckNetworkAsync(IErrorHandlingService errorHandler = null,
+            ILogger logger = null)
         {
             try
             {
@@ -32,7 +33,7 @@ namespace Gelatinarm.Helpers
                         // Create a fake HttpRequestException to trigger the network error message
                         var networkException = new HttpRequestException("No network connection available");
                         var context = new ErrorContext("NetworkCheck", "NetworkHelper", ErrorCategory.Network);
-                        await errorHandler.HandleErrorAsync(networkException, context, showUserMessage: true);
+                        await errorHandler.HandleErrorAsync(networkException, context, true);
                     }
 
                     return false;

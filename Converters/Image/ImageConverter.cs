@@ -1,13 +1,13 @@
 using System;
 using System.Linq;
+using Windows.UI.Xaml.Data;
+using Windows.UI.Xaml.Media.Imaging;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.Converters.Image
 {
@@ -46,6 +46,7 @@ namespace Gelatinarm.Converters.Image
                         imageType = parsedType;
                     }
                 }
+
                 if (!TryGetAuthContext(out var authService, out var serverUrl, out var accessToken))
                 {
                     return null;
@@ -83,7 +84,8 @@ namespace Gelatinarm.Converters.Image
             return null;
         }
 
-        private static bool TryGetAuthContext(out IAuthenticationService authService, out string serverUrl, out string accessToken)
+        private static bool TryGetAuthContext(out IAuthenticationService authService, out string serverUrl,
+            out string accessToken)
         {
             authService = GetService<IAuthenticationService>();
             serverUrl = authService?.ServerUrl;
@@ -145,7 +147,7 @@ namespace Gelatinarm.Converters.Image
                         .ToGetRequestInformation(config =>
                         {
                             config.QueryParameters.Tag = item.SeriesPrimaryImageTag;
-                            config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
+                            config.QueryParameters.Quality = MediaConstants.ImageQuality;
                             config.QueryParameters.MaxWidth = 400;
                         });
                     return apiClient.BuildUri(requestInfo).ToString();
@@ -160,8 +162,11 @@ namespace Gelatinarm.Converters.Image
                         .ToGetRequestInformation(config =>
                         {
                             if (!string.IsNullOrEmpty(imageTag))
+                            {
                                 config.QueryParameters.Tag = imageTag;
-                            config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
+                            }
+
+                            config.QueryParameters.Quality = MediaConstants.ImageQuality;
                             config.QueryParameters.MaxWidth = 400;
                         });
                     return apiClient.BuildUri(requestInfo).ToString();
@@ -174,7 +179,7 @@ namespace Gelatinarm.Converters.Image
                         .Images["Primary"]
                         .ToGetRequestInformation(config =>
                         {
-                            config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
+                            config.QueryParameters.Quality = MediaConstants.ImageQuality;
                             config.QueryParameters.MaxWidth = 400;
                         });
                     return apiClient.BuildUri(requestInfo).ToString();
@@ -211,8 +216,11 @@ namespace Gelatinarm.Converters.Image
                             .ToGetRequestInformation(config =>
                             {
                                 if (!string.IsNullOrEmpty(imageTag))
+                                {
                                     config.QueryParameters.Tag = imageTag;
-                                config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
+                                }
+
+                                config.QueryParameters.Quality = MediaConstants.ImageQuality;
                                 config.QueryParameters.MaxWidth = 600;
                             });
                         url = apiClient.BuildUri(requestInfo).ToString();
@@ -223,7 +231,7 @@ namespace Gelatinarm.Converters.Image
                             .Images["Primary"]
                             .ToGetRequestInformation(config =>
                             {
-                                config.QueryParameters.Quality = MediaConstants.IMAGE_QUALITY;
+                                config.QueryParameters.Quality = MediaConstants.ImageQuality;
                                 config.QueryParameters.MaxWidth = 600;
                             });
                         url = apiClient.BuildUri(requestInfo).ToString();
@@ -243,7 +251,7 @@ namespace Gelatinarm.Converters.Image
                                 .ToGetRequestInformation(config =>
                                 {
                                     config.QueryParameters.Tag = backdropTag;
-                                    config.QueryParameters.Quality = MediaConstants.BACKDROP_QUALITY;
+                                    config.QueryParameters.Quality = MediaConstants.BackdropQuality;
                                     config.QueryParameters.MaxWidth = 600;
                                 });
                             url = apiClient.BuildUri(requestInfo).ToString();
@@ -258,7 +266,7 @@ namespace Gelatinarm.Converters.Image
                             .Images["Backdrop"][0]
                             .ToGetRequestInformation(config =>
                             {
-                                config.QueryParameters.Quality = MediaConstants.BACKDROP_QUALITY;
+                                config.QueryParameters.Quality = MediaConstants.BackdropQuality;
                                 config.QueryParameters.MaxWidth = 600;
                             });
                         url = apiClient.BuildUri(requestInfo).ToString();

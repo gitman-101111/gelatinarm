@@ -1,6 +1,6 @@
 using System;
-using Jellyfin.Sdk.Generated.Models;
 using Windows.UI.Xaml.Data;
+using Jellyfin.Sdk.Generated.Models;
 
 namespace Gelatinarm.Converters.Visibility
 {

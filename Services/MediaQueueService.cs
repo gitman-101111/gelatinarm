@@ -18,6 +18,7 @@ namespace Gelatinarm.Services
         private const int ShuffleBatchSize = 20;
         private const int ShuffleRefillThreshold = 5;
         private static int _shuffleSeed = Environment.TickCount;
+
         private static readonly ThreadLocal<Random> ShuffleRandom =
             new ThreadLocal<Random>(() => new Random(Interlocked.Increment(ref _shuffleSeed)));
 
@@ -25,7 +26,7 @@ namespace Gelatinarm.Services
         private readonly INavigationService _navigationService;
         private readonly INavigationStateService _navigationStateService;
         private readonly IUserProfileService _userProfileService;
-        private int _lastQueueHash = 0;
+        private int _lastQueueHash;
         private readonly ConcurrentDictionary<Guid, bool> _playedEpisodesInSession = new();
         private readonly ConcurrentQueue<BaseItemDto> _shuffledEpisodeQueue = new();
         private readonly Random _shuffleRandom = new Random();
@@ -44,7 +45,8 @@ namespace Gelatinarm.Services
             _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _userProfileService = userProfileService ?? throw new ArgumentNullException(nameof(userProfileService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-            _navigationStateService = navigationStateService ?? throw new ArgumentNullException(nameof(navigationStateService));
+            _navigationStateService =
+                navigationStateService ?? throw new ArgumentNullException(nameof(navigationStateService));
 
             Queue = new List<BaseItemDto>();
             CurrentQueueIndex = -1;
@@ -654,7 +656,7 @@ namespace Gelatinarm.Services
                     };
                     config.QueryParameters.EnableImages = true;
                     config.QueryParameters.EnableUserData = true;
-                    config.QueryParameters.Limit = MediaConstants.EXTENDED_QUERY_LIMIT;
+                    config.QueryParameters.Limit = MediaConstants.ExtendedQueryLimit;
                 }, cancellationToken).ConfigureAwait(false);
 
                 if (episodesResponse?.Items == null)
@@ -670,7 +672,7 @@ namespace Gelatinarm.Services
             }
             catch (Exception ex)
             {
-                return await ErrorHandler.HandleErrorAsync(ex, context, new List<BaseItemDto>(), false);
+                return await ErrorHandler.HandleErrorAsync(ex, context, new List<BaseItemDto>());
             }
         }
 
@@ -706,7 +708,7 @@ namespace Gelatinarm.Services
             }
             catch (Exception ex)
             {
-                return await ErrorHandler.HandleErrorAsync<(List<BaseItemDto>, int)>(ex, context, (null, 0), false);
+                return await ErrorHandler.HandleErrorAsync<(List<BaseItemDto>, int)>(ex, context, (null, 0));
             }
         }
 
@@ -792,7 +794,8 @@ namespace Gelatinarm.Services
                 }
 
                 var shuffledQueue = ShuffleEpisodes(allEpisodes);
-                Logger.LogInformation($"Built shuffled queue with {shuffledQueue.Count} episodes for series {seriesId}");
+                Logger.LogInformation(
+                    $"Built shuffled queue with {shuffledQueue.Count} episodes for series {seriesId}");
 
                 return (shuffledQueue, 0);
             }

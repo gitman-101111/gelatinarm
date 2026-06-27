@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Gelatinarm.Constants;
-using Gelatinarm.Helpers;
-using Gelatinarm.Models;
-using Microsoft.Extensions.Logging;
 using Windows.ApplicationModel;
 using Windows.Gaming.Input;
 using Windows.Graphics.Display;
@@ -19,6 +16,10 @@ using Windows.System.Profile;
 using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
+using Gelatinarm.Constants;
+using Gelatinarm.Helpers;
+using Gelatinarm.Models;
+using Microsoft.Extensions.Logging;
 using GamepadButtons = Windows.Gaming.Input.GamepadButtons;
 
 namespace Gelatinarm.Services
@@ -62,13 +63,13 @@ namespace Gelatinarm.Services
         // Device Info implementation
         private DeviceInfo _cachedDeviceInfo;
         private string _deviceId;
-        private volatile bool _disposed = false;
-        private volatile int _inputTickCount = 0;
+        private volatile bool _disposed;
+        private volatile int _inputTickCount;
         private DispatcherTimer _inputTimer;
         private GamepadReading _lastReading;
         private volatile ApplicationDataContainer _localSettings;
         private readonly object _localSettingsLock = new object();
-        private volatile int _monitoringTickCount = 0;
+        private volatile int _monitoringTickCount;
         private DispatcherTimer _monitoringTimer;
         private MediaProtectionManager _protectionManager;
         private DateTime _startTime;
@@ -121,22 +122,22 @@ namespace Gelatinarm.Services
 
         public bool Supports4K { get; }
 
-        public bool SupportsHEVC => _codecSupport.GetValueOrDefault("HEVC", true);
-        public bool SupportsAV1 => _codecSupport.GetValueOrDefault("AV1", Supports4K);
-        public bool SupportsVP9 => _codecSupport.GetValueOrDefault("VP9", true);
+        public bool SupportsHevc => _codecSupport.GetValueOrDefault("HEVC", true);
+        public bool SupportsAv1 => _codecSupport.GetValueOrDefault("AV1", Supports4K);
+        public bool SupportsVp9 => _codecSupport.GetValueOrDefault("VP9", true);
 
         // Audio codec support
-        public bool SupportsAAC => _codecSupport.GetValueOrDefault("AAC", true);
-        public bool SupportsMP3 => _codecSupport.GetValueOrDefault("MP3", true);
-        public bool SupportsFLAC => _codecSupport.GetValueOrDefault("FLAC", true);
-        public bool SupportsALAC => _codecSupport.GetValueOrDefault("ALAC", false);
-        public bool SupportsOGG => _codecSupport.GetValueOrDefault("OGG", false);
-        public bool SupportsOPUS => _codecSupport.GetValueOrDefault("OPUS", false);
-        public bool SupportsAC3 => _codecSupport.GetValueOrDefault("AC3", false);
-        public bool SupportsEAC3 => _codecSupport.GetValueOrDefault("EAC3", false);
-        public bool SupportsDTS => _codecSupport.GetValueOrDefault("DTS", false);
-        public bool SupportsTrueHD => _codecSupport.GetValueOrDefault("TrueHD", false);
-        public bool SupportsDTSHD => _codecSupport.GetValueOrDefault("DTS-HD", false);
+        public bool SupportsAac => _codecSupport.GetValueOrDefault("AAC", true);
+        public bool SupportsMp3 => _codecSupport.GetValueOrDefault("MP3", true);
+        public bool SupportsFlac => _codecSupport.GetValueOrDefault("FLAC", true);
+        public bool SupportsAlac => _codecSupport.GetValueOrDefault("ALAC", false);
+        public bool SupportsOgg => _codecSupport.GetValueOrDefault("OGG", false);
+        public bool SupportsOpus => _codecSupport.GetValueOrDefault("OPUS", false);
+        public bool SupportsAc3 => _codecSupport.GetValueOrDefault("AC3", false);
+        public bool SupportsEac3 => _codecSupport.GetValueOrDefault("EAC3", false);
+        public bool SupportsDts => _codecSupport.GetValueOrDefault("DTS", false);
+        public bool SupportsTrueHd => _codecSupport.GetValueOrDefault("TrueHD", false);
+        public bool SupportsDtshd => _codecSupport.GetValueOrDefault("DTS-HD", false);
         public bool SupportsDolbyAtmos => _codecSupport.GetValueOrDefault("DolbyAtmos", Supports4K);
         public bool SupportsHardwareAcceleration { get; }
 
@@ -217,10 +218,10 @@ namespace Gelatinarm.Services
         public bool IsXboxSeriesConsole => Supports4K;
 
         // Video codec support
-        public bool SupportsHDR => _codecSupport.GetValueOrDefault("HDR10", false);
+        public bool SupportsHdr => _codecSupport.GetValueOrDefault("HDR10", false);
         public bool SupportsHDR10 => _codecSupport.GetValueOrDefault("HDR10", false);
         public bool SupportsHDR10Plus => _codecSupport.GetValueOrDefault("HDR10Plus", false);
-        public bool SupportsHLG => _codecSupport.GetValueOrDefault("HLG", false);
+        public bool SupportsHlg => _codecSupport.GetValueOrDefault("HLG", false);
         public bool SupportsDolbyVision => _codecSupport.GetValueOrDefault("DolbyVision", Supports4K);
 
         // Hardware capabilities
@@ -327,7 +328,7 @@ namespace Gelatinarm.Services
             {
                 FireAndForget(async () =>
                 {
-                    await UIHelper.RunOnUIThreadAsync(() =>
+                    await UiHelper.RunOnUIThreadAsync(() =>
                     {
                         try
                         {
@@ -430,7 +431,7 @@ namespace Gelatinarm.Services
             {
                 _monitoringTimer = new DispatcherTimer
                 {
-                    Interval = TimeSpan.FromSeconds(RetryConstants.DEVICE_MONITOR_INTERVAL_SECONDS)
+                    Interval = TimeSpan.FromSeconds(RetryConstants.DeviceMonitorIntervalSeconds)
                 };
                 _monitoringTimer.Tick += OnMonitoringTick;
                 try
@@ -590,46 +591,46 @@ namespace Gelatinarm.Services
                     var aci = _displayInfo.GetAdvancedColorInfo();
 
                     // Check basic HDR support
-                    var hasHDR = aci.IsAdvancedColorKindAvailable(AdvancedColorKind.HighDynamicRange);
+                    var hasHdr = aci.IsAdvancedColorKindAvailable(AdvancedColorKind.HighDynamicRange);
 
                     // Check specific HDR format support
-                    var supportsHDR10 = false;
-                    var supportsHDR10Plus = false;
+                    var supportsHdr10 = false;
+                    var supportsHdr10Plus = false;
 
                     try
                     {
                         // Check if display supports HDR10 metadata
-                        supportsHDR10 = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10);
+                        supportsHdr10 = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10);
 
                         // Check HDR10+ support (may not be available on all SDK versions)
                         try
                         {
-                            supportsHDR10Plus = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10Plus);
+                            supportsHdr10Plus = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10Plus);
                         }
                         catch
                         {
                             // HDR10+ enum value might not exist on older SDK
-                            supportsHDR10Plus = false;
+                            supportsHdr10Plus = false;
                         }
                     }
                     catch (Exception ex)
                     {
                         Logger.LogWarning(ex,
                             "Failed to check HDR metadata format support, falling back to basic HDR detection");
-                        supportsHDR10 = hasHDR;
+                        supportsHdr10 = hasHdr;
                     }
 
-                    _codecSupport["HDR10"] = supportsHDR10;
-                    _codecSupport["HDR10Plus"] = supportsHDR10Plus;
+                    _codecSupport["HDR10"] = supportsHdr10;
+                    _codecSupport["HDR10Plus"] = supportsHdr10Plus;
 
                     // HLG support detection
                     // Since HLG doesn't use metadata, we can't detect it directly
                     // Only enable HLG if we have full HDR10 support AND we're on Xbox Series
                     // This prevents HLG on displays that "don't support all HDR10 modes"
-                    _codecSupport["HLG"] = supportsHDR10 && Supports4K;
+                    _codecSupport["HLG"] = supportsHdr10 && Supports4K;
 
                     Logger.LogInformation(
-                        $"HDR Detection - Basic HDR: {hasHDR}, HDR10: {supportsHDR10}, HDR10+: {supportsHDR10Plus}, HLG: {_codecSupport["HLG"]}");
+                        $"HDR Detection - Basic HDR: {hasHdr}, HDR10: {supportsHdr10}, HDR10+: {supportsHdr10Plus}, HLG: {_codecSupport["HLG"]}");
                 }
                 else
                 {
@@ -743,9 +744,9 @@ namespace Gelatinarm.Services
 
                 Logger.LogInformation("Capabilities and codecs initialized.");
                 Logger.LogInformation(
-                    $"Video Codecs: H264={_codecSupport.GetValueOrDefault("H264")}, HEVC={SupportsHEVC}, AV1={SupportsAV1}, VP8={_codecSupport.GetValueOrDefault("VP8")}, VP9={SupportsVP9}");
+                    $"Video Codecs: H264={_codecSupport.GetValueOrDefault("H264")}, HEVC={SupportsHevc}, AV1={SupportsAv1}, VP8={_codecSupport.GetValueOrDefault("VP8")}, VP9={SupportsVp9}");
                 Logger.LogInformation(
-                    $"Display: HDR10={SupportsHDR}, HDR10+={SupportsHDR10Plus}, HLG={SupportsHLG}, DolbyVision={SupportsDolbyVision}");
+                    $"Display: HDR10={SupportsHdr}, HDR10+={SupportsHDR10Plus}, HLG={SupportsHlg}, DolbyVision={SupportsDolbyVision}");
                 Logger.LogInformation(
                     $"Audio Codecs: AAC={_codecSupport.GetValueOrDefault("AAC")}, MP3={_codecSupport.GetValueOrDefault("MP3")}, FLAC={_codecSupport.GetValueOrDefault("FLAC")}, ALAC={_codecSupport.GetValueOrDefault("ALAC")}, AC3={_codecSupport.GetValueOrDefault("AC3")}");
                 Logger.LogInformation(
@@ -888,7 +889,8 @@ namespace Gelatinarm.Services
                         if (_connectedGamepads.Remove(g))
                         {
                             Logger.LogInformation($"Ctrl Remove. Total:{_connectedGamepads.Count}");
-                            ControllerDisconnected?.Invoke(this, new GamepadEventArgs { Gamepad = g, ControllerId = -1 });
+                            ControllerDisconnected?.Invoke(this,
+                                new GamepadEventArgs { Gamepad = g, ControllerId = -1 });
                             UpdateControllerProperties();
                         }
                     }
@@ -940,30 +942,31 @@ namespace Gelatinarm.Services
         public Task<IEnumerable<string>> GetSupportedCodecsAsync()
         {
             // Video codecs supported by Xbox hardware
-            var c = new List<string> {
-                "h264",        // H.264/AVC - all Xbox models
-                "mpeg2video",  // MPEG-2 - all Xbox models
-                "mpeg4",       // MPEG-4 Part 2 - all Xbox models
-                "vc1",         // VC-1/WVC1 - all Xbox models
-                "mjpeg",       // Motion JPEG - all Xbox models
-                "vp8",         // VP8 - all Xbox models
-                "mpeg1video",  // MPEG-1 - all Xbox models
-                "h263",        // H.263 - all Xbox models
-                "dv"           // DV - all Xbox models
+            var c = new List<string>
+            {
+                "h264", // H.264/AVC - all Xbox models
+                "mpeg2video", // MPEG-2 - all Xbox models
+                "mpeg4", // MPEG-4 Part 2 - all Xbox models
+                "vc1", // VC-1/WVC1 - all Xbox models
+                "mjpeg", // Motion JPEG - all Xbox models
+                "vp8", // VP8 - all Xbox models
+                "mpeg1video", // MPEG-1 - all Xbox models
+                "h263", // H.263 - all Xbox models
+                "dv" // DV - all Xbox models
             };
 
-            if (SupportsHEVC)
+            if (SupportsHevc)
             {
                 c.Add("hevc");
                 c.Add("h265"); // Alternative name for HEVC
             }
 
-            if (SupportsAV1)
+            if (SupportsAv1)
             {
                 c.Add("av1");
             }
 
-            if (SupportsVP9)
+            if (SupportsVp9)
             {
                 c.Add("vp9");
             }
@@ -978,38 +981,38 @@ namespace Gelatinarm.Services
             return Task.FromResult<IEnumerable<string>>(new List<string>
             {
                 // Common containers
-                "mp4",         // MPEG-4 Part 14
-                "m4v",         // iTunes/Apple variant of MP4
-                "mkv",         // Matroska
-                "webm",        // WebM (subset of Matroska)
-                "avi",         // Audio Video Interleave
-                "mov",         // QuickTime
+                "mp4", // MPEG-4 Part 14
+                "m4v", // iTunes/Apple variant of MP4
+                "mkv", // Matroska
+                "webm", // WebM (subset of Matroska)
+                "avi", // Audio Video Interleave
+                "mov", // QuickTime
 
                 // Windows Media containers
-                "wmv",         // Windows Media Video
-                "asf",         // Advanced Systems Format
+                "wmv", // Windows Media Video
+                "asf", // Advanced Systems Format
 
                 // MPEG containers
-                "mpg",         // MPEG Program Stream
-                "mpeg",        // MPEG Program Stream
-                "ts",          // MPEG Transport Stream
-                "m2ts",        // Blu-ray MPEG Transport Stream
-                "mts",         // AVCHD MPEG Transport Stream
-                "vob",         // DVD Video Object
+                "mpg", // MPEG Program Stream
+                "mpeg", // MPEG Program Stream
+                "ts", // MPEG Transport Stream
+                "m2ts", // Blu-ray MPEG Transport Stream
+                "mts", // AVCHD MPEG Transport Stream
+                "vob", // DVD Video Object
 
                 // Mobile/streaming containers
-                "3gp",         // 3GPP
-                "3g2",         // 3GPP2
-                "flv",         // Flash Video
+                "3gp", // 3GPP
+                "3g2", // 3GPP2
+                "flv", // Flash Video
 
                 // Audio-only containers (for music)
-                "mp3",         // MP3 audio
-                "m4a",         // MPEG-4 Audio
-                "aac",         // Advanced Audio Coding
-                "flac",        // Free Lossless Audio Codec
-                "wma",         // Windows Media Audio
-                "wav",         // Waveform Audio
-                "alac"         // Apple Lossless
+                "mp3", // MP3 audio
+                "m4a", // MPEG-4 Audio
+                "aac", // Advanced Audio Coding
+                "flac", // Free Lossless Audio Codec
+                "wma", // Windows Media Audio
+                "wav", // Waveform Audio
+                "alac" // Apple Lossless
             });
         }
 
@@ -1054,17 +1057,17 @@ namespace Gelatinarm.Services
                 "dv",
                 "vp8"
             };
-            if (SupportsHEVC)
+            if (SupportsHevc)
             {
                 c.Add("hevc");
             }
 
-            if (SupportsAV1)
+            if (SupportsAv1)
             {
                 c.Add("av1");
             }
 
-            if (SupportsVP9)
+            if (SupportsVp9)
             {
                 c.Add("vp9");
             }
@@ -1080,41 +1083,24 @@ namespace Gelatinarm.Services
             {
                 audioCodecs.AddRange(new[]
                 {
-                    "aac",
-                    "mp3",
-                    "flac",
-                    "alac",
-                    "ac3",
-                    "wma",
-                    "wmap",
-                    "amr",
-                    "amrnb",
-                    "g711",
-                    "g711a",
-                    "g711u",
-                    "gsm",
-                    "gsm610",
-                    "ima_adpcm",
-                    "ms_adpcm",
-                    "adpcm_ima",
-                    "adpcm_ms",
-                    "mp2"
+                    "aac", "mp3", "flac", "alac", "ac3", "wma", "wmap", "amr", "amrnb", "g711", "g711a", "g711u",
+                    "gsm", "gsm610", "ima_adpcm", "ms_adpcm", "adpcm_ima", "adpcm_ms", "mp2"
                 });
 
                 return audioCodecs;
             }
 
-            if (SupportsAAC)
+            if (SupportsAac)
             {
                 audioCodecs.Add("aac");
             }
 
-            if (SupportsMP3)
+            if (SupportsMp3)
             {
                 audioCodecs.Add("mp3");
             }
 
-            if (SupportsFLAC)
+            if (SupportsFlac)
             {
                 audioCodecs.Add("flac");
             }
@@ -1124,14 +1110,13 @@ namespace Gelatinarm.Services
 
         private void OnMonitoringTick(object s, object e)
         {
-            System.Threading.Interlocked.Increment(ref _monitoringTickCount);
+            Interlocked.Increment(ref _monitoringTickCount);
             try
             {
                 SystemEvent?.Invoke(this,
                     new SystemEventArgs
                     {
-                        EventType = "PeriodicUpdate",
-                        Data = new { Controllers = ConnectedControllerCount }
+                        EventType = "PeriodicUpdate", Data = new { Controllers = ConnectedControllerCount }
                     });
             }
             catch (Exception ex)
@@ -1152,7 +1137,7 @@ namespace Gelatinarm.Services
         {
             try
             {
-                System.Threading.Interlocked.Increment(ref _inputTickCount);
+                Interlocked.Increment(ref _inputTickCount);
                 Gamepad g;
                 lock (_gamepadLock)
                 {
@@ -1323,6 +1308,7 @@ namespace Gelatinarm.Services
                 {
                     _connectedGamepads.Clear();
                 }
+
                 UpdateControllerProperties();
 
                 _monitoringTimer = null;

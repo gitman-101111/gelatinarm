@@ -2,12 +2,12 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Gelatinarm.ViewModels;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml;
 
 namespace Gelatinarm.Services
 {
@@ -18,7 +18,7 @@ namespace Gelatinarm.Services
     {
         protected readonly ILogger Logger;
         private IErrorHandlingService _errorHandler;
-        private bool _disposed = false;
+        private bool _disposed;
 
         protected BaseService(ILogger logger)
         {
@@ -83,7 +83,7 @@ namespace Gelatinarm.Services
         ///     Retry an operation with exponential backoff (instance method)
         /// </summary>
         protected async Task<T> RetryAsync<T>(Func<Task<T>> operation,
-            int maxRetries = RetryConstants.DEFAULT_API_RETRY_ATTEMPTS, TimeSpan? initialDelay = null,
+            int maxRetries = RetryConstants.DefaultApiRetryAttempts, TimeSpan? initialDelay = null,
             CancellationToken cancellationToken = default, [CallerMemberName] string memberName = "")
         {
             return await RetryHelper.ExecuteWithRetryAsync(
@@ -100,7 +100,7 @@ namespace Gelatinarm.Services
         ///     Retry an operation with exponential backoff (instance method for void operations)
         /// </summary>
         protected async Task RetryAsync(Func<Task> operation,
-            int maxRetries = RetryConstants.DEFAULT_API_RETRY_ATTEMPTS, TimeSpan? initialDelay = null,
+            int maxRetries = RetryConstants.DefaultApiRetryAttempts, TimeSpan? initialDelay = null,
             CancellationToken cancellationToken = default, [CallerMemberName] string memberName = "")
         {
             await RetryHelper.ExecuteWithRetryAsync(
@@ -117,7 +117,7 @@ namespace Gelatinarm.Services
         ///     Retry an operation with exponential backoff
         /// </summary>
         public static async Task<T> RetryAsync<T>(Func<Task<T>> operation, ILogger logger,
-            int maxRetries = RetryConstants.DEFAULT_API_RETRY_ATTEMPTS, TimeSpan? initialDelay = null,
+            int maxRetries = RetryConstants.DefaultApiRetryAttempts, TimeSpan? initialDelay = null,
             CancellationToken cancellationToken = default, [CallerMemberName] string memberName = "")
         {
             return await RetryHelper.ExecuteWithRetryAsync(
@@ -338,7 +338,9 @@ namespace Gelatinarm.Services
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed)
+            {
                 return;
+            }
 
             if (disposing)
             {

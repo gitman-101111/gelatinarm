@@ -4,14 +4,15 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Media.Core;
+using Windows.Media.Playback;
+using Windows.Media.Streaming.Adaptive;
 using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Media.Core;
-using Windows.Media.Playback;
-using Windows.Media.Streaming.Adaptive;
+using HttpClient = Windows.Web.Http.HttpClient;
 
 namespace Gelatinarm.Services
 {
@@ -29,12 +30,12 @@ namespace Gelatinarm.Services
         private readonly IPreferencesService _preferencesService;
         private readonly ConcurrentDictionary<string, Task<MediaSource>> _preloadTasks = new();
         private readonly Task _initializationTask;
-        private int _currentBandwidthKbps = 0;
-        private bool _hdrOutputEnabled = false;
+        private int _currentBandwidthKbps;
+        private bool _hdrOutputEnabled;
 
         // Optimization state
-        private volatile int _isOptimizing = 0; // 0 = not optimizing, 1 = optimizing
-        private bool _spatialAudioEnabled = false;
+        private volatile int _isOptimizing; // 0 = not optimizing, 1 = optimizing
+        private bool _spatialAudioEnabled;
 
         public MediaOptimizationService(
             ILogger<MediaOptimizationService> logger,
@@ -83,13 +84,15 @@ namespace Gelatinarm.Services
                 }
 
                 // Create Windows.Web.Http.HttpClient for AdaptiveMediaSource
-                var windowsHttpClient = new Windows.Web.Http.HttpClient();
+                var windowsHttpClient = new HttpClient();
 
                 // Add authorization header if available
                 if (!string.IsNullOrEmpty(accessToken))
                 {
-                    windowsHttpClient.DefaultRequestHeaders.Add("Authorization", $"MediaBrowser Token=\"{accessToken}\"");
+                    windowsHttpClient.DefaultRequestHeaders.Add("Authorization",
+                        $"MediaBrowser Token=\"{accessToken}\"");
                 }
+
                 windowsHttpClient.DefaultRequestHeaders.Add("User-Agent", $"{BrandingConstants.USER_AGENT}/1.0");
 
                 var result = await AdaptiveMediaSource.CreateFromUriAsync(new Uri(mediaUrl), windowsHttpClient).AsTask()
@@ -245,7 +248,7 @@ namespace Gelatinarm.Services
                 IsEnhancementEnabled = _preferencesService.GetValue(PreferenceConstants.EnableMediaEnhancements, true);
                 _spatialAudioEnabled = _preferencesService.GetValue(PreferenceConstants.SpatialAudioEnabled, false);
                 // HDR is always enabled if the display supports it
-                _hdrOutputEnabled = _deviceService.SupportsHDR;
+                _hdrOutputEnabled = _deviceService.SupportsHdr;
 
                 // Load optimization preferences
                 IsOptimizationEnabled =
@@ -289,7 +292,7 @@ namespace Gelatinarm.Services
             try
             {
                 // Configure HDR if supported and enabled
-                if (_hdrOutputEnabled && _deviceService.SupportsHDR && IsHDRContent(mediaSourceInfo))
+                if (_hdrOutputEnabled && _deviceService.SupportsHdr && IsHdrContent(mediaSourceInfo))
                 {
                     // HDR configuration would typically be done through VideoEffects                    Logger.LogInformation("HDR output enabled for content");
                 }
@@ -339,7 +342,9 @@ namespace Gelatinarm.Services
         public async Task ApplyNormalizationAsync(MediaPlayer player, float? normalizationGainDb)
         {
             if (player == null)
+            {
                 return;
+            }
 
             var prefs = await _preferencesService.GetAppPreferencesAsync().ConfigureAwait(false);
             if (!prefs.AudioNormalizationEnabled || normalizationGainDb == null)
@@ -423,13 +428,12 @@ namespace Gelatinarm.Services
                 IsOptimizationEnabled = true;
                 _preferencesService.SetValue(PreferenceConstants.IsPlaybackOptimizationEnabled, true);
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     OptimizationStateChanged?.Invoke(this,
                         new OptimizationStateChangedEventArgs
                         {
-                            IsEnabled = true,
-                            CurrentBitrate = GetOptimalBitrate()
+                            IsEnabled = true, CurrentBitrate = GetOptimalBitrate()
                         });
                 }, logger: Logger);
 
@@ -453,7 +457,7 @@ namespace Gelatinarm.Services
 
                 await ClearOptimizationsAsync().ConfigureAwait(false);
 
-                await UIHelper.RunOnUIThreadAsync(() =>
+                await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     OptimizationStateChanged?.Invoke(this,
                         new OptimizationStateChangedEventArgs { IsEnabled = false, CurrentBitrate = 0 });
@@ -638,7 +642,7 @@ namespace Gelatinarm.Services
             return _spatialAudioEnabled;
         }
 
-        public bool GetHDROutputEnabledPreference()
+        public bool GetHdrOutputEnabledPreference()
         {
             return _hdrOutputEnabled;
         }
@@ -661,13 +665,12 @@ namespace Gelatinarm.Services
 
             if (IsOptimizationEnabled)
             {
-                FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(() =>
+                FireAndForget(async () => await UiHelper.RunOnUIThreadAsync(() =>
                 {
                     OptimizationStateChanged?.Invoke(this,
                         new OptimizationStateChangedEventArgs
                         {
-                            IsEnabled = true,
-                            CurrentBitrate = GetOptimalBitrate()
+                            IsEnabled = true, CurrentBitrate = GetOptimalBitrate()
                         });
                 }, logger: Logger));
             }
@@ -686,7 +689,7 @@ namespace Gelatinarm.Services
 
         #region Helper Methods
 
-        private bool IsHDRContent(MediaSourceInfo mediaSourceInfo)
+        private bool IsHdrContent(MediaSourceInfo mediaSourceInfo)
         {
             if (mediaSourceInfo?.MediaStreams == null)
             {

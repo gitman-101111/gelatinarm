@@ -36,23 +36,23 @@ namespace Gelatinarm.Helpers
             if (session == null)
             {
                 return new PlaybackSessionSnapshot(
-                    hasSession: false,
-                    state: MediaPlaybackState.None,
-                    position: TimeSpan.Zero,
-                    naturalDuration: TimeSpan.Zero,
-                    bufferingProgress: 1.0,
-                    canSeek: true,
-                    isProtected: false);
+                    false,
+                    MediaPlaybackState.None,
+                    TimeSpan.Zero,
+                    TimeSpan.Zero,
+                    1.0,
+                    true,
+                    false);
             }
 
             return new PlaybackSessionSnapshot(
-                hasSession: true,
-                state: SafeGet(() => session.PlaybackState, MediaPlaybackState.None),
-                position: SafeGet(() => session.Position, TimeSpan.Zero),
-                naturalDuration: SafeGet(() => session.NaturalDuration, TimeSpan.Zero),
-                bufferingProgress: skipBufferingProgress ? 1.0 : SafeGet(() => session.BufferingProgress, 1.0),
-                canSeek: SafeGet(() => session.CanSeek, true),
-                isProtected: SafeGet(() => session.IsProtected, false));
+                true,
+                SafeGet(() => session.PlaybackState, MediaPlaybackState.None),
+                SafeGet(() => session.Position, TimeSpan.Zero),
+                SafeGet(() => session.NaturalDuration, TimeSpan.Zero),
+                skipBufferingProgress ? 1.0 : SafeGet(() => session.BufferingProgress, 1.0),
+                SafeGet(() => session.CanSeek, true),
+                SafeGet(() => session.IsProtected, false));
         }
 
         private static T SafeGet<T>(Func<T> getter, T fallback)

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
@@ -12,7 +13,6 @@ using Gelatinarm.Services;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.ViewModels
 {
@@ -40,7 +40,7 @@ namespace Gelatinarm.ViewModels
 
         [ObservableProperty] private bool _isOverviewVisible;
 
-        [ObservableProperty] private bool _isTVShowsSectionVisible;
+        [ObservableProperty] private bool _isTvShowsSectionVisible;
 
         private CancellationTokenSource _loadCts;
 
@@ -147,13 +147,13 @@ namespace Gelatinarm.ViewModels
                 await RunOnUIThreadAsync(() =>
                 {
                     CurrentItem = person;
-                    UpdatePersonUI();
+                    UpdatePersonUi();
                 });
 
                 // Load related content in parallel
                 var tasks = new List<Task>
                 {
-                    LoadMoviesAsync(personId, cancellationToken), LoadTVShowsAsync(personId, cancellationToken)
+                    LoadMoviesAsync(personId, cancellationToken), LoadTvShowsAsync(personId, cancellationToken)
                 };
 
                 await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -167,7 +167,7 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        private void UpdatePersonUI()
+        private void UpdatePersonUi()
         {
             if (CurrentItem == null)
             {
@@ -304,7 +304,7 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-        private async Task LoadTVShowsAsync(Guid personId, CancellationToken cancellationToken)
+        private async Task LoadTvShowsAsync(Guid personId, CancellationToken cancellationToken)
         {
             if (!UserIdGuid.HasValue)
             {
@@ -335,7 +335,7 @@ namespace Gelatinarm.ViewModels
                             TvShows.Add(show);
                         }
 
-                        IsTVShowsSectionVisible = TvShows.Any();
+                        IsTvShowsSectionVisible = TvShows.Any();
                     });
                 }
             }
@@ -373,7 +373,7 @@ namespace Gelatinarm.ViewModels
         }
 
         [RelayCommand]
-        private void NavigateToTVShow(BaseItemDto show)
+        private void NavigateToTvShow(BaseItemDto show)
         {
             if (show != null)
             {

@@ -1,9 +1,9 @@
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Navigation;
 using Gelatinarm.ViewModels;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
 
 namespace Gelatinarm.Views
 {
@@ -57,7 +57,7 @@ namespace Gelatinarm.Views
         {
             if (e.ClickedItem is BaseItemDto show && ViewModel != null)
             {
-                ViewModel.NavigateToTVShowCommand.Execute(show);
+                ViewModel.NavigateToTvShowCommand.Execute(show);
             }
         }
     }

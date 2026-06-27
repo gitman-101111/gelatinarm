@@ -1,8 +1,8 @@
 using System.Threading.Tasks;
-using Gelatinarm.ViewModels;
-using Jellyfin.Sdk.Generated.Models;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using Gelatinarm.ViewModels;
+using Jellyfin.Sdk.Generated.Models;
 
 namespace Gelatinarm.Views
 {

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gelatinarm.Helpers;
@@ -10,7 +11,6 @@ using Gelatinarm.Views;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace Gelatinarm.ViewModels
 {
@@ -100,7 +100,8 @@ namespace Gelatinarm.ViewModels
             ImageLoadingService = imageLoadingService ?? throw new ArgumentNullException(nameof(imageLoadingService));
             MediaPlaybackService =
                 mediaPlaybackService ?? throw new ArgumentNullException(nameof(mediaPlaybackService));
-            UserDataService = userDataService ?? throw new ArgumentNullException(nameof(userDataService)); PlayCommand = new AsyncRelayCommand(PlayAsync);
+            UserDataService = userDataService ?? throw new ArgumentNullException(nameof(userDataService));
+            PlayCommand = new AsyncRelayCommand(PlayAsync);
             ResumeCommand = new AsyncRelayCommand(ResumeAsync);
             RestartCommand = new AsyncRelayCommand(RestartAsync);
             ToggleFavoriteCommand = new AsyncRelayCommand(async () =>
@@ -194,7 +195,7 @@ namespace Gelatinarm.ViewModels
             {
                 // Revert to original value on error
                 IsFavorite = originalValue;
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -217,7 +218,7 @@ namespace Gelatinarm.ViewModels
         {
             if (CurrentItem?.Id == null)
             {
-                Logger?.LogWarning($"LoadPrimaryImage: CurrentItem or ID is null");
+                Logger?.LogWarning("LoadPrimaryImage: CurrentItem or ID is null");
                 return;
             }
 
@@ -238,7 +239,7 @@ namespace Gelatinarm.ViewModels
                     }
                     else
                     {
-                        Logger?.LogInformation($"LoadPrimaryImage: No image tag found, will try without tag");
+                        Logger?.LogInformation("LoadPrimaryImage: No image tag found, will try without tag");
                     }
 
                     // Build image URL - even without a tag, the server should provide the image if it exists
@@ -310,7 +311,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
 
             IsLoading = false;
@@ -342,7 +343,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -364,7 +365,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -436,7 +437,7 @@ namespace Gelatinarm.ViewModels
                 IsWatched = originalWatched;
                 HasBeenPlayed = originalPlayed;
                 UpdatePlaybackState();
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 
@@ -482,7 +483,8 @@ namespace Gelatinarm.ViewModels
                 }
 
                 // Update playback state
-                UpdatePlaybackState(); await LoadImagesAsync();
+                UpdatePlaybackState();
+                await LoadImagesAsync();
 
                 // Load additional data specific to the item type
                 await LoadAdditionalDataAsync();
@@ -532,7 +534,8 @@ namespace Gelatinarm.ViewModels
                 }
 
                 // Update playback state
-                UpdatePlaybackState(); await LoadImagesAsync();
+                UpdatePlaybackState();
+                await LoadImagesAsync();
 
                 // Load additional data specific to the item type
                 await LoadAdditionalDataAsync();
@@ -666,7 +669,7 @@ namespace Gelatinarm.ViewModels
             }
             catch (Exception ex)
             {
-                await ErrorHandler.HandleErrorAsync(ex, context, true);
+                await ErrorHandler.HandleErrorAsync(ex, context);
             }
         }
 

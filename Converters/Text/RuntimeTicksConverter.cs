@@ -1,6 +1,6 @@
 using System;
-using Gelatinarm.Helpers;
 using Windows.UI.Xaml.Data;
+using Gelatinarm.Helpers;
 
 namespace Gelatinarm.Converters.Text
 {

@@ -5,17 +5,17 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Storage;
+using Windows.System.Profile;
 using Gelatinarm.Constants;
 using Gelatinarm.Models;
 using Microsoft.Extensions.Logging;
-using Windows.Storage;
-using Windows.System.Profile;
 
 namespace Gelatinarm.Services
 {
     public class PreferencesService : BaseService, IPreferencesService
     {
-        private static readonly JsonSerializerOptions JsonOptions = new()
+        private static readonly JsonSerializerOptions _jsonOptions = new()
         {
             Converters = { new JsonStringEnumConverter() },
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -46,7 +46,7 @@ namespace Gelatinarm.Services
             // Schedule background cache load
             FireAndForget(async () =>
             {
-                await Task.Delay(RetryConstants.CACHE_LOAD_STARTUP_DELAY_MS).ConfigureAwait(false);
+                await Task.Delay(RetryConstants.CacheLoadStartupDelayMs).ConfigureAwait(false);
                 await LoadCachedDataAsync().ConfigureAwait(false);
 #if DEBUG
                 Logger?.LogDebug("PreferencesService: Cache load completed");
@@ -59,7 +59,7 @@ namespace Gelatinarm.Services
 #endif
             FireAndForget(async () =>
             {
-                await Task.Delay(RetryConstants.CLEANUP_TASK_DELAY_MS).ConfigureAwait(false);
+                await Task.Delay(RetryConstants.CleanupTaskDelayMs).ConfigureAwait(false);
                 await CleanupStoredPreferencesAsync().ConfigureAwait(false);
             });
         }
@@ -180,7 +180,7 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("SaveAsync");
             try
             {
-                var json = JsonSerializer.Serialize(data, JsonOptions);
+                var json = JsonSerializer.Serialize(data, _jsonOptions);
 
                 if (IsXboxEnvironment)
                 {
@@ -236,7 +236,7 @@ namespace Gelatinarm.Services
 
                 if (!string.IsNullOrEmpty(json))
                 {
-                    return JsonSerializer.Deserialize<T>(json, JsonOptions);
+                    return JsonSerializer.Deserialize<T>(json, _jsonOptions);
                 }
 
                 return default;
@@ -271,7 +271,7 @@ namespace Gelatinarm.Services
                     {
                         Logger.LogDebug($"[PREFERENCES] Retrieved {key} from local settings");
                     }
-                    else if (value is string strVal && strVal.Length > SystemConstants.MAX_PREFERENCE_STRING_LENGTH)
+                    else if (value is string strVal && strVal.Length > SystemConstants.MaxPreferenceStringLength)
                     {
                         Logger.LogDebug($"[PREFERENCES] Retrieved {key} (large value) from local settings");
                     }
@@ -287,7 +287,7 @@ namespace Gelatinarm.Services
 
                     if (value is string jsonValue && typeof(T).IsClass && typeof(T) != typeof(string))
                     {
-                        var deserialized = JsonSerializer.Deserialize<T>(jsonValue, JsonOptions);
+                        var deserialized = JsonSerializer.Deserialize<T>(jsonValue, _jsonOptions);
                         return deserialized;
                     }
 
@@ -345,7 +345,7 @@ namespace Gelatinarm.Services
                     _localSettings.Values[key] = value;
                     // Only log detailed values for simple types
                     if (key == "AppPreferences" || (value is string strVal &&
-                                                    strVal.Length > SystemConstants.MAX_PREFERENCE_STRING_LENGTH))
+                                                    strVal.Length > SystemConstants.MaxPreferenceStringLength))
                     {
                         Logger.LogDebug($"[PREFERENCES] Stored {key} to local settings");
                     }
@@ -363,7 +363,7 @@ namespace Gelatinarm.Services
                 }
                 else
                 {
-                    var json = JsonSerializer.Serialize(value, JsonOptions);
+                    var json = JsonSerializer.Serialize(value, _jsonOptions);
                     _localSettings.Values[key] = json;
                     Logger.LogDebug($"[PREFERENCES] Stored serialized object for key '{key}' to local settings.");
                 }
@@ -473,10 +473,6 @@ namespace Gelatinarm.Services
 
         #endregion
 
-        #region Display and Authentication Preferences
-
-        #endregion
-
         #region Playback Position
 
         public async Task<long> GetPlaybackPositionAsync(string itemId)
@@ -514,7 +510,7 @@ namespace Gelatinarm.Services
                 await _savePositionSemaphore.WaitAsync().ConfigureAwait(false);
                 try
                 {
-                    await Task.Delay(RetryConstants.PLAYBACK_POSITION_SAVE_DELAY_MS).ConfigureAwait(false);
+                    await Task.Delay(RetryConstants.PlaybackPositionSaveDelayMs).ConfigureAwait(false);
 
                     Dictionary<string, long> positionsToSave;
                     lock (_positionsLock)

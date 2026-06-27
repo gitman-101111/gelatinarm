@@ -29,7 +29,7 @@ namespace Gelatinarm.ViewModels
         protected readonly IPreferencesService PreferencesService;
 
         // Settings state
-        private bool _hasUnsavedChanges = false;
+        private bool _hasUnsavedChanges;
         private string _validationError;
 
         private NetworkMetrics _currentMetrics;
@@ -38,7 +38,7 @@ namespace Gelatinarm.ViewModels
 
         // Network status properties
         private string _networkStatus;
-        private int _signalStrength = 0;
+        private int _signalStrength;
         private string _transferRate;
 
         public NetworkSettingsViewModel(
@@ -328,14 +328,14 @@ namespace Gelatinarm.ViewModels
                 return "N/A";
             }
 
-            const int unit = 1024;
-            if (bytesPerSecond < unit)
+            const int Unit = 1024;
+            if (bytesPerSecond < Unit)
             {
                 return $"{bytesPerSecond} B/s";
             }
 
-            var exp = (int)(Math.Log(bytesPerSecond) / Math.Log(unit));
-            var size = bytesPerSecond / Math.Pow(unit, exp);
+            var exp = (int)(Math.Log(bytesPerSecond) / Math.Log(Unit));
+            var size = bytesPerSecond / Math.Pow(Unit, exp);
             var suffix = exp switch
             {
                 1 => "KB/s",
