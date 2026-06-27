@@ -253,7 +253,6 @@ namespace Gelatinarm.ViewModels
             UpdatePlayButton();
         }
 
-
         private void UpdatePlayButton()
         {
             if (CurrentItem?.UserData?.PlaybackPositionTicks > 0)
@@ -265,7 +264,6 @@ namespace Gelatinarm.ViewModels
                 PlayButtonText = "Play";
             }
         }
-
 
         private async Task LoadTracksAsync(CancellationToken cancellationToken)
         {

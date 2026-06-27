@@ -73,7 +73,6 @@ namespace Gelatinarm.Services
             var appPrefs = await GetAppPreferencesAsync().ConfigureAwait(false);
             result["AppPreferences"] = appPrefs;
 
-
             var settingsSnapshot = new Dictionary<string, object>();
             EnsureApplicationDataLoaded();
             lock (_localSettings)
@@ -173,7 +172,6 @@ namespace Gelatinarm.Services
                 throw;
             }
         }
-
 
         #region Storage Operations
 
@@ -477,7 +475,6 @@ namespace Gelatinarm.Services
 
         #region Display and Authentication Preferences
 
-
         #endregion
 
         #region Playback Position
@@ -647,7 +644,6 @@ namespace Gelatinarm.Services
                 {
                     Logger.LogDebug("CleanupStoredPreferencesAsync: No PlaybackPreferences key found");
                 }
-
 
                 Logger.LogDebug("=== CleanupStoredPreferencesAsync END ===");
                 await Task.CompletedTask;

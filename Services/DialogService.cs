@@ -28,7 +28,6 @@ namespace Gelatinarm.Services
             }
         }
 
-
         public async Task<bool> ShowConfirmationAsync(string title, string message)
         {
             var context = CreateErrorContext("ShowConfirmation", ErrorCategory.User, ErrorSeverity.Warning);

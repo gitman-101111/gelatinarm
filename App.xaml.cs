@@ -38,7 +38,6 @@ namespace Gelatinarm
         private ILogger<App> _logger;
         private volatile IServiceProvider _serviceProvider;
 
-
         public App()
         {
             try
@@ -339,7 +338,6 @@ namespace Gelatinarm
                 // Continue - some features may not work
             }
 
-
             // Register MediaDiscoveryService - important for content discovery
             try
             {
@@ -401,7 +399,6 @@ namespace Gelatinarm
                         IMemoryMonitor memoryMonitor = null;
                         INetworkMonitor networkMonitor = null;
 
-
                         try
                         {
                             deviceProfileService = provider.GetService<IDeviceProfileService>();
@@ -459,7 +456,6 @@ namespace Gelatinarm
                             logger?.LogWarning(ex, "Failed to get AuthenticationService - continuing without it");
                         }
 
-
                         var apiClient = provider.GetRequiredService<JellyfinApiClient>();
                         var deviceServiceInterface = provider.GetRequiredService<IUnifiedDeviceService>();
                         logger?.LogInformation("Using SDK-based MediaPlaybackService");
@@ -480,7 +476,6 @@ namespace Gelatinarm
             {
                 // Continue without media playback service - app can still function for browsing
             }
-
 
             // Register unified SystemMonitorService for all monitoring needs
             services.AddSingleton(provider =>
@@ -559,7 +554,6 @@ namespace Gelatinarm
 
             // Register CacheManagerService
             services.AddSingleton<ICacheManagerService, CacheManagerService>();
-
 
             // Register new decomposed services for MusicPlayer
             services.AddSingleton<IPlaybackQueueService>(sp => sp.GetRequiredService<MediaQueueService>());
@@ -641,7 +635,6 @@ namespace Gelatinarm
                 return;
             }
 
-
             var failedServices = new List<string>();
 
             // Try to initialize authentication service
@@ -721,7 +714,6 @@ namespace Gelatinarm
                 _logger?.LogWarning($"Core services initialization incomplete. Failed services: {failedList}");
             }
         }
-
 
         protected override async void OnLaunched(LaunchActivatedEventArgs e)
         {
@@ -1359,7 +1351,6 @@ namespace Gelatinarm
             {
             }
         }
-
 
         private void OnBackRequested(object sender, BackRequestedEventArgs e)
         {

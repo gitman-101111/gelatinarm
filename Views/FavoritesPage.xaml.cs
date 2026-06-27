@@ -26,7 +26,6 @@ namespace Gelatinarm.Views
             await ViewModel.LoadFavoritesAsync();
         }
 
-
         private async void FilterButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button)

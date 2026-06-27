@@ -106,7 +106,6 @@ namespace Gelatinarm.Controls
             return service;
         }
 
-
         /// <summary>
         ///     Handle an error using the error handling service
         /// </summary>

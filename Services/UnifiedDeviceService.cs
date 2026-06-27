@@ -59,7 +59,6 @@ namespace Gelatinarm.Services
         private readonly CoreDispatcher _dispatcher;
         private readonly DisplayInformation _displayInfo;
 
-
         // Device Info implementation
         private DeviceInfo _cachedDeviceInfo;
         private string _deviceId;
@@ -796,7 +795,7 @@ namespace Gelatinarm.Services
                 var hasSeriesIndicator = systemModel.Contains("series") ||
                                          systemSku.Contains("series") ||
                                          systemModel.Contains("anaconda") || // Series X codename
-                                         systemModel.Contains("lockhart") || // Series S codename  
+                                         systemModel.Contains("lockhart") || // Series S codename
                                          systemModel.Contains("xbox2020") || // Alternative identifier
                                          systemSku.Contains("anaconda") ||
                                          systemSku.Contains("lockhart");
@@ -944,7 +943,7 @@ namespace Gelatinarm.Services
             var c = new List<string> {
                 "h264",        // H.264/AVC - all Xbox models
                 "mpeg2video",  // MPEG-2 - all Xbox models
-                "mpeg4",       // MPEG-4 Part 2 - all Xbox models  
+                "mpeg4",       // MPEG-4 Part 2 - all Xbox models
                 "vc1",         // VC-1/WVC1 - all Xbox models
                 "mjpeg",       // Motion JPEG - all Xbox models
                 "vp8",         // VP8 - all Xbox models
@@ -985,11 +984,11 @@ namespace Gelatinarm.Services
                 "webm",        // WebM (subset of Matroska)
                 "avi",         // Audio Video Interleave
                 "mov",         // QuickTime
-                
+
                 // Windows Media containers
                 "wmv",         // Windows Media Video
                 "asf",         // Advanced Systems Format
-                
+
                 // MPEG containers
                 "mpg",         // MPEG Program Stream
                 "mpeg",        // MPEG Program Stream
@@ -997,12 +996,12 @@ namespace Gelatinarm.Services
                 "m2ts",        // Blu-ray MPEG Transport Stream
                 "mts",         // AVCHD MPEG Transport Stream
                 "vob",         // DVD Video Object
-                
-                // Mobile/streaming containers  
+
+                // Mobile/streaming containers
                 "3gp",         // 3GPP
                 "3g2",         // 3GPP2
                 "flv",         // Flash Video
-                
+
                 // Audio-only containers (for music)
                 "mp3",         // MP3 audio
                 "m4a",         // MPEG-4 Audio

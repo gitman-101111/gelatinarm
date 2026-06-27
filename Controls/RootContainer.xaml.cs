@@ -23,7 +23,6 @@ namespace Gelatinarm.Controls
                     throw new InvalidOperationException("ContentFrame is null after InitializeComponent");
                 }
 
-
                 // Setup right trigger hold detection
                 InitializeTriggerHoldDetection();
             }

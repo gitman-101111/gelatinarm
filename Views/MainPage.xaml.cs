@@ -118,15 +118,6 @@ namespace Gelatinarm.Views
             return true;
         }
 
-
-        private void MediaItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button)
-            {
-                HandleItemClick(button.Tag);
-            }
-        }
-
         private void GridView_ItemClick(object sender, ItemClickEventArgs e)
         {
             HandleItemClick(e.ClickedItem);
@@ -161,11 +152,6 @@ namespace Gelatinarm.Views
             }
         }
 
-        private void OnItemClick(object sender, ItemClickEventArgs e)
-        {
-            HandleItemClick(e.ClickedItem);
-        }
-
         private void HandleItemClick(object clickedItem)
         {
             if (clickedItem is BaseItemDto item)
@@ -190,15 +176,11 @@ namespace Gelatinarm.Views
 
         // SetupFocusNavigation method removed - wasn't working properly
 
-
-
         private void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
             Logger?.LogInformation("Manual refresh requested by user");
             ViewModel?.RefreshData();
         }
-
-
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
@@ -321,25 +303,5 @@ namespace Gelatinarm.Views
             Logger?.LogInformation("MainPage: Cleaned up all event handlers");
         }
 
-
-        /// <summary>
-        ///     Execute a fire-and-forget dispatcher operation with error handling
-        /// </summary>
-        private void FireAndForgetDispatcher(Func<Task> asyncAction,
-            CoreDispatcherPriority priority = CoreDispatcherPriority.Normal, string operationName = null)
-        {
-            FireAndForget(async () => await UIHelper.RunOnUIThreadAsync(async () =>
-            {
-                try
-                {
-                    await asyncAction();
-                }
-                catch (Exception ex)
-                {
-                    var operation = operationName ?? asyncAction.Method?.Name ?? "Unknown";
-                    Logger?.LogError(ex, $"Fire-and-forget dispatcher operation failed in MainPage.{operation}");
-                }
-            }, Dispatcher, Logger), operationName ?? "FireAndForgetDispatcher");
-        }
     }
 }

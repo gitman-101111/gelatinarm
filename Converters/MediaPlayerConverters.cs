@@ -70,7 +70,6 @@ namespace Gelatinarm.Converters
         }
     }
 
-
     /// <summary>
     ///     Converts TimeSpan position to margin for seek thumb
     /// </summary>
@@ -147,7 +146,6 @@ namespace Gelatinarm.Converters
             throw new NotImplementedException();
         }
     }
-
 
     /// <summary>
     ///     Converts percentage to GridLength for dynamic column sizing

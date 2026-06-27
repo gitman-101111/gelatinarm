@@ -250,7 +250,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         private void ShowLoading(bool show)
         {
             IsLoadingOverlayVisible = show;

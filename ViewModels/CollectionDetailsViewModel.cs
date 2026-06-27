@@ -194,7 +194,6 @@ namespace Gelatinarm.ViewModels
             UpdatePlayButton();
         }
 
-
         private void UpdatePlayButton()
         {
             // Enable play button only if collection has playable items
@@ -433,7 +432,7 @@ namespace Gelatinarm.ViewModels
         /// </summary>
         public void Cleanup()
         {
-            // Clear collections - if we're not on UI thread, this might throw but 
+            // Clear collections - if we're not on UI thread, this might throw but
             // that's acceptable as Cleanup is typically called during page navigation
             // which should be on UI thread
             Items.Clear();

@@ -355,6 +355,5 @@ namespace Gelatinarm.Views
         Task InitializeAsync(object parameter);
     }
 
-
     #endregion
 }

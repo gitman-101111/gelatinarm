@@ -130,7 +130,6 @@ namespace Gelatinarm.Services
             ).ConfigureAwait(false);
         }
 
-
         /// <summary>
         ///     Create an error context for this service
         /// </summary>

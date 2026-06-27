@@ -402,14 +402,6 @@ namespace Gelatinarm.Views
             }
         }
 
-        /// <summary>
-        ///     Helper to get a service using runtime type
-        /// </summary>
-        private object GetRequiredService(Type serviceType)
-        {
-            return ServiceLocator.GetRequiredService(serviceType);
-        }
-
         #endregion
 
         #region Controller Support

@@ -399,7 +399,6 @@ namespace Gelatinarm.Services
             });
         }
 
-
         // Add methods from BackgroundPlaybackService that are missing
         public async Task<bool> EnableBackgroundPlayback()
         {
@@ -441,7 +440,6 @@ namespace Gelatinarm.Services
                 return await ErrorHandler.HandleErrorAsync(ex, context, false, false).ConfigureAwait(false);
             }
         }
-
 
         public void SetQueue(List<BaseItemDto> items, int startIndex = 0)
         {
@@ -1024,7 +1022,6 @@ namespace Gelatinarm.Services
             }
         }
 
-
         private void OnMediaFailed(object sender, MediaPlayerFailedEventArgs args)
         {
             // Handle the event synchronously and delegate async work
@@ -1130,7 +1127,6 @@ namespace Gelatinarm.Services
             });
         }
 
-
         private async Task PlayCurrentQueueItem(BaseItemDto item, MediaSourceInfo mediaSource = null)
         {
             if (item?.Id == null)
@@ -1160,7 +1156,6 @@ namespace Gelatinarm.Services
             // Apply LUFS-based volume normalization if enabled in settings
             await _mediaOptimizationService.ApplyNormalizationAsync(
                 _mediaControlService.MediaPlayer, item.NormalizationGain).ConfigureAwait(false);
-
 
             // Stop any existing playback reporting
             await StopPlaybackReporting().ConfigureAwait(false);
@@ -1791,7 +1786,6 @@ namespace Gelatinarm.Services
                 await ErrorHandler.HandleErrorAsync(ex, context, false).ConfigureAwait(false);
             }
         }
-
 
         private async Task PlayItemWithTranscodingFallback(BaseItemDto item)
         {

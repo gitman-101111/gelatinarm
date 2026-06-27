@@ -391,7 +391,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         public string VideoStretchMode
         {
             get => _videoStretchMode;

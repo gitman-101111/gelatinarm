@@ -10,7 +10,6 @@ namespace Gelatinarm.Constants
         /// </summary>
         public const string APP_NAME = "Gelatinarm";
 
-
         /// <summary>
         ///     User agent for API calls
         /// </summary>

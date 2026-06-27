@@ -132,9 +132,6 @@
     <Compile Include="Controls\MusicPlayer.xaml.cs">
       <DependentUpon>MusicPlayer.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\PlaybackSettings.xaml.cs">
-      <DependentUpon>PlaybackSettings.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Controls\RootContainer.xaml.cs">
       <DependentUpon>RootContainer.xaml</DependentUpon>
     </Compile>
@@ -149,7 +146,6 @@
     <Compile Include="Helpers\PlaybackSessionSnapshot.cs" />
     <Compile Include="Helpers\SeekCompletionCoordinator.cs" />
     <Compile Include="Helpers\ImageHelper.cs" />
-    <Compile Include="Helpers\MediaPlaybackHelper.cs" />
     <Compile Include="Helpers\NetworkHelper.cs" />
     <Compile Include="Helpers\ObservableCollectionExtensions.cs" />
     <Compile Include="Helpers\RetryHelper.cs" />
@@ -164,7 +160,6 @@
     <Compile Include="Models\DecadeFilterItem.cs" />
     <Compile Include="Models\MediaPlaybackModels.cs" />
     <Compile Include="Models\NetworkMetrics.cs" />
-    <Compile Include="Models\PlaybackInfo.cs" />
     <Compile Include="Models\QuickConnectInstructionsParameters.cs" />
     <Compile Include="Models\SearchPageParams.cs" />
     <!-- Converters - Data -->
@@ -361,10 +356,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\MusicPlayer.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\PlaybackSettings.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -139,7 +139,6 @@ namespace Gelatinarm.Services
                 return true;
             }
 
-
             // Map VirtualKey to ControllerButton for other keys
             var action = GetActionForKey(key);
             if (action.HasValue)

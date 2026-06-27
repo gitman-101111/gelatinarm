@@ -10,7 +10,6 @@ namespace Gelatinarm.Controls
             DependencyProperty.Register(nameof(UnwatchedCount), typeof(int?), typeof(UnwatchedIndicator),
                 new PropertyMetadata(null, OnUnwatchedCountChanged));
 
-
         public static readonly DependencyProperty ItemTypeProperty =
             DependencyProperty.Register(nameof(ItemType), typeof(BaseItemDto_Type?), typeof(UnwatchedIndicator),
                 new PropertyMetadata(null, OnItemTypeChanged));
@@ -27,7 +26,6 @@ namespace Gelatinarm.Controls
             get => (int?)GetValue(UnwatchedCountProperty);
             set => SetValue(UnwatchedCountProperty, value);
         }
-
 
         public BaseItemDto_Type? ItemType
         {

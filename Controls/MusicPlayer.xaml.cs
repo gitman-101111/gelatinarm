@@ -102,7 +102,6 @@ namespace Gelatinarm.Controls
                 };
                 _progressTimer.Tick += ProgressTimer_Tick;
 
-
                 // Check if there's already something playing
                 if (_musicPlayerService?.CurrentItem != null)
                 {
@@ -185,7 +184,6 @@ namespace Gelatinarm.Controls
                     _progressTimer.Tick -= ProgressTimer_Tick;
                     _progressTimer = null;
                 }
-
 
                 // Unsubscribe from events
                 if (_musicPlayerService != null)
@@ -404,7 +402,6 @@ namespace Gelatinarm.Controls
                 ArtistName.Text = item.AlbumArtist ?? item.Artists?.FirstOrDefault() ?? "Unknown Artist";
             }
 
-
             // Update duration from metadata if available
             if (TotalTimeText != null && item.RunTimeTicks.HasValue && item.RunTimeTicks.Value > 0)
             {
@@ -517,7 +514,6 @@ namespace Gelatinarm.Controls
                 }
             }
         }
-
 
         private void UpdatePlayPauseButton()
         {
@@ -685,7 +681,6 @@ namespace Gelatinarm.Controls
             }
         }
 
-
         private void ClearQueue_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -710,7 +705,6 @@ namespace Gelatinarm.Controls
                 Logger?.LogError(ex, "Error in ClosePlayer_Click");
             }
         }
-
 
         private void ShuffleButton_Click(object sender, RoutedEventArgs e)
         {
@@ -806,7 +800,6 @@ namespace Gelatinarm.Controls
                 Logger?.LogInformation("MusicPlayer: Focus set to PlayPauseButton via trigger hold");
             }
         }
-
 
         private void SubscribeToMediaPlayer()
         {

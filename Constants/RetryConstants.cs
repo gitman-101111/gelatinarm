@@ -143,7 +143,6 @@ namespace Gelatinarm.Constants
         /// </summary>
         public const int MEDIA_DISCOVERY_CACHE_MINUTES = 2;
 
-
         /// <summary>
         ///     Navigation timeout in seconds
         /// </summary>

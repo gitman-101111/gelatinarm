@@ -1,0 +1,30 @@
+# Enforce consistent line endings (CRLF) to match .editorconfig.
+# Git stores text normalized; working tree is checked out as CRLF.
+* text=auto eol=crlf
+
+# Explicit text types
+*.cs        text eol=crlf
+*.xaml      text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.json      text eol=crlf
+*.xml       text eol=crlf
+*.md        text eol=crlf
+*.editorconfig text eol=crlf
+
+# Binary assets — never normalize or diff as text
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.bmp   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.pfx   binary
+*.snk   binary
+*.appx  binary
+*.appxbundle binary
+*.pri   binary

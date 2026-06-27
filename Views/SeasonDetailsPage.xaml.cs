@@ -164,7 +164,6 @@ namespace Gelatinarm.Views
             }
         }
 
-
         private async void OnPageLoaded(object sender, RoutedEventArgs e)
         {
             if (ViewModel != null)
@@ -372,7 +371,6 @@ namespace Gelatinarm.Views
                 Logger?.LogError(ex, "Error scrolling season into view");
             }
         }
-
 
         private void UpdateFocusNavigationForSeasonInfo()
         {

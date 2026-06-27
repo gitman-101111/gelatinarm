@@ -32,9 +32,7 @@ namespace Gelatinarm.Views
         // Temporary filter collections for cancel functionality
         private readonly Dictionary<FilterItem, bool> _tempFilterStates = new();
 
-        private readonly IUnifiedDeviceService _unifiedDeviceService;
         private readonly IMusicPlayerService _musicPlayerService;
-
 
         public LibraryPage() : base(typeof(LibraryPage))
         {
@@ -58,7 +56,6 @@ namespace Gelatinarm.Views
                 throw;
             }
 #endif
-            _unifiedDeviceService = GetService<IUnifiedDeviceService>();
             _musicPlayerService = GetService<IMusicPlayerService>();
             _apiClient = GetRequiredService<JellyfinApiClient>();
 
@@ -211,7 +208,6 @@ namespace Gelatinarm.Views
                 Logger.LogError(ex, "Error in NavigateToDetailsPage (or during helper execution)");
             }
         }
-
 
         protected override async Task InitializePageAsync(object parameter)
         {
@@ -413,30 +409,6 @@ namespace Gelatinarm.Views
             }
         }
 
-        private void MediaItem_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                Logger?.LogInformation("MediaItem_Click: Button click event fired");
-
-                if (sender is Button button && button.Tag is BaseItemDto item)
-                {
-                    Logger?.LogInformation(
-                        $"MediaItem_Click: Item found - Name: {item.Name}, Type: {item.Type}, ID: {item.Id}");
-                    NavigateToDetailsPage(item);
-                }
-                else
-                {
-                    Logger?.LogWarning(
-                        $"MediaItem_Click: Sender is {sender?.GetType().Name}, Tag is {(sender as Button)?.Tag?.GetType().Name}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger?.LogError(ex, "Error in MediaItem_Click");
-            }
-        }
-
         private void SearchButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -569,7 +541,6 @@ namespace Gelatinarm.Views
                 Logger?.LogError(ex, "Error in ClearFiltersButton_Click");
             }
         }
-
 
         private void FilterFlyout_Opening(object sender, object e)
         {
@@ -706,13 +677,6 @@ namespace Gelatinarm.Views
             }
         }
 
-        private void FilterGrid_KeyDown(object sender, KeyRoutedEventArgs e)
-        {
-            // With proper TabNavigation="Local" and XYFocusKeyboardNavigation="Enabled" set on the containers,
-            // we shouldn't need custom key handling for basic navigation.
-            // The system should handle D-pad navigation between filter sections automatically.
-        }
-
         private async void ShuffleButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -810,141 +774,6 @@ namespace Gelatinarm.Views
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error shuffling music library");
-            }
-        }
-
-        private void MusicItem_RightTapped(object sender, RightTappedRoutedEventArgs e)
-        {
-        }
-
-        private async void InstantMix_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (sender is MenuFlyoutItem menuItem && menuItem.Tag is BaseItemDto seedItem)
-                {
-                    Logger.LogInformation($"Creating instant mix for: {seedItem.Name}");
-
-                    if (!seedItem.Id.HasValue)
-                    {
-                        Logger.LogWarning("Seed item has no ID");
-                        return;
-                    }
-
-                    var instantMixItems = await GetInstantMixAsync(seedItem.Id.Value).ConfigureAwait(false);
-
-                    if (instantMixItems == null || !instantMixItems.Any())
-                    {
-                        Logger.LogWarning("No instant mix items returned");
-                        return;
-                    }
-
-                    // Use MusicPlayerService for music playback
-                    if (_musicPlayerService != null)
-                    {
-                        await _musicPlayerService.PlayItems(instantMixItems).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        Logger.LogError("MusicPlayerService is not available");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error creating instant mix");
-            }
-        }
-
-        private async Task<List<BaseItemDto>> GetInstantMixAsync(Guid itemId)
-        {
-            try
-            {
-                var userIdStr = UserProfileService.CurrentUserId;
-                if (!Guid.TryParse(userIdStr, out var userIdGuid))
-                {
-                    Logger.LogError("Invalid user ID");
-                    return new List<BaseItemDto>();
-                }
-
-                var result = await _apiClient.Items[new Guid(itemId.ToString())].InstantMix.GetAsync(config =>
-                {
-                    config.QueryParameters.UserId = userIdGuid;
-                    config.QueryParameters.Limit = 50;
-                    config.QueryParameters.Fields = new[] { ItemFields.PrimaryImageAspectRatio };
-                }, CancellationToken.None).ConfigureAwait(false);
-
-                return result?.Items?.ToList() ?? new List<BaseItemDto>();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, $"Error getting instant mix for item {itemId}");
-                return new List<BaseItemDto>();
-            }
-        }
-
-        private void GoToAlbum_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (sender is MenuFlyoutItem menuItem && menuItem.Tag is BaseItemDto item)
-                {
-                    if (item.AlbumId.HasValue)
-                    {
-                        Logger.LogInformation($"Navigating to album: {item.Album}");
-                        NavigationService.Navigate(typeof(AlbumDetailsPage), item.AlbumId.Value.ToString());
-                    }
-                    else if (item.Type == BaseItemDto_Type.MusicAlbum && item.Id.HasValue)
-                    {
-                        Logger.LogInformation($"Navigating to album: {item.Name}");
-                        NavigationService.Navigate(typeof(AlbumDetailsPage), item.Id.Value.ToString());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error navigating to album");
-            }
-        }
-
-        private void GoToArtist_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (sender is MenuFlyoutItem menuItem && menuItem.Tag is BaseItemDto item)
-                {
-                    if (item.AlbumArtists?.Any() == true)
-                    {
-                        var firstAlbumArtist = item.AlbumArtists.FirstOrDefault();
-                        if (firstAlbumArtist?.Id.HasValue == true)
-                        {
-                            var artistId = firstAlbumArtist.Id.Value.ToString();
-                            var artistName = firstAlbumArtist.Name;
-                            Logger.LogInformation($"Navigating to artist: {artistName}");
-                            NavigationService.Navigate(typeof(ArtistDetailsPage), artistId);
-                        }
-                    }
-                    else if (item.ArtistItems?.Any() == true)
-                    {
-                        var firstArtistItem = item.ArtistItems.FirstOrDefault();
-                        if (firstArtistItem?.Id != null)
-                        {
-                            var artistId = firstArtistItem.Id;
-                            var artistName = firstArtistItem.Name;
-                            Logger.LogInformation($"Navigating to artist: {artistName}");
-                            NavigationService.Navigate(typeof(ArtistDetailsPage), artistId);
-                        }
-                    }
-                    else if (item.Type == BaseItemDto_Type.MusicArtist && item.Id.HasValue)
-                    {
-                        Logger.LogInformation($"Navigating to artist: {item.Name}");
-                        NavigationService.Navigate(typeof(ArtistDetailsPage), item.Id.Value.ToString());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error navigating to artist");
             }
         }
 

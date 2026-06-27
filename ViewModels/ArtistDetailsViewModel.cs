@@ -177,7 +177,6 @@ namespace Gelatinarm.ViewModels
             UpdateFavoriteButton();
         }
 
-
         private void LoadArtistImage()
         {
             if (CurrentItem?.Id == null)
@@ -718,7 +717,6 @@ namespace Gelatinarm.ViewModels
                 }
             }
         }
-
 
         protected override void DisposeManaged()
         {

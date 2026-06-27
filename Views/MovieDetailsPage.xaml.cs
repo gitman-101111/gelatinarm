@@ -22,7 +22,6 @@ namespace Gelatinarm.Views
         protected override Type ViewModelType => typeof(MovieDetailsViewModel);
         public MovieDetailsViewModel ViewModel => (MovieDetailsViewModel)base.ViewModel;
 
-
         protected override async Task InitializeViewModelAsync(object parameter)
         {
             if (ViewModel != null)

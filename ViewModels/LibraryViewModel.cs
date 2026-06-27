@@ -310,7 +310,7 @@ namespace Gelatinarm.ViewModels
                     OnPropertyChanged(nameof(ItemTemplateName));
                     OnPropertyChanged(nameof(ItemWidth));
                     OnPropertyChanged(nameof(ItemHeight));
-                    // Don't apply filters immediately - wait for Apply button 
+                    // Don't apply filters immediately - wait for Apply button
                 }
             }
         }
@@ -414,25 +414,6 @@ namespace Gelatinarm.ViewModels
         {
             FilterButtonStyles = new Dictionary<string, Style>();
             AlphabetButtonStyles = new Dictionary<char, Style>();
-        }
-
-        private Style GetFilterButtonStyle(string filter)
-        {
-            if (Application.Current.Resources.TryGetValue(
-                    filter == CurrentFilter ? "SelectedFilterButtonStyle" : "FilterButtonStyle", out var style) &&
-                style is Style buttonStyle) { return buttonStyle; }
-
-            return null;
-        }
-
-        private Style GetAlphabetButtonStyle(char letter)
-        {
-            var letterStr = letter.ToString();
-            if (Application.Current.Resources.TryGetValue(
-                    letterStr == CurrentAlphabetFilter ? "SelectedAlphabetButtonStyle" : "AlphabetButtonStyle",
-                    out var style) && style is Style buttonStyle) { return buttonStyle; }
-
-            return null;
         }
 
         public async Task InitializeAsync()

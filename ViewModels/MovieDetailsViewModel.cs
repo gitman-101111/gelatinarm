@@ -556,7 +556,6 @@ namespace Gelatinarm.ViewModels
                 return;
             }
 
-
             // Load audio tracks
             var audioStreams = mediaStreams.Where(s => s.Type == MediaStream_Type.Audio).ToList();
             if (audioStreams.Any())
@@ -776,7 +775,7 @@ namespace Gelatinarm.ViewModels
 
         private string GetQualityDisplayName(MediaStream videoStream, MediaSourceInfo source)
         {
-            // Priority: 
+            // Priority:
             // 1. Use video stream DisplayTitle if available (most accurate)
             // 2. Use source name if it looks like a quality indicator
             // 3. Fallback to source name

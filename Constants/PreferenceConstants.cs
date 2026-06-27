@@ -42,7 +42,6 @@ namespace Gelatinarm.Constants
         public const string CurrentLibraryName = "CurrentLibraryName";
         public const string CurrentLibraryType = "CurrentLibraryType";
 
-
         // Cached codec support information
         public const string CachedCodecSupport = "CachedCodecSupport";
     }

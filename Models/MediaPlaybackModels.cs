@@ -41,7 +41,6 @@ namespace Gelatinarm.Models
         public bool IsNoneOption { get; set; }
     }
 
-
     public class MovieVersion
     {
         public string Id { get; set; }
@@ -55,13 +54,6 @@ namespace Gelatinarm.Models
         public string Language { get; set; }
         public string DisplayName { get; set; }
         public bool IsDefault { get; set; }
-    }
-
-    public class SkipSegment
-    {
-        public string Type { get; set; } // "Intro" or "Outro"
-        public long StartTicks { get; set; }
-        public long EndTicks { get; set; }
     }
 
     public enum SkipSegmentType
@@ -101,26 +93,6 @@ namespace Gelatinarm.Models
         public Type OriginalSourcePage { get; set; }
         public object OriginalSourceParameter { get; set; }
     }
-
-    public enum ControllerButton
-    {
-        A,
-        B,
-        X,
-        Y,
-        DPadUp,
-        DPadDown,
-        DPadLeft,
-        DPadRight,
-        LeftShoulder,
-        RightShoulder,
-        LeftTrigger,
-        RightTrigger,
-        View,
-        LeftThumbstick,
-        RightThumbstick
-    }
-
 
     public enum MediaAction
     {

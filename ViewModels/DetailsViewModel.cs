@@ -608,8 +608,12 @@ namespace Gelatinarm.ViewModels
 
             if (CurrentItem?.UserData != null)
             {
+                // Resume is keyed off the saved playback position alone, consistent with
+                // SeasonDetailsViewModel/AlbumDetailsViewModel: an item with a resume position
+                // surfaces Resume even if it's flagged watched (e.g. a re-watch). Completed
+                // items have their position reset to 0 by the server, so they show Play.
                 var hasProgress = CurrentItem.UserData.PlaybackPositionTicks > 0;
-                CanResume = hasProgress && !IsWatched;
+                CanResume = hasProgress;
                 HasProgress = hasProgress;
 
                 Logger?.LogInformation(

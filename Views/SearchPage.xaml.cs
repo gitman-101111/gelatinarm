@@ -917,19 +917,5 @@ namespace Gelatinarm.Views
             }
         }
 
-        private void ResultsGrid_ItemClick(object sender, ItemClickEventArgs e)
-        {
-            try
-            {
-                if (e?.ClickedItem is BaseItemDto baseItemDto && baseItemDto.Id.HasValue)
-                {
-                    NavigateToItemDetails(baseItemDto);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger?.LogError(ex, "Error in ResultsGrid_ItemClick");
-            }
-        }
     }
 }

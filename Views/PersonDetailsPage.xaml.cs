@@ -23,7 +23,6 @@ namespace Gelatinarm.Views
 
         public PersonDetailsViewModel ViewModel { get; }
 
-
         protected override async Task InitializeViewModelAsync(object parameter)
         {
             if (ViewModel != null)

@@ -697,7 +697,6 @@ namespace Gelatinarm.Services
             base.UnsubscribeEvents();
         }
 
-
         private string GetAudioTrackDisplayName(MediaStream stream)
         {
             var parts = new List<string>();

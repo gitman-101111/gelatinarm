@@ -52,7 +52,6 @@ namespace Gelatinarm.Services
         Task<UserDto> GetUserAsync(string userId, CancellationToken cancellationToken = default);
         Task<UserDto> GetCurrentUserAsync(CancellationToken cancellationToken = default);
 
-
         void ClearUserData();
         Guid? GetCurrentUserGuid();
     }
@@ -243,7 +242,6 @@ namespace Gelatinarm.Services
         Task RemoveSettingAsync(string key);
         Task ClearCacheAsync();
 
-
         Task<Dictionary<string, object>> GetAllPreferences();
 
         // Consolidated App Preferences
@@ -365,7 +363,6 @@ namespace Gelatinarm.Services
         event EventHandler<BaseItemDto[]> RecommendationsUpdated;
         event EventHandler<BaseItemDto[]> ContinueWatchingUpdated;
     }
-
 
     public interface IMusicPlayerService : IDisposable
     {
@@ -841,7 +838,6 @@ namespace Gelatinarm.Services
     /// <summary>
     ///     Service for managing buffering state and health
     /// </summary>
-
 
     /// <summary>
     ///     Service for managing subtitle tracks

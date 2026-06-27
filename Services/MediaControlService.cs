@@ -385,7 +385,6 @@ namespace Gelatinarm.Services
             Logger.LogInformation($"CanPause: {sender.PlaybackSession?.CanPause}");
             Logger.LogInformation($"CanSeek: {sender.PlaybackSession?.CanSeek}");
 
-
             MediaOpened?.Invoke(sender, EventArgs.Empty);
         }
 

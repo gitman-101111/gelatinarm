@@ -274,7 +274,7 @@ namespace Gelatinarm.Services
                 {
                     Logger.LogInformation("Quick Connect authenticated");
 
-                    // The response indicates authentication is complete, but we need to 
+                    // The response indicates authentication is complete, but we need to
                     // authenticate with the secret to get the access token
                     var authSuccess = await AuthenticateWithQuickConnectAsync(secret, cancellationToken)
                         .ConfigureAwait(false);
@@ -408,7 +408,6 @@ namespace Gelatinarm.Services
             // Cancel any ongoing Quick Connect process
             Logger.LogInformation("Quick Connect cancelled");
         }
-
 
         private void UpdateSdkSettings()
         {
@@ -566,7 +565,6 @@ namespace Gelatinarm.Services
                 Logger.LogError(ex, "Failed to store credentials");
             }
         }
-
 
         private void ClearInvalidCredentials()
         {

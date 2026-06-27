@@ -748,33 +748,10 @@ namespace Gelatinarm.ViewModels
             }
 
             // Compute button states
-            var userData = episode.UserData;
-            var playbackTicks = userData?.PlaybackPositionTicks ?? 0;
-            var playedPercentage = userData?.PlayedPercentage ?? 0;
-            var isPlayed = userData?.Played == true;
-            var hasProgress = playbackTicks > 0 || playedPercentage > 0;
-            var isBelowWatchedThreshold = playedPercentage > 0 && playedPercentage < MediaConstants.WATCHED_PERCENTAGE_THRESHOLD;
+            var (isPlayButtonVisible, isResumeButtonVisible, isPlayFromBeginningButtonVisible,
+                isProgressVisible, watchProgressPercentage) = ComputeEpisodeButtonState(episode);
 
-            bool isPlayButtonVisible, isResumeButtonVisible, isPlayFromBeginningButtonVisible, isProgressVisible;
-            double watchProgressPercentage;
-            if (!isPlayed && (hasProgress || isBelowWatchedThreshold))
-            {
-                isPlayButtonVisible = false;
-                isResumeButtonVisible = true;
-                isPlayFromBeginningButtonVisible = true;
-                isProgressVisible = playedPercentage > 0;
-                watchProgressPercentage = playedPercentage > 0 ? playedPercentage : 0;
-            }
-            else
-            {
-                isPlayButtonVisible = true;
-                isResumeButtonVisible = false;
-                isPlayFromBeginningButtonVisible = false;
-                isProgressVisible = false;
-                watchProgressPercentage = 0;
-            }
-
-            var markWatchedText = isPlayed ? "Mark Unwatched" : "Mark Watched";
+            var markWatchedText = episode.UserData?.Played == true ? "Mark Unwatched" : "Mark Watched";
 
             // Commit all UI changes atomically on the UI thread
             await RunOnUIThreadAsync(() =>
@@ -807,45 +784,42 @@ namespace Gelatinarm.ViewModels
 
         private void UpdateButtonStates(BaseItemDto episode)
         {
-            var userData = episode.UserData;
-
             // Hide shuffle button for individual episodes
             IsShuffleButtonVisible = false;
             IsMarkWatchedButtonVisible = true;
 
-            var playbackTicks = userData?.PlaybackPositionTicks ?? 0;
+            var (isPlayButtonVisible, isResumeButtonVisible, isPlayFromBeginningButtonVisible,
+                isProgressVisible, watchProgressPercentage) = ComputeEpisodeButtonState(episode);
+
+            IsPlayButtonVisible = isPlayButtonVisible;
+            IsResumeButtonVisible = isResumeButtonVisible;
+            IsPlayFromBeginningButtonVisible = isPlayFromBeginningButtonVisible;
+            IsProgressVisible = isProgressVisible;
+            WatchProgressPercentage = watchProgressPercentage;
+
+            MarkWatchedText = episode.UserData?.Played == true ? "Mark Unwatched" : "Mark Watched";
+        }
+
+        /// <summary>
+        ///     Computes the Play/Resume button state for an episode. Resume is keyed off the actual
+        ///     playback position (PlaybackPositionTicks), matching the app-wide convention in
+        ///     DetailsViewModel/MovieDetailsViewModel. The previous logic gated on the Played flag,
+        ///     which hid Resume for episodes that still had a resume position (e.g. re-watches, or
+        ///     items the server auto-marked watched at the completion threshold).
+        /// </summary>
+        private static (bool isPlayButtonVisible, bool isResumeButtonVisible, bool isPlayFromBeginningButtonVisible,
+            bool isProgressVisible, double watchProgressPercentage) ComputeEpisodeButtonState(BaseItemDto episode)
+        {
+            var userData = episode?.UserData;
             var playedPercentage = userData?.PlayedPercentage ?? 0;
-            var isPlayed = userData?.Played == true;
-            var hasProgress = playbackTicks > 0 || playedPercentage > 0;
-            var isBelowWatchedThreshold = playedPercentage > 0 &&
-                                          playedPercentage < MediaConstants.WATCHED_PERCENTAGE_THRESHOLD;
+            var hasResumePosition = userData?.PlaybackPositionTicks > 0;
 
-            if (!isPlayed && (hasProgress || isBelowWatchedThreshold))
+            if (hasResumePosition)
             {
-                IsPlayButtonVisible = false;
-                IsResumeButtonVisible = true;
-                IsPlayFromBeginningButtonVisible = true;
-
-                // Update progress bar
-                if (playedPercentage > 0)
-                {
-                    WatchProgressPercentage = playedPercentage;
-                    IsProgressVisible = true;
-                }
-                else
-                {
-                    IsProgressVisible = false;
-                }
-            }
-            else
-            {
-                IsPlayButtonVisible = true;
-                IsResumeButtonVisible = false;
-                IsPlayFromBeginningButtonVisible = false;
-                IsProgressVisible = false;
+                return (false, true, true, playedPercentage > 0, playedPercentage > 0 ? playedPercentage : 0);
             }
 
-            MarkWatchedText = userData?.Played == true ? "Mark Unwatched" : "Mark Watched";
+            return (true, false, false, false, 0);
         }
 
         private string GetResolutionText(int height)
@@ -1089,63 +1063,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
-        private async Task SelectNextUnwatchedEpisodeAsync()
-        {
-            var context = CreateErrorContext("SelectNextUnwatchedEpisode", ErrorCategory.User);
-            try
-            {
-                if (!Episodes.Any())
-                {
-                    return;
-                }
-
-                // Find current episode index
-                var currentIndex = -1;
-                for (var i = 0; i < Episodes.Count; i++)
-                {
-                    if (Episodes[i].Id == SelectedEpisode?.Id)
-                    {
-                        currentIndex = i;
-                        break;
-                    }
-                }
-
-                if (currentIndex == -1)
-                {
-                    return;
-                }
-
-                // Look for next unwatched episode
-                for (var i = currentIndex + 1; i < Episodes.Count; i++)
-                {
-                    var episode = Episodes[i];
-                    if (episode.UserData?.Played != true)
-                    {
-                        await RunOnUIThreadAsync(() =>
-                        {
-                            SelectedEpisodeIndex = i;
-                        });
-                        await SelectEpisodeAsync(episode);
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                if (ErrorHandler != null)
-                {
-                    context.Source = context.Source ?? GetType().Name;
-                    await ErrorHandler.HandleErrorAsync(ex, context, false);
-                }
-                else
-                {
-                    Logger?.LogError(ex, $"Error in {GetType().Name}.{context?.Operation}");
-                    ErrorMessage = ex.Message;
-                    IsError = true;
-                }
-            }
-        }
 
         // Commands
         [RelayCommand]
@@ -1568,7 +1485,8 @@ namespace Gelatinarm.ViewModels
                     // Find first unwatched episode
                     firstUnwatchedEpisode = episodesResult.Items.FirstOrDefault(ep =>
                         ep.UserData?.Played != true ||
-                        (ep.UserData?.PlaybackPositionTicks > 0 && ep.UserData?.PlayedPercentage < 90));
+                        (ep.UserData?.PlaybackPositionTicks > 0 &&
+                         ep.UserData?.PlayedPercentage < MediaConstants.WATCHED_PERCENTAGE_THRESHOLD));
 
                     if (firstUnwatchedEpisode != null)
                     {

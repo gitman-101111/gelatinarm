@@ -254,7 +254,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         /// <summary>
         ///     Create an error context for this view model
         /// </summary>

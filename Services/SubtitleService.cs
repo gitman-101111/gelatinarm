@@ -54,7 +54,6 @@ namespace Gelatinarm.Services
             await Task.CompletedTask;
         }
 
-
         public async Task<List<SubtitleTrack>> GetSubtitleTracksAsync(PlaybackInfoResponse playbackInfo)
         {
             try
@@ -241,7 +240,6 @@ namespace Gelatinarm.Services
                 restartReason: $"subtitle change to {subtitle.DisplayTitle}",
                 subtitleStreamIndex: subtitleIndex);
         }
-
 
     }
 }

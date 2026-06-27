@@ -230,7 +230,6 @@ namespace Gelatinarm.Services
             }
         }
 
-
         public string GetStreamUrl(MediaSourceInfo mediaSource, string playSessionId)
         {
             if (mediaSource == null)
@@ -763,7 +762,7 @@ namespace Gelatinarm.Services
             var context = CreateErrorContext("CheckAndMarkAsWatched", ErrorCategory.Media);
             try
             {
-                if (_currentItem == null || !_currentItem.RunTimeTicks.HasValue)
+                if (_currentItem == null || !_currentItem.RunTimeTicks.HasValue || _currentItem.RunTimeTicks.Value <= 0)
                 {
                     return;
                 }
@@ -771,8 +770,8 @@ namespace Gelatinarm.Services
                 var runtime = _currentItem.RunTimeTicks.Value;
                 var percentWatched = (double)positionTicks / runtime * 100;
 
-                // Mark as watched if > 90% complete
-                if (percentWatched > 90 && _currentItem.Id.HasValue)
+                // Mark as watched once playback passes the completion threshold
+                if (percentWatched > MediaConstants.WATCHED_PERCENTAGE_THRESHOLD && _currentItem.Id.HasValue)
                 {
                     await MarkWatchedAsync(_currentItem.Id.Value.ToString());
                 }

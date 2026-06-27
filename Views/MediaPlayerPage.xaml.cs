@@ -741,7 +741,6 @@ namespace Gelatinarm.Views
             _controlVisibilityTimer.Tick += OnControlVisibilityTimerTick;
         }
 
-
         private void ShowControls(bool skipFocus = false, bool updateMediaController = true,
             bool clearSkipFlagAfterDelay = false)
         {
@@ -806,7 +805,6 @@ namespace Gelatinarm.Views
             }
         }
 
-
         private void HideControls()
         {
             try
@@ -844,7 +842,6 @@ namespace Gelatinarm.Views
                 InfoOverlay.Visibility = Visibility.Collapsed;
             }
         }
-
 
         /// <summary>
         ///     Unified control visibility management
@@ -980,7 +977,6 @@ namespace Gelatinarm.Views
 
             return true;
         }
-
 
         private void ResetControlVisibilityTimer()
         {
@@ -1167,7 +1163,6 @@ namespace Gelatinarm.Views
             }
         }
 
-
         private void SeekSlider_ManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
         {
             // Show seek thumb when user starts seeking
@@ -1244,17 +1239,6 @@ namespace Gelatinarm.Views
             else
             {
                 Logger?.LogError("ControllerInputService is null or ViewModel not available!");
-            }
-        }
-
-        /// <summary>
-        ///     Ensure controls are visible (show if not already visible)
-        /// </summary>
-        private void EnsureControlsVisible(bool animate = true, bool skipFocus = false)
-        {
-            if (!CheckControlVisibility())
-            {
-                ShowControls(skipFocus);
             }
         }
 

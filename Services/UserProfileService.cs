@@ -145,7 +145,6 @@ namespace Gelatinarm.Services
             }
         }
 
-
         public void ClearUserData()
         {
             _currentUser = null;

@@ -39,17 +39,6 @@ namespace Gelatinarm.Views
         }
 
         /// <summary>
-        ///     Handle track click
-        /// </summary>
-        private async void OnTrackClick(object sender, ItemClickEventArgs e)
-        {
-            if (e.ClickedItem is BaseItemDto track && ViewModel != null)
-            {
-                await ViewModel.PlayTrackCommand.ExecuteAsync(track);
-            }
-        }
-
-        /// <summary>
         ///     Handle track button click to show context menu
         /// </summary>
         private void OnTrackButtonClick(object sender, RoutedEventArgs e)
@@ -67,28 +56,6 @@ namespace Gelatinarm.Views
             {
                 logger?.LogWarning(
                     $"No ContextFlyout found on button. Button: {button != null}, ContextFlyout: {button?.ContextFlyout}");
-            }
-        }
-
-        /// <summary>
-        ///     Handle play all button click
-        /// </summary>
-        private async void OnPlayAllClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel != null)
-            {
-                await ViewModel.PlayCommand.ExecuteAsync(null);
-            }
-        }
-
-        /// <summary>
-        ///     Handle shuffle button click
-        /// </summary>
-        private async void OnShuffleClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel != null)
-            {
-                await ViewModel.ShuffleCommand.ExecuteAsync(null);
             }
         }
 

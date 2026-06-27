@@ -1021,11 +1021,4 @@ namespace Gelatinarm.Services
 
         #endregion
     }
-
-    public class MemoryManagerStatus
-    {
-        public ulong AvailableMemory { get; set; }
-        public ulong TotalMemory { get; set; }
-        public AppMemoryUsageLevel UsageLevel { get; set; }
-    }
 }

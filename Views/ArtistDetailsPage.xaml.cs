@@ -35,17 +35,6 @@ namespace Gelatinarm.Views
         }
 
         /// <summary>
-        ///     Handle album click
-        /// </summary>
-        private void OnAlbumClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is BaseItemDto album && ViewModel != null)
-            {
-                ViewModel.NavigateToAlbumCommand.Execute(album);
-            }
-        }
-
-        /// <summary>
         ///     Handle track button click to show context menu
         /// </summary>
         private void OnTrackButtonClick(object sender, RoutedEventArgs e)
@@ -63,28 +52,6 @@ namespace Gelatinarm.Views
             {
                 logger?.LogWarning(
                     $"No ContextFlyout found on button. Button: {button != null}, ContextFlyout: {button?.ContextFlyout}");
-            }
-        }
-
-        /// <summary>
-        ///     Handle play all button click
-        /// </summary>
-        private async void OnPlayAllClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel != null)
-            {
-                await ViewModel.PlayCommand.ExecuteAsync(null);
-            }
-        }
-
-        /// <summary>
-        ///     Handle shuffle all button click
-        /// </summary>
-        private async void OnShuffleAllClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel != null)
-            {
-                await ViewModel.ShuffleCommand.ExecuteAsync(null);
             }
         }
 

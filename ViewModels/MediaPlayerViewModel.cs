@@ -153,10 +153,7 @@ namespace Gelatinarm.ViewModels
         private DispatcherTimer _positionTimer;
         private CancellationTokenSource _progressReportCancellationTokenSource;
 
-
-
         [ObservableProperty] private AudioTrack _selectedAudioTrack;
-
 
         [ObservableProperty] private SubtitleTrack _selectedSubtitle;
 
@@ -749,7 +746,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         [RelayCommand]
         private async Task ChangeSubtitle(SubtitleTrack subtitle)
         {
@@ -922,7 +918,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         // Public methods
         public async Task InitializeAsync(MediaPlaybackParams playbackParams)
         {
@@ -1079,7 +1074,6 @@ namespace Gelatinarm.ViewModels
                 throw;
             }
         }
-
 
         private async Task SetupPlaybackAsync()
         {
@@ -1254,7 +1248,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         private async Task PreloadNextEpisodeAsync()
         {
             var context = CreateErrorContext("PreloadNextEpisode", ErrorCategory.Media, ErrorSeverity.Warning);
@@ -1302,66 +1295,6 @@ namespace Gelatinarm.ViewModels
                     Logger?.LogError(ex, $"Error in {GetType().Name}.{context?.Operation}");
                     ErrorMessage = ex.Message;
                     IsError = true;
-                }
-            }
-        }
-
-        private async Task PlayMediaItemAsync(BaseItemDto item, long startPositionTicks)
-        {
-            try
-            {
-                if (item == null)
-                {
-                    Logger.LogError("Cannot play null item");
-                    ErrorMessage = "Invalid media item";
-                    IsError = true;
-                    return;
-                }
-
-                // Stop current playback
-                try
-                {
-                    _mediaControlService.Stop();
-                }
-                catch (Exception stopEx)
-                {
-                    Logger.LogWarning(stopEx, "Error stopping current playback - continuing anyway");
-                }
-
-                // Create new playback params
-                var newParams = new MediaPlaybackParams
-                {
-                    Item = item,
-                    ItemId = item.Id?.ToString(),
-                    StartPositionTicks = startPositionTicks,
-                    MediaSourceId = _playbackParams?.MediaSourceId,
-                    AudioStreamIndex = _playbackParams?.AudioStreamIndex,
-                    SubtitleStreamIndex = _playbackParams?.SubtitleStreamIndex,
-                    NavigationSourcePage = _playbackParams?.NavigationSourcePage,
-                    NavigationSourceParameter = _playbackParams?.NavigationSourceParameter
-                };
-
-                // Reinitialize with new item
-                await InitializeAsync(newParams);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error playing media item");
-                ErrorMessage = $"Failed to play media: {ex.Message}";
-                IsError = true;
-
-                // Offer recovery options
-                if (_mediaNavigationService != null)
-                {
-                    Logger.LogInformation("Navigating back after playback failure");
-                    await Task.Delay(2000);
-                    await _mediaNavigationService.NavigateBackToOriginAsync();
-                }
-                else if (_navigationService.CanGoBack)
-                {
-                    Logger.LogInformation("Navigating back after playback failure");
-                    await Task.Delay(2000);
-                    _navigationService.GoBack();
                 }
             }
         }
@@ -2032,7 +1965,6 @@ namespace Gelatinarm.ViewModels
             });
         }
 
-
         private void OnSubtitleChanged(object sender, SubtitleTrack subtitle)
         {
             SelectedSubtitle = subtitle;
@@ -2246,7 +2178,6 @@ namespace Gelatinarm.ViewModels
                 Logger.LogError(ex, "[ERROR] Exception in OnMediaOpened handler");
             }
         }
-
 
         // Helper methods
 
@@ -2591,7 +2522,6 @@ namespace Gelatinarm.ViewModels
             }
         }
 
-
         public async Task UpdatePositionImmediateAsync()
         {
             if (_isDisposed) return;
@@ -2624,7 +2554,6 @@ namespace Gelatinarm.ViewModels
         {
             // In the future, this could trigger a visual overlay
         }
-
 
         private void UpdateCustomProgressBar(TimeSpan currentPosition, TimeSpan duration)
         {
@@ -3096,7 +3025,6 @@ namespace Gelatinarm.ViewModels
 
             // Unsubscribe from events
 
-
             if (_subtitleService != null)
             {
                 _subtitleService.SubtitleChanged -= OnSubtitleChanged;
@@ -3107,13 +3035,11 @@ namespace Gelatinarm.ViewModels
                 _mediaNavigationService.NavigationStateChanged -= OnNavigationStateChanged;
             }
 
-
             if (_controllerInputService != null)
             {
                 _controllerInputService.ActionTriggered -= OnControllerActionTriggered;
                 _controllerInputService.ActionWithParameterTriggered -= OnControllerActionWithParameterTriggered;
             }
-
 
             if (MediaPlayerElement?.MediaPlayer != null)
             {

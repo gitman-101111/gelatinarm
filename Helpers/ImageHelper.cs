@@ -151,7 +151,6 @@ namespace Gelatinarm.Helpers
             }
         }
 
-
         #endregion
 
         #region URL Building Methods (formerly ImageUrlHelper)
@@ -206,7 +205,6 @@ namespace Gelatinarm.Helpers
                 return null; // Gracefully return null on error
             }
         }
-
 
         /// <summary>
         ///     Simple helper to get image URL by string ID (for MusicPlayer)
