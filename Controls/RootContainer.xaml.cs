@@ -32,10 +32,7 @@ namespace Gelatinarm.Controls
             PreviewKeyUp += OnPreviewKeyUp;
 
             // Initialize the hold timer
-            _rightTriggerHoldTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(TriggerHoldDelayMs)
-            };
+            _rightTriggerHoldTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(TriggerHoldDelayMs) };
             _rightTriggerHoldTimer.Tick += OnRightTriggerHoldTimerTick;
         }
 

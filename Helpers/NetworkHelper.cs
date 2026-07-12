@@ -33,7 +33,7 @@ namespace Gelatinarm.Helpers
                         // Create a fake HttpRequestException to trigger the network error message
                         var networkException = new HttpRequestException("No network connection available");
                         var context = new ErrorContext("NetworkCheck", "NetworkHelper", ErrorCategory.Network);
-                        await errorHandler.HandleErrorAsync(networkException, context, true);
+                        await errorHandler.HandleErrorAsync(networkException, context);
                     }
 
                     return false;

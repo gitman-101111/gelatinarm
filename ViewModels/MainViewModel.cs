@@ -12,7 +12,6 @@ using Gelatinarm.Constants;
 using Gelatinarm.Helpers;
 using Gelatinarm.Models;
 using Gelatinarm.Services;
-using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
 

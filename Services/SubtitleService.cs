@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Windows.Media.Playback;
 using Gelatinarm.Constants;
 using Gelatinarm.Models;
-using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Extensions.Logging;
 
@@ -40,6 +39,7 @@ namespace Gelatinarm.Services
             {
                 throw new ArgumentNullException(nameof(mediaPlayer));
             }
+
             _playbackParams = playbackParams ?? throw new ArgumentNullException(nameof(playbackParams));
 
             await Task.CompletedTask;
