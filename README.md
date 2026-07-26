@@ -30,6 +30,7 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 - **Multiple Audio & Subtitle Tracks** - Switch between languages and subtitles on the fly
 - **Adaptive streaming** - HLS/DASH support with automatic bitrate adjustment
 - **Buffering optimization** - Smart buffering for smooth playback
+- **Profile Switching** - Switch between different users on the same server, keeping settings, playback history, etc. separate
 
 ### 🎵 Music & Audio
 - **Background playback** - Keep music playing while using other apps
