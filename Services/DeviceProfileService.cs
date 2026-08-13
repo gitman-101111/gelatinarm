@@ -178,7 +178,8 @@ namespace Gelatinarm.Services
                             {
                                 Condition = ProfileCondition_Condition.EqualsAny,
                                 Property = ProfileCondition_Property.VideoProfile,
-                                Value = "high,main,baseline,constrained baseline",
+                                // EqualsAny is pipe-delimited (Jellyfin ConditionProcessor splits on '|' only).
+                                Value = "high|main|baseline|constrained baseline",
                                 IsRequired = false
                             }
                         }.ToList()
@@ -207,7 +208,9 @@ namespace Gelatinarm.Services
                         {
                             Condition = ProfileCondition_Condition.EqualsAny,
                             Property = ProfileCondition_Property.VideoProfile,
-                            Value = "main,main10,dvhe.08", // Added Dolby Vision Profile 8.1
+                            // Pipe-delimited. ffprobe/Jellyfin report HEVC Main 10 as "Main 10"
+                            // (space). "main10" is kept as a defensive alias. Case is ignored.
+                            Value = "main|main 10|main10|dvhe.08",
                             IsRequired = false
                         }
                     }.ToList()
@@ -246,7 +249,7 @@ namespace Gelatinarm.Services
                         {
                             Condition = ProfileCondition_Condition.EqualsAny,
                             Property = ProfileCondition_Property.VideoProfile,
-                            Value = "Profile0,Profile2",
+                            Value = "Profile0|Profile2",
                             IsRequired = false
                         }
                     }.ToList()
@@ -297,14 +300,14 @@ namespace Gelatinarm.Services
                         {
                             Condition = ProfileCondition_Condition.EqualsAny,
                             Property = ProfileCondition_Property.VideoProfile,
-                            Value = "dvhe.08,dvhe.08.06", // Profile 8.1 with BL compatibility
+                            Value = "dvhe.08|dvhe.08.06", // Profile 8.1 with BL compatibility
                             IsRequired = false
                         },
                         new ProfileCondition
                         {
                             Condition = ProfileCondition_Condition.EqualsAny,
                             Property = ProfileCondition_Property.VideoRangeType,
-                            Value = "DOVI,DOVIWithHDR10,DOVIWithHLG", // Support DV with HDR10/HLG base layer
+                            Value = "DOVI|DOVIWithHDR10|DOVIWithHLG", // Support DV with HDR10/HLG base layer
                             IsRequired = false
                         },
                         new ProfileCondition
@@ -380,7 +383,8 @@ namespace Gelatinarm.Services
                 }
             }
 
-            var result = string.Join(",", supportedTypes);
+            // EqualsAny is pipe-delimited; commas are treated as a single unmatched literal.
+            var result = string.Join("|", supportedTypes);
             Logger?.LogInformation($"Supported video range types: {result}");
             return result;
         }
