@@ -201,7 +201,7 @@ Music playback uses standard system media controls. Use the Xbox Guide button to
 
 - Xbox One, Xbox One S, Xbox One X, Xbox Series S, or Xbox Series X
 - Internet connection
-- Jellyfin server (version 10.8.0 or later recommended)
+- Jellyfin server (version 10.8.0 or later; 12.0 or later recommended)
 - Xbox configured to Developer Mode for sideloading (or install from Microsoft Store when available)
 
 ## Installation
