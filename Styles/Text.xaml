@@ -1,0 +1,104 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--  Essential Text Styles  -->
+    <Style x:Key="SubheaderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="20" />
+    </Style>
+
+    <Style x:Key="StandardBodyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <Style x:Key="StandardCaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+    </Style>
+
+    <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="TitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="SmallCaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+    </Style>
+
+    <!--  The two lines under a poster tile  -->
+    <Style
+        x:Key="PosterTitleTextStyle"
+        BasedOn="{StaticResource StandardCaptionTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseHighBrush}" />
+        <Setter Property="Margin" Value="4,4,4,0" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style
+        x:Key="PosterCaptionTextStyle"
+        BasedOn="{StaticResource StandardCaptionTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="Margin" Value="4,0,4,4" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextAlignment" Value="Center" />
+    </Style>
+
+    <!--  A details page's item title, and the sign-in pages' centred titles  -->
+    <Style
+        x:Key="PageTitleTextStyle"
+        BasedOn="{StaticResource TitleTextStyle}"
+        TargetType="TextBlock" />
+
+    <Style
+        x:Key="PageHeaderTextStyle"
+        BasedOn="{StaticResource HeaderTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="InstructionStepNumberTextStyle" TargetType="TextBlock">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <!--  Additional Text Styles  -->
+    <Style
+        x:Key="SectionHeaderTextStyle"
+        BasedOn="{StaticResource SubheaderTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <!--  Body text in the dimmed brush: years, artists, overviews, counts, labels  -->
+    <Style
+        x:Key="SecondaryTextStyle"
+        BasedOn="{StaticResource StandardBodyTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+    </Style>
+
+    <Style
+        x:Key="SubsectionHeaderTextStyle"
+        BasedOn="{StaticResource SecondaryTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!--  The dot between the items of a detail row; the row's Spacing sets the gaps  -->
+    <Style
+        x:Key="SeparatorTextStyle"
+        BasedOn="{StaticResource SecondaryTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="Text" Value="•" />
+    </Style>
+</ResourceDictionary>

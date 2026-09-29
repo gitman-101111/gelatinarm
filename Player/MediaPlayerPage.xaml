@@ -1,0 +1,575 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.Player.MediaPlayerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:local="using:Gelatinarm.Player"
+    xmlns:playback="using:Gelatinarm.Playback"
+    AllowFocusOnInteraction="False"
+    Background="{StaticResource VideoBackgroundBrush}"
+    IsTabStop="False">
+    <Page.Resources>
+        <!--  Converters  -->
+        <local:MediaTitleConverter x:Key="MediaTitleConverter" />
+        <local:EpisodeInfoConverter x:Key="EpisodeInfoConverter" />
+        <local:PlayPauseIconConverter x:Key="PlayPauseIconConverter" />
+        <local:EpisodeTypeToVisibilityConverter x:Key="EpisodeTypeToVisibilityConverter" />
+        <local:PercentageToStarGridLengthConverter x:Key="PercentageToStarGridLengthConverter" />
+        <local:PercentageToComplementaryStarGridLengthConverter x:Key="PercentageToComplementaryStarGridLengthConverter" />
+
+        <!--
+            The flyouts measure their list before its items arrive on first open, so without
+            a minimum width the first open is too narrow and cuts track names off.
+        -->
+        <Style x:Key="TrackListStyle" TargetType="ListView">
+            <Setter Property="MinWidth" Value="400" />
+        </Style>
+
+        <Style x:Key="PlayerIconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Width" Value="40" />
+        </Style>
+        <Style x:Key="PlayerIconStyle" TargetType="FontIcon">
+            <Setter Property="FontSize" Value="20" />
+        </Style>
+        <Style x:Key="PlayerSmallIconStyle" TargetType="FontIcon">
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+        <Style x:Key="PlayerTextButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
+        <Style x:Key="OverlayButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource OverlayScrimBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
+        <Style x:Key="StatsLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="9" />
+            <Setter Property="Foreground" Value="{StaticResource SystemControlForegroundBaseMediumBrush}" />
+        </Style>
+        <Style x:Key="StatsValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="9" />
+        </Style>
+        <Style x:Key="StatsHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!--  Audio Selection Flyout  -->
+        <Flyout x:Name="AudioFlyout" Placement="Top">
+            <ListView
+                IsItemClickEnabled="True"
+                ItemClick="AudioList_ItemClick"
+                ItemsSource="{x:Bind ViewModel.AudioTracks, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedAudioTrack, Mode=OneWay}"
+                SelectionMode="Single"
+                Style="{StaticResource TrackListStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="playback:AudioTrack">
+                        <TextBlock Text="{x:Bind DisplayName}" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Flyout>
+
+        <!--  Subtitles Selection Flyout  -->
+        <Flyout x:Name="SubtitlesFlyout" Placement="Top">
+            <ListView
+                IsItemClickEnabled="True"
+                ItemClick="SubtitlesList_ItemClick"
+                ItemsSource="{x:Bind ViewModel.SubtitleTracks, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedSubtitle, Mode=OneWay}"
+                SelectionMode="Single"
+                Style="{StaticResource TrackListStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="playback:SubtitleTrack">
+                        <TextBlock Text="{x:Bind DisplayTitle}" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Flyout>
+    </Page.Resources>
+
+    <Grid>
+        <MediaPlayerElement
+            x:Name="MediaPlayer"
+            AllowFocusOnInteraction="False"
+            AutoPlay="True"
+            IsTabStop="True"
+            UseSystemFocusVisuals="False"
+            XYFocusUp="{x:Bind MediaPlayer}" />
+
+        <!--  Buffering Indicator  -->
+        <Grid
+            Background="{StaticResource OverlayScrimBrush}"
+            IsHitTestVisible="False"
+            Visibility="{x:Bind ViewModel.IsBuffering, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressRing
+                    Width="60"
+                    Height="60"
+                    Foreground="{StaticResource SystemControlHighlightAccentBrush}"
+                    IsActive="True" />
+                <TextBlock
+                    Margin="0,12,0,0"
+                    HorizontalAlignment="Center"
+                    FontSize="16"
+                    Text="Buffering..." />
+            </StackPanel>
+        </Grid>
+
+        <!--  Custom Media Controls  -->
+        <Grid x:Name="CustomControlsOverlay" Visibility="{x:Bind ViewModel.AreControlsVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+            <!--  Top and Bottom Gradients for better visibility (only shown with controls)  -->
+            <Grid IsHitTestVisible="False">
+                <!--  Top Gradient  -->
+                <Border Height="200" VerticalAlignment="Top">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Offset="0" Color="{StaticResource ScrimColor}" />
+                            <GradientStop Offset="1" Color="{StaticResource ScrimEndColor}" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                </Border>
+
+                <!--  Bottom Gradient  -->
+                <Border Height="300" VerticalAlignment="Bottom">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0.5,1" EndPoint="0.5,0">
+                            <GradientStop Offset="0" Color="{StaticResource ScrimColor}" />
+                            <GradientStop Offset="1" Color="{StaticResource ScrimEndColor}" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                </Border>
+            </Grid>
+
+            <!--  Bottom Controls Container  -->
+            <Grid Padding="48,0,48,24" VerticalAlignment="Bottom">
+                <Grid.RowDefinitions>
+                    <!--  Main controls  -->
+                    <RowDefinition Height="Auto" />
+                    <!--  Spacing  -->
+                    <RowDefinition Height="24" />
+                    <!--  Progress bar  -->
+                    <RowDefinition Height="Auto" />
+                    <!--  Bottom spacing  -->
+                    <RowDefinition Height="12" />
+                </Grid.RowDefinitions>
+
+                <!--  Main Control Buttons  -->
+                <Grid x:Name="ControlButtonsGrid">
+                    <Grid.ColumnDefinitions>
+                        <!--  Left controls  -->
+                        <ColumnDefinition Width="Auto" />
+                        <!--  Center space  -->
+                        <ColumnDefinition Width="*" />
+                        <!--  Right controls  -->
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Left Controls Group  -->
+                    <StackPanel
+                        HorizontalAlignment="Left"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <!--  Skip Back 10s  -->
+                        <Button
+                            x:Name="CustomSkipBackButton"
+                            Command="{x:Bind ViewModel.SkipBackwardCommand, Mode=OneWay}"
+                            Style="{StaticResource PlayerIconButtonStyle}">
+                            <FontIcon Glyph="&#xED3C;" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+
+                        <!--  Play/Pause Button  -->
+                        <Button
+                            x:Name="CustomPlayPauseButton"
+                            Command="{x:Bind ViewModel.PlayPauseCommand, Mode=OneWay}"
+                            Style="{StaticResource PlayerIconButtonStyle}">
+                            <FontIcon Glyph="{x:Bind ViewModel.IsPlaying, Converter={StaticResource PlayPauseIconConverter}, Mode=OneWay}" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+
+                        <!--  Skip Forward 30s  -->
+                        <Button Command="{x:Bind ViewModel.SkipForwardCommand, Mode=OneWay}" Style="{StaticResource PlayerIconButtonStyle}">
+                            <FontIcon Glyph="&#xED3D;" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+                    </StackPanel>
+
+                    <!--  Right Controls Group  -->
+                    <StackPanel
+                        Grid.Column="2"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <!--  Next Episode Button  -->
+                        <Button
+                            Command="{x:Bind ViewModel.PlayNextEpisodeCommand, Mode=OneWay}"
+                            Style="{StaticResource PlayerTextButtonStyle}"
+                            Visibility="{x:Bind ViewModel.IsNextEpisodeAvailable, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Next Episode" />
+                                <FontIcon Glyph="&#xE76C;" Style="{StaticResource PlayerSmallIconStyle}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!--  Episodes Button  -->
+                        <Button
+                            x:Name="EpisodesButton"
+                            Click="EpisodesButton_Click"
+                            Style="{StaticResource PlayerTextButtonStyle}"
+                            Visibility="{x:Bind ViewModel.CurrentItem.Type, Converter={StaticResource EpisodeTypeToVisibilityConverter}, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8FD;" Style="{StaticResource PlayerSmallIconStyle}" />
+                                <TextBlock Text="Episodes" />
+                            </StackPanel>
+                        </Button>
+
+                        <!--  Separator for TV show controls  -->
+                        <Rectangle
+                            Width="1"
+                            Height="24"
+                            VerticalAlignment="Center"
+                            Fill="{StaticResource SystemControlBackgroundBaseLowBrush}"
+                            Visibility="{x:Bind ViewModel.CurrentItem.Type, Converter={StaticResource EpisodeTypeToVisibilityConverter}, Mode=OneWay}" />
+
+                        <!--  Secondary Controls  -->
+                        <Button
+                            x:Name="SubtitlesButton"
+                            Click="SubtitlesButton_Click"
+                            Style="{StaticResource PlayerIconButtonStyle}"
+                            Visibility="{x:Bind ViewModel.HasSubtitleTracks, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                            <FontIcon Glyph="&#xE8D2;" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+
+                        <Button
+                            x:Name="AudioButton"
+                            Click="AudioButton_Click"
+                            Style="{StaticResource PlayerIconButtonStyle}"
+                            Visibility="{x:Bind ViewModel.HasMultipleAudioTracks, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                            <FontIcon Glyph="&#xE767;" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+
+                        <Button
+                            x:Name="StatsButton"
+                            Command="{x:Bind ViewModel.ToggleStatsCommand, Mode=OneWay}"
+                            Style="{StaticResource PlayerIconButtonStyle}">
+                            <FontIcon Glyph="&#xE9D9;" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+
+                        <Button
+                            x:Name="FavoriteButton"
+                            Command="{x:Bind ViewModel.ToggleFavoriteCommand, Mode=OneWay}"
+                            Style="{StaticResource PlayerIconButtonStyle}">
+                            <FontIcon Glyph="{x:Bind ViewModel.IsFavorite, Converter={StaticResource FavoriteIconConverter}, Mode=OneWay}" Style="{StaticResource PlayerIconStyle}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!--  Progress Bar Section  -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Current Time  -->
+                    <TextBlock
+                        MinWidth="50"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource StandardBodyTextStyle}"
+                        Text="{x:Bind ViewModel.CurrentTimeText, Mode=OneWay}"
+                        TextAlignment="Right" />
+
+                    <!--  Custom Seek Bar  -->
+                    <Grid
+                        Grid.Column="2"
+                        Height="8"
+                        VerticalAlignment="Center">
+                        <!--  Track Background  -->
+                        <Rectangle Height="{StaticResource ProgressBarHeight}" Fill="{StaticResource SystemControlBackgroundBaseMediumLowBrush}" />
+
+                        <!--  Played Progress  -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{x:Bind ViewModel.PositionPercentage, Converter={StaticResource PercentageToStarGridLengthConverter}, Mode=OneWay}" />
+                                <ColumnDefinition Width="{x:Bind ViewModel.PositionPercentage, Converter={StaticResource PercentageToComplementaryStarGridLengthConverter}, Mode=OneWay}" />
+                            </Grid.ColumnDefinitions>
+                            <Rectangle Height="{StaticResource ProgressBarHeight}" Fill="{StaticResource SystemControlHighlightAccentBrush}" />
+                        </Grid>
+                    </Grid>
+
+                    <!--  Total Duration and Ends At  -->
+                    <Grid Grid.Column="4">
+                        <TextBlock
+                            MinWidth="50"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource StandardBodyTextStyle}"
+                            Text="{x:Bind ViewModel.DurationText, Mode=OneWay}" />
+                        <TextBlock
+                            Margin="0,0,0,-16"
+                            VerticalAlignment="Bottom"
+                            Style="{StaticResource SmallCaptionTextStyle}"
+                            Text="{x:Bind ViewModel.EndsAtTimeText, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsEndsAtTimeVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!--  Overlay for title and info  -->
+        <Grid
+            x:Name="InfoOverlay"
+            VerticalAlignment="Top"
+            Visibility="{x:Bind ViewModel.AreControlsVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+            <Border Padding="48,24">
+                <TextBlock FontSize="18">
+                    <TextBlock.Inlines>
+                        <Run FontWeight="Bold" Text="{x:Bind ViewModel.CurrentItem, Converter={StaticResource MediaTitleConverter}, Mode=OneWay}" />
+                        <Run FontWeight="Normal" Text="{x:Bind ViewModel.CurrentItem, Converter={StaticResource EpisodeInfoConverter}, Mode=OneWay}" />
+                    </TextBlock.Inlines>
+                </TextBlock>
+            </Border>
+        </Grid>
+
+        <!--  Skip buttons, shown whether or not the transport controls are; a Grid so only one shows at a time  -->
+        <Grid
+            Width="140"
+            Margin="0,0,64,138"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom">
+            <!--  Skip Intro Button  -->
+            <Button
+                x:Name="SkipIntroButtonOverlay"
+                Command="{x:Bind ViewModel.SkipIntroCommand, Mode=OneWay}"
+                IsTabStop="{x:Bind ViewModel.IsIntroSkipAvailable, Mode=OneWay}"
+                Loaded="SkipButton_Loaded"
+                Style="{StaticResource OverlayButtonStyle}"
+                Visibility="{x:Bind ViewModel.IsIntroSkipAvailable, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE893;" Style="{StaticResource PlayerSmallIconStyle}" />
+                    <TextBlock Text="Skip Intro" />
+                </StackPanel>
+            </Button>
+
+            <!--  Skip Credits Button (for movies and episode outros)  -->
+            <Button
+                x:Name="SkipOutroButtonOverlay"
+                Command="{x:Bind ViewModel.SkipOutroCommand, Mode=OneWay}"
+                IsTabStop="{x:Bind ViewModel.IsOutroSkipAvailable, Mode=OneWay}"
+                Loaded="SkipButton_Loaded"
+                Style="{StaticResource OverlayButtonStyle}"
+                Visibility="{x:Bind ViewModel.IsOutroSkipAvailable, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE893;" Style="{StaticResource PlayerSmallIconStyle}" />
+                    <TextBlock Text="Skip Credits" />
+                </StackPanel>
+            </Button>
+
+            <!--  Next Episode Button (only for episodes, when near end and no credits to skip)  -->
+            <Button
+                x:Name="NextEpisodeButtonOverlay"
+                Command="{x:Bind ViewModel.PlayNextEpisodeCommand, Mode=OneWay}"
+                IsTabStop="{x:Bind ViewModel.NextEpisodeButtonOverlayVisible, Mode=OneWay}"
+                Loaded="SkipButton_Loaded"
+                Style="{StaticResource OverlayButtonStyle}"
+                Visibility="{x:Bind ViewModel.NextEpisodeButtonOverlayVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Next Episode" />
+                    <FontIcon Glyph="&#xE76C;" Style="{StaticResource PlayerSmallIconStyle}" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!--  Stats Overlay  -->
+        <Border
+            Margin="20,20,0,0"
+            Padding="10,8"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Background="{StaticResource OverlayScrimBrush}"
+            CornerRadius="4"
+            IsHitTestVisible="False"
+            Visibility="{x:Bind ViewModel.IsStatsVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+            <ScrollViewer
+                MaxWidth="400"
+                MaxHeight="600"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="8">
+                    <!--  Header  -->
+                    <TextBlock Style="{StaticResource StatsHeaderStyle}" Text="Playback Info" />
+
+                    <!--  Playback Section  -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Style="{StaticResource StatsLabelStyle}" Text="Player" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.Player, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="1"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Play method" />
+                        <TextBlock
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.PlayMethod, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="2"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Protocol" />
+                        <TextBlock
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.Protocol, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="3"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Stream type" />
+                        <TextBlock
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.StreamType, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="4"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Resolution" />
+                        <TextBlock
+                            Grid.Row="4"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.Resolution, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="5"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Transcode reasons" />
+                        <TextBlock
+                            Grid.Row="5"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.TranscodeReasons, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                    </Grid>
+
+                    <!--  Separator  -->
+                    <Rectangle Height="1" Fill="{StaticResource SystemControlBackgroundBaseLowBrush}" />
+
+                    <!--  Original Media Info Section  -->
+                    <TextBlock Style="{StaticResource StatsHeaderStyle}" Text="Original Media Info" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Style="{StaticResource StatsLabelStyle}" Text="Container" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.Container, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="1"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Video codec" />
+                        <TextBlock
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.VideoCodec, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="2"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Video range type" />
+                        <TextBlock
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.VideoRangeType, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="3"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Audio codec" />
+                        <TextBlock
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.AudioCodec, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="4"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Audio channels" />
+                        <TextBlock
+                            Grid.Row="4"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.AudioChannels, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="5"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Audio sample rate" />
+                        <TextBlock
+                            Grid.Row="5"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.AudioSampleRate, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Row="6"
+                            Style="{StaticResource StatsLabelStyle}"
+                            Text="Frame rate" />
+                        <TextBlock
+                            Grid.Row="6"
+                            Grid.Column="1"
+                            Style="{StaticResource StatsValueStyle}"
+                            Text="{x:Bind ViewModel.CurrentStats.FrameRate, Mode=OneWay}" />
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</base:BasePage>

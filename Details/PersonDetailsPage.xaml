@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<local:DetailsPage
+    x:Class="Gelatinarm.Details.PersonDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Gelatinarm.Details"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Details/DetailsResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <ListView
+            Padding="{StaticResource SafeAreaPadding}"
+            ItemContainerStyle="{StaticResource NonInteractiveListViewItemStyle}"
+            ScrollViewer.VerticalScrollMode="Auto"
+            SelectionMode="None">
+
+            <!--  Person Header  -->
+            <ListViewItem Margin="0,20,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Person Image  -->
+                    <Image
+                        Width="200"
+                        Height="250"
+                        Source="{x:Bind ViewModel.PrimaryImage, Mode=OneWay}"
+                        Stretch="UniformToFill" />
+
+                    <!--  Person Info  -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock
+                            Style="{StaticResource PageTitleTextStyle}"
+                            Text="{x:Bind ViewModel.PersonName, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock
+                                Margin="0,0,16,0"
+                                Style="{StaticResource SecondaryTextStyle}"
+                                Text="{x:Bind ViewModel.BirthDate, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.BirthDate, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+                            <TextBlock
+                                Style="{StaticResource SecondaryTextStyle}"
+                                Text="{x:Bind ViewModel.BirthPlace, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.BirthPlace, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock
+                                MaxHeight="{x:Bind ViewModel.OverviewMaxHeight, Mode=OneWay}"
+                                Style="{StaticResource SecondaryTextStyle}"
+                                Text="{x:Bind ViewModel.Overview, Mode=OneWay}"
+                                TextTrimming="WordEllipsis"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.Overview, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+                            <Button
+                                Margin="0,8,0,0"
+                                Command="{x:Bind ViewModel.ToggleBioExpansionCommand, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.ExpandBioButtonText, Mode=OneWay}"
+                                Style="{StaticResource TextBlockButtonStyle}"
+                                Visibility="{x:Bind ViewModel.IsExpandBioButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </ListViewItem>
+
+            <!--  Movies Section  -->
+            <ListViewItem>
+                <StackPanel Visibility="{x:Bind ViewModel.IsMoviesSectionVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Movies" />
+
+                    <ScrollViewer
+                        HorizontalScrollBarVisibility="Hidden"
+                        HorizontalScrollMode="Enabled"
+                        VerticalScrollMode="Disabled">
+                        <GridView
+                            ItemClick="OnItemClick"
+                            ItemTemplate="{StaticResource StandardPosterTemplate}"
+                            ItemsSource="{x:Bind ViewModel.Movies, Mode=OneWay}"
+                            Style="{StaticResource MediaRowGridViewStyle}" />
+                    </ScrollViewer>
+                </StackPanel>
+            </ListViewItem>
+
+            <!--  TV Shows Section  -->
+            <ListViewItem>
+                <StackPanel Visibility="{x:Bind ViewModel.IsTvShowsSectionVisible, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="TV Shows" />
+
+                    <ScrollViewer
+                        HorizontalScrollBarVisibility="Hidden"
+                        HorizontalScrollMode="Enabled"
+                        VerticalScrollMode="Disabled">
+                        <GridView
+                            ItemClick="OnItemClick"
+                            ItemTemplate="{StaticResource StandardPosterTemplate}"
+                            ItemsSource="{x:Bind ViewModel.TvShows, Mode=OneWay}"
+                            Style="{StaticResource MediaRowGridViewStyle}" />
+                    </ScrollViewer>
+                </StackPanel>
+            </ListViewItem>
+        </ListView>
+
+        <!--  Loading Overlay: last, so it draws over the page  -->
+        <ui:LoadingOverlay IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}" LoadingText="Loading person details..." />
+    </Grid>
+</local:DetailsPage>

@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.Settings.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Page.Resources>
+        <Style
+            x:Key="SettingDescriptionTextStyle"
+            BasedOn="{StaticResource StandardCaptionTextStyle}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style
+            x:Key="SettingsButtonStyle"
+            BasedOn="{StaticResource SecondaryButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+        </Style>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Border Style="{StaticResource PageHeaderBarStyle}">
+            <TextBlock Style="{StaticResource PageHeaderTextStyle}" Text="Settings" />
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="{StaticResource SafeAreaPadding}">
+            <StackPanel Style="{StaticResource StandardPageContainerStyle}">
+                <!--  Server Settings  -->
+                <StackPanel Margin="{StaticResource SectionMargin}">
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Server" />
+
+                    <Button
+                        Command="{x:Bind ViewModel.ServerSettings.SwitchUserCommand}"
+                        Content="Switch User"
+                        Style="{StaticResource SettingsButtonStyle}"
+                        Visibility="{x:Bind ViewModel.ServerSettings.HasMultipleProfiles, Mode=OneWay}" />
+
+                    <Button
+                        Command="{x:Bind ViewModel.ServerSettings.AddUserCommand}"
+                        Content="Add User"
+                        Style="{StaticResource SettingsButtonStyle}"
+                        Visibility="{x:Bind ViewModel.ServerSettings.HasMultipleProfiles, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                    <Button
+                        Command="{x:Bind ViewModel.ServerSettings.SignOutCommand}"
+                        Content="Sign Out"
+                        Style="{StaticResource SettingsButtonStyle}" />
+
+                    <TextBlock
+                        Margin="{StaticResource HeaderMargin}"
+                        Style="{StaticResource SubsectionHeaderTextStyle}"
+                        Text="Connection" />
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource StandardBodyTextStyle}">
+                            <Run Text="Connection Timeout: " />
+                            <Run Text="{x:Bind ViewModel.ServerSettings.ConnectionTimeout, Mode=OneWay}" />
+                            <Run Text=" seconds" />
+                        </TextBlock>
+                        <Slider
+                            Maximum="120"
+                            Minimum="5"
+                            SnapsTo="StepValues"
+                            StepFrequency="5"
+                            Style="{StaticResource StandardSliderStyle}"
+                            Value="{x:Bind ViewModel.ServerSettings.ConnectionTimeout, Mode=TwoWay}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  Home Screen Settings  -->
+                <StackPanel Margin="{StaticResource SectionMargin}">
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Home Screen" />
+
+                    <ToggleSwitch
+                        Header="Latest Rows by Release Date"
+                        IsOn="{x:Bind ViewModel.HomeSettings.SortLatestByReleaseDate, Mode=TwoWay}"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="On: Latest Movies shows the newest releases and Latest TV Shows the shows with the newest episodes. Off: both show what was added to your library most recently." />
+                </StackPanel>
+
+                <!--  Video Settings  -->
+                <StackPanel Margin="{StaticResource SectionMargin}">
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Video" />
+
+                    <ComboBox
+                        Header="Display Mode"
+                        SelectedValue="{x:Bind ViewModel.PlaybackSettings.VideoStretchMode, Mode=TwoWay}"
+                        SelectedValuePath="Tag"
+                        Style="{StaticResource StandardComboBoxStyle}">
+                        <ComboBoxItem Content="Original Aspect Ratio" Tag="Uniform" />
+                        <ComboBoxItem Content="Fill Screen (Zoom)" Tag="UniformToFill" />
+                    </ComboBox>
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Original Aspect Ratio: Shows the entire video with black bars if needed. Fill Screen: Zooms in to fill your display, may crop edges." />
+                </StackPanel>
+
+                <!--  Playback Settings  -->
+                <StackPanel Margin="{StaticResource SectionMargin}">
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Playback" />
+
+                    <ToggleSwitch
+                        Header="Auto-Play Next Episode"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.AutoPlayNextEpisode, Mode=TwoWay}"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Automatically starts the next episode when the current one ends. Great for binge-watching TV shows." />
+
+                    <ToggleSwitch
+                        Header="Pause When Xbox Guide Opens"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.PauseOnFocusLoss, Mode=TwoWay}"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Automatically pauses playback when you open the Xbox Guide or switch apps. Prevents missing content while multitasking." />
+
+                    <ToggleSwitch
+                        Header="Auto-Skip Intros"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.AutoSkipIntros, Mode=TwoWay}"
+                        OffContent="Show intro skip button"
+                        OnContent="Skip intros automatically"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, automatically skips TV show intros. When disabled, shows a button to skip manually. Requires server-side intro detection." />
+
+                    <ToggleSwitch
+                        Header="Auto-Skip Outros"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.AutoSkipOutros, Mode=TwoWay}"
+                        OffContent="Show outro skip button"
+                        OnContent="Skip outros automatically"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, automatically skips TV show credits and outros. When disabled, shows a button to skip manually. Requires server-side outro detection." />
+
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource StandardBodyTextStyle}">
+                            <Run Text="Controls Auto-Hide Delay: " />
+                            <Run Text="{x:Bind ViewModel.PlaybackSettings.ControlsHideDelay, Mode=OneWay}" />
+                            <Run Text=" seconds" />
+                        </TextBlock>
+                        <Slider
+                            Maximum="10"
+                            Minimum="1"
+                            SnapsTo="StepValues"
+                            StepFrequency="1"
+                            Style="{StaticResource StandardSliderStyle}"
+                            TickFrequency="5"
+                            Value="{x:Bind ViewModel.PlaybackSettings.ControlsHideDelay, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <ToggleSwitch
+                        Header="Direct Play"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.EnableDirectPlay, Mode=TwoWay}"
+                        OffContent="Always convert video for compatibility"
+                        OnContent="Stream original files when compatible"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, plays media files directly without conversion if your device supports the format. Provides best quality and uses less server resources. Disable if you experience playback issues." />
+
+                    <ComboBox
+                        Header="Maximum Bitrate"
+                        SelectedValue="{x:Bind ViewModel.PlaybackSettings.MaxStreamingBitrateMbps, Mode=TwoWay}"
+                        SelectedValuePath="Tag"
+                        Style="{StaticResource StandardComboBoxStyle}">
+                        <ComboBoxItem Content="Maximum (direct play whenever possible)" Tag="0" />
+                        <ComboBoxItem Content="80 Mbps" Tag="80" />
+                        <ComboBoxItem Content="60 Mbps" Tag="60" />
+                        <ComboBoxItem Content="40 Mbps" Tag="40" />
+                        <ComboBoxItem Content="20 Mbps" Tag="20" />
+                        <ComboBoxItem Content="10 Mbps" Tag="10" />
+                        <ComboBoxItem Content="8 Mbps" Tag="8" />
+                        <ComboBoxItem Content="4 Mbps" Tag="4" />
+                    </ComboBox>
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Maximum lets the server send any file the console can play as-is. A lower limit makes the server convert anything above it down to that bitrate - use one only if your connection to the server is slow." />
+
+                    <ToggleSwitch
+                        Header="Audio Direct Stream"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.AllowAudioStreamCopy, Mode=TwoWay}"
+                        OffContent="Allow audio conversion for compatibility"
+                        OnContent="Stream original audio without conversion"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Streams audio in its original format when possible. Provides best audio quality but may not work with all audio formats. Disable if you have no sound or audio sync issues." />
+
+                    <ToggleSwitch
+                        Header="Audio Normalization"
+                        IsOn="{x:Bind ViewModel.PlaybackSettings.AudioNormalizationEnabled, Mode=TwoWay}"
+                        OffContent="Play at original loudness"
+                        OnContent="Normalize loudness between tracks"
+                        Style="{StaticResource StandardToggleSwitchStyle}" />
+                    <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Adjusts playback volume using LUFS loudness data from the server so tracks play at a consistent volume. Requires per-track loudness data to be analysed by Jellyfin." />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</base:BasePage>

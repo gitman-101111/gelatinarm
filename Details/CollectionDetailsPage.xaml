@@ -1,0 +1,142 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<local:DetailsPage
+    x:Class="Gelatinarm.Details.CollectionDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Gelatinarm.Details"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}"
+    NavigationCacheMode="Enabled">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Details/DetailsResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <ScrollViewer
+            HorizontalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Auto"
+            VerticalScrollMode="Enabled">
+            <Grid Margin="{StaticResource SafeAreaPadding}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!--  Header  -->
+                <Grid Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Collection Poster  -->
+                    <Image
+                        Width="150"
+                        Height="225"
+                        HorizontalAlignment="Left"
+                        Source="{x:Bind ViewModel.PrimaryImage, Mode=OneWay}"
+                        Stretch="UniformToFill" />
+
+                    <!--  Collection Info  -->
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Top"
+                        Spacing="8">
+                        <TextBlock Style="{StaticResource PageTitleTextStyle}" Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                        <TextBlock
+                            Style="{StaticResource SecondaryTextStyle}"
+                            Text="{x:Bind ViewModel.ItemCountText, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.ItemCountText, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+                        <TextBlock
+                            Style="{StaticResource StandardBodyTextStyle}"
+                            Text="{x:Bind ViewModel.Overview, Mode=OneWay}"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind ViewModel.Overview, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+
+                        <!--  Action Buttons  -->
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button
+                                x:Name="PlayButton"
+                                Command="{x:Bind ViewModel.PlayCommand}"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Visibility="{x:Bind ViewModel.IsPlayButtonVisible, Mode=OneWay}"
+                                XYFocusDown="{x:Bind ItemsGrid}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Play" />
+                                    <TextBlock Text="{x:Bind ViewModel.PlayButtonText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                MinWidth="120"
+                                Command="{x:Bind ViewModel.ShufflePlayCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Visibility="{x:Bind ViewModel.IsPlayButtonVisible, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Shuffle" />
+                                    <TextBlock Text="Shuffle" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                MinWidth="140"
+                                Command="{x:Bind ViewModel.ToggleFavoriteCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="{x:Bind ViewModel.IsFavorite, Mode=OneWay, Converter={StaticResource FavoriteIconConverter}}" />
+                                    <TextBlock Text="{x:Bind ViewModel.FavoriteButtonText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!--  Collection Items  -->
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Items" />
+
+                    <ScrollViewer
+                        Grid.Row="1"
+                        HorizontalScrollBarVisibility="Hidden"
+                        HorizontalScrollMode="Enabled"
+                        VerticalScrollMode="Disabled">
+                        <GridView
+                            x:Name="ItemsGrid"
+                            Padding="0,0,24,0"
+                            IsItemClickEnabled="True"
+                            ItemClick="OnItemClick"
+                            ItemTemplate="{StaticResource CompactPosterTemplate}"
+                            ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+                            ScrollViewer.VerticalScrollMode="Disabled"
+                            SelectionMode="None"
+                            XYFocusUp="{x:Bind PlayButton}">
+                            <GridView.ItemContainerStyle>
+                                <Style TargetType="GridViewItem">
+                                    <Setter Property="Margin" Value="0,0,12,0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </GridView.ItemContainerStyle>
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                        </GridView>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+
+        <!--  Loading Overlay: last, so it draws over the page  -->
+        <ui:LoadingOverlay IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}" LoadingText="Loading collection..." />
+    </Grid>
+</local:DetailsPage>

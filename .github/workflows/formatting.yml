@@ -1,0 +1,44 @@
+name: Formatting
+
+# Checks that contributions match the repo's existing .editorconfig and
+# .gitattributes conventions. Deliberately does NOT build the app: UWP needs a
+# Windows runner and the full SDK, whereas these checks are cheap and catch the
+# problems that actually show up in review.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # --folder skips loading the project, which matters because the old-style
+      # UWP .csproj will not load outside Windows.
+      - name: Check .editorconfig formatting
+        run: dotnet format whitespace --folder . --verify-no-changes
+
+      # Files are stored LF and checked out CRLF (see .gitattributes). A branch
+      # created before .gitattributes was added can commit literal CRLF, which
+      # makes a one-line change diff as a whole-file rewrite. The fix on such a
+      # branch is: git add --renormalize . && git commit
+      - name: Check for CRLF committed into the index
+        run: |
+          # Match only what is stored in git (the i/ column). i/none just means
+          # the path has no index entry, which is not a line-ending problem.
+          bad=$(git ls-files --eol -- '*.cs' '*.xaml' '*.csproj' '*.md' \
+                | grep -E '^i/(crlf|mixed)' || true)
+          if [ -n "$bad" ]; then
+            echo "These files have CRLF or mixed line endings stored in git:"
+            echo "$bad"
+            echo
+            echo "Fix with: git add --renormalize . && git commit"
+            exit 1
+          fi
+          echo "All tracked text files are stored LF."

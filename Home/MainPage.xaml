@@ -1,0 +1,201 @@
+﻿<base:BasePage
+    x:Class="Gelatinarm.Home.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <base:BasePage.Resources>
+        <Style
+            x:Key="HomeRowHeaderTextStyle"
+            BasedOn="{StaticResource SectionHeaderTextStyle}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="{StaticResource ContentMargin}" />
+        </Style>
+        <!--  The home rows scroll sideways in their own ScrollViewer; the details pages wrap theirs in one  -->
+        <Style
+            x:Key="HomeRowGridViewStyle"
+            BasedOn="{StaticResource MediaRowGridViewStyle}"
+            TargetType="GridView">
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Auto" />
+            <Setter Property="ScrollViewer.IsHorizontalRailEnabled" Value="True" />
+            <!--  A home row is one stop for Tab; the details rows tab through their items  -->
+            <Setter Property="TabNavigation" Value="Once" />
+        </Style>
+    </base:BasePage.Resources>
+    <Grid>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <CommandBar DefaultLabelPosition="Right" Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                <AppBarButton
+                    Click="RefreshButton_Click"
+                    Icon="Refresh"
+                    Label="Refresh" />
+                <AppBarButton
+                    Command="{x:Bind ViewModel.NavigateToSearchCommand}"
+                    Icon="Find"
+                    Label="Search" />
+                <AppBarButton
+                    Command="{x:Bind ViewModel.NavigateToLibraryCommand}"
+                    Icon="Library"
+                    Label="Library" />
+                <AppBarButton
+                    Command="{x:Bind ViewModel.NavigateToFavoritesCommand}"
+                    Icon="Favorite"
+                    Label="Favorites" />
+                <AppBarButton
+                    Command="{x:Bind ViewModel.SwitchUserCommand}"
+                    Icon="People"
+                    Label="Switch User"
+                    Visibility="{x:Bind ViewModel.HasMultipleProfiles, Mode=OneWay}" />
+                <AppBarButton
+                    Command="{x:Bind ViewModel.NavigateToSettingsCommand}"
+                    Icon="Setting"
+                    Label="Settings" />
+            </CommandBar>
+
+            <ListView
+                Grid.Row="1"
+                Padding="48,0,48,24"
+                IsEnabled="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"
+                ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                ScrollViewer.VerticalScrollMode="Auto"
+                SelectionMode="None">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="IsTabStop" Value="False" />
+                        <Setter Property="UseSystemFocusVisuals" Value="False" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Top" />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListView.ItemContainerStyle>
+
+                <!--  Continue Watching Section  -->
+                <Grid Margin="{StaticResource SectionMargin}" Visibility="{x:Bind ViewModel.HasContinueWatching, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource HomeRowHeaderTextStyle}" Text="Continue Watching" />
+
+                    <GridView
+                        x:Name="ContinueWatchingRow"
+                        Grid.Row="1"
+                        ItemClick="GridView_ItemClick"
+                        ItemTemplate="{StaticResource ContinueWatchingItemTemplate}"
+                        ItemsSource="{x:Bind ViewModel.ContinueWatchingItems, Mode=OneWay}"
+                        Style="{StaticResource HomeRowGridViewStyle}" />
+                </Grid>
+
+                <!--  Next Up Section  -->
+                <Grid Margin="{StaticResource SectionMargin}" Visibility="{x:Bind ViewModel.HasNextUp, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource HomeRowHeaderTextStyle}" Text="Next Up" />
+
+                    <GridView
+                        x:Name="NextUpRow"
+                        Grid.Row="1"
+                        ItemClick="GridView_ItemClick"
+                        ItemTemplate="{StaticResource ContinueWatchingItemTemplate}"
+                        ItemsSource="{x:Bind ViewModel.NextUpItems, Mode=OneWay}"
+                        Style="{StaticResource HomeRowGridViewStyle}" />
+                </Grid>
+
+                <!--  Latest Movies Section  -->
+                <Grid Margin="{StaticResource SectionMargin}" Visibility="{x:Bind ViewModel.HasLatestMovies, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource HomeRowHeaderTextStyle}" Text="Latest Movies" />
+
+                    <GridView
+                        x:Name="LatestMoviesRow"
+                        Grid.Row="1"
+                        ItemClick="GridView_ItemClick"
+                        ItemTemplate="{StaticResource StandardPosterTemplate}"
+                        ItemsSource="{x:Bind ViewModel.LatestMovies, Mode=OneWay}"
+                        Style="{StaticResource HomeRowGridViewStyle}" />
+                </Grid>
+
+                <!--  Latest TV Shows Section  -->
+                <Grid Margin="{StaticResource SectionMargin}" Visibility="{x:Bind ViewModel.HasLatestTvShows, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource HomeRowHeaderTextStyle}" Text="Latest TV Shows" />
+
+                    <GridView
+                        x:Name="LatestTvShowsRow"
+                        Grid.Row="1"
+                        ItemClick="GridView_ItemClick"
+                        ItemTemplate="{StaticResource StandardPosterTemplate}"
+                        ItemsSource="{x:Bind ViewModel.LatestTvShows, Mode=OneWay}"
+                        Style="{StaticResource HomeRowGridViewStyle}" />
+                </Grid>
+
+                <!--  Recently Added Section  -->
+                <Grid Margin="{StaticResource SectionMargin}" Visibility="{x:Bind ViewModel.HasRecentlyAdded, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource HomeRowHeaderTextStyle}" Text="Recently Added" />
+
+                    <GridView
+                        x:Name="RecentlyAddedRow"
+                        Grid.Row="1"
+                        ItemClick="GridView_ItemClick"
+                        ItemTemplate="{StaticResource RecentlyAddedTemplate}"
+                        ItemsSource="{x:Bind ViewModel.RecentlyAdded, Mode=OneWay}"
+                        Style="{StaticResource HomeRowGridViewStyle}" />
+                </Grid>
+
+                <!--  Recommended Section  -->
+                <Grid Margin="{StaticResource SectionMargin}" Visibility="{x:Bind ViewModel.HasRecommended, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource HomeRowHeaderTextStyle}" Text="Recommended for You" />
+
+                    <GridView
+                        x:Name="RecommendedRow"
+                        Grid.Row="1"
+                        ItemClick="GridView_ItemClick"
+                        ItemTemplate="{StaticResource StandardPosterTemplate}"
+                        ItemsSource="{x:Bind ViewModel.Recommended, Mode=OneWay}"
+                        Style="{StaticResource HomeRowGridViewStyle}" />
+                </Grid>
+            </ListView>
+        </Grid>
+
+        <!--  LoadingOverlay on top of everything  -->
+        <ui:LoadingOverlay
+            IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+            IsTabStop="False"
+            LoadingText="Loading content..." />
+    </Grid>
+</base:BasePage>

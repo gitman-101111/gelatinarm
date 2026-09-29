@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.SignIn.ServerSelectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
+        <!--  Main content  -->
+        <StackPanel
+            MaxWidth="400"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <!--  Header  -->
+            <Image
+                Width="150"
+                Height="150"
+                Source="ms-appx:///Assets/StoreLogo.png" />
+            <TextBlock
+                Margin="{StaticResource CompactControlMargin}"
+                HorizontalAlignment="Center"
+                Style="{StaticResource PageTitleTextStyle}"
+                Text="Welcome" />
+            <TextBlock
+                Margin="{StaticResource HeaderMargin}"
+                HorizontalAlignment="Center"
+                Foreground="{StaticResource SystemControlForegroundBaseMediumBrush}"
+                Style="{StaticResource SubheaderTextStyle}"
+                Text="Connect to your Jellyfin server to get started" />
+
+            <StackPanel Width="320">
+                <TextBox
+                    x:Name="ServerUrlTextBox"
+                    Margin="{StaticResource HeaderMargin}"
+                    InputScope="Url"
+                    PlaceholderText="http://server:8096"
+                    Style="{StaticResource StandardTextBoxStyle}"
+                    TabIndex="1"
+                    Text="{x:Bind ViewModel.ServerUrl, Mode=TwoWay}" />
+            </StackPanel>
+
+            <!--  SSL Certificate Options  -->
+            <StackPanel HorizontalAlignment="Center">
+                <TextBlock
+                    Margin="{StaticResource StandardControlMargin}"
+                    Style="{StaticResource StandardBodyTextStyle}"
+                    Text="Allow Untrusted Certificates (Ignores Errors)" />
+                <ToggleSwitch
+                    Margin="{StaticResource CompactControlMargin}"
+                    IsOn="{x:Bind ViewModel.AllowUntrustedCertificates, Mode=TwoWay}"
+                    TabIndex="2" />
+            </StackPanel>
+
+            <Button
+                Height="48"
+                Margin="{StaticResource StandardControlMargin}"
+                HorizontalAlignment="Stretch"
+                Command="{x:Bind ViewModel.ConnectCommand}"
+                Content="Connect"
+                Style="{StaticResource PrimaryButtonStyle}"
+                TabIndex="3" />
+        </StackPanel>
+
+        <ui:LoadingOverlay IsLoading="{x:Bind ViewModel.IsConnecting, Mode=OneWay}" LoadingText="Connecting..." />
+    </Grid>
+</base:BasePage>

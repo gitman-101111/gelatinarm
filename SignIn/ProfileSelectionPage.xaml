@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.SignIn.ProfileSelectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:local="using:Gelatinarm.SignIn"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
+        <StackPanel
+            Margin="{StaticResource SafeAreaPadding}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <TextBlock
+                Margin="{StaticResource HeaderMargin}"
+                HorizontalAlignment="Center"
+                Style="{StaticResource PageTitleTextStyle}"
+                Text="Who's watching?" />
+
+            <GridView
+                x:Name="ProfilesGridView"
+                HorizontalAlignment="Center"
+                IsItemClickEnabled="True"
+                ItemClick="ProfilesGridView_ItemClick"
+                ItemsSource="{x:Bind ViewModel.Profiles}"
+                SelectionMode="None">
+                <GridView.ItemTemplate>
+                    <DataTemplate x:DataType="local:ProfileTile">
+                        <StackPanel
+                            Width="180"
+                            Margin="12"
+                            HorizontalAlignment="Center">
+                            <Grid
+                                Width="140"
+                                Height="140"
+                                HorizontalAlignment="Center">
+                                <PersonPicture
+                                    Width="140"
+                                    Height="140"
+                                    DisplayName="{x:Bind DisplayName}"
+                                    ProfilePicture="{x:Bind Avatar}"
+                                    Visibility="{x:Bind AvatarVisibility}" />
+                                <Ellipse
+                                    Width="140"
+                                    Height="140"
+                                    Fill="{StaticResource SystemControlBackgroundBaseLowBrush}"
+                                    Visibility="{x:Bind AddIconVisibility}" />
+                                <FontIcon
+                                    FontSize="48"
+                                    Glyph="&#xE710;"
+                                    Visibility="{x:Bind AddIconVisibility}" />
+                            </Grid>
+                            <TextBlock
+                                Margin="0,12,0,0"
+                                HorizontalAlignment="Center"
+                                Style="{StaticResource SubheaderTextStyle}"
+                                Text="{x:Bind DisplayName}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+        </StackPanel>
+
+        <!--  Loading Overlay: last, so it draws over the page  -->
+        <ui:LoadingOverlay IsLoading="{x:Bind ViewModel.IsSwitching, Mode=OneWay}" LoadingText="Switching profile..." />
+    </Grid>
+</base:BasePage>

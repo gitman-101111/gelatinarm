@@ -1,0 +1,428 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<local:DetailsPage
+    x:Class="Gelatinarm.Details.SeasonDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Gelatinarm.Details"
+    xmlns:models="using:Jellyfin.Sdk.Generated.Models"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}"
+    NavigationCacheMode="Enabled">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Details/DetailsResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style
+                x:Key="SeasonActionButtonStyle"
+                BasedOn="{StaticResource PrimaryButtonStyle}"
+                TargetType="Button">
+                <Setter Property="MinWidth" Value="140" />
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <!--  Invisible Focus Landing Button - must be first to get initial focus  -->
+        <Button
+            x:Name="FocusLandingButton"
+            Width="1"
+            Height="1"
+            VerticalAlignment="Top"
+            Canvas.ZIndex="999"
+            Opacity="0"
+            TabIndex="0" />
+
+        <!--  Backdrop Image - Full Screen Background  -->
+        <Image
+            Opacity="0.3"
+            Source="{x:Bind ViewModel.BackdropImage, Mode=OneWay}"
+            Stretch="UniformToFill" />
+
+        <!--  Dark overlay for better text readability  -->
+        <Grid Background="{StaticResource OverlayScrimBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!--  Season Selector Header  -->
+            <Grid Background="{StaticResource OverlayScrimBrush}" Canvas.ZIndex="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition
+                        Width="Auto"
+                        MinWidth="180"
+                        MaxWidth="250" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" MinWidth="100" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Series Name  -->
+                <TextBlock
+                    Margin="24,20,12,20"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource PageTitleTextStyle}"
+                    Text="{x:Bind ViewModel.SeriesName, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    Visibility="{x:Bind ViewModel.IsSeriesOverview, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                <!--  Season Tabs  -->
+                <ScrollViewer
+                    Grid.Column="1"
+                    Margin="12,20"
+                    VerticalAlignment="Center"
+                    HorizontalScrollBarVisibility="Hidden"
+                    HorizontalScrollMode="Enabled"
+                    VerticalScrollMode="Disabled">
+                    <ListView
+                        x:Name="SeasonTabs"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnSeasonClick"
+                        ItemsSource="{x:Bind ViewModel.Seasons, Mode=OneWay}"
+                        PreviewKeyDown="OnSeasonTabsPreviewKeyDown"
+                        ScrollViewer.VerticalScrollMode="Disabled"
+                        SelectedIndex="{x:Bind ViewModel.SelectedSeasonIndex, Mode=TwoWay}"
+                        SelectionMode="Single"
+                        SingleSelectionFollowsFocus="False"
+                        XYFocusDown="{x:Bind PlayButton}">
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="MinWidth" Value="80" />
+                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                <Setter Property="Padding" Value="8,4" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:BaseItemDto">
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Style="{StaticResource StandardBodyTextStyle}"
+                                    Text="{x:Bind Name}"
+                                    TextAlignment="Center" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </ScrollViewer>
+
+                <!--  Info Button to navigate to Series  -->
+                <Button
+                    x:Name="InfoButton"
+                    Grid.Column="2"
+                    Width="48"
+                    Height="48"
+                    Margin="0,0,24,0"
+                    HorizontalAlignment="Right"
+                    BorderThickness="0"
+                    Click="OnInfoButtonClick"
+                    TabIndex="99"
+                    ToolTipService.ToolTip="View Series Info">
+                    <Button.Resources>
+                        <SolidColorBrush x:Key="ButtonBackground" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{StaticResource SystemBaseLowColor}" />
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{StaticResource SystemBaseMediumLowColor}" />
+                    </Button.Resources>
+                    <FontIcon FontSize="20" Glyph="&#xE946;" />
+                </Button>
+            </Grid>
+
+            <!--  Episode Details and List  -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Selected Episode Details  -->
+                <Grid
+                    x:Name="EpisodeDetailsGrid"
+                    Grid.Column="1"
+                    Padding="12,0,24,8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!--  Series overview, centered  -->
+                    <StackPanel
+                        Grid.RowSpan="2"
+                        VerticalAlignment="Center"
+                        Visibility="{x:Bind ViewModel.IsSeriesOverview, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <!--  Series Title  -->
+                        <TextBlock
+                            Style="{StaticResource HeaderTextStyle}"
+                            Text="{x:Bind ViewModel.EpisodeTitle, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+
+                        <!--  Premiered info  -->
+                        <TextBlock
+                            Margin="{StaticResource HeaderMargin}"
+                            Style="{StaticResource StandardBodyTextStyle}"
+                            Text="{x:Bind ViewModel.EpisodeNumber, Mode=OneWay}" />
+
+                        <!--  Action Buttons  -->
+                        <StackPanel
+                            Margin="{StaticResource HeaderMargin}"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                x:Name="SeriesPlayButton"
+                                Command="{x:Bind ViewModel.PlayCommand}"
+                                Style="{StaticResource SeasonActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Play" />
+                                    <TextBlock Text="Play" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button
+                                MinWidth="120"
+                                Command="{x:Bind ViewModel.ShuffleCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Shuffle" />
+                                    <TextBlock Text="Shuffle" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button
+                                MinWidth="140"
+                                Command="{x:Bind ViewModel.ToggleWatchedCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Accept" />
+                                    <TextBlock Text="{x:Bind ViewModel.MarkWatchedText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button
+                                MinWidth="100"
+                                Command="{x:Bind ViewModel.ToggleFavoriteCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="{x:Bind ViewModel.IsFavorite, Mode=OneWay, Converter={StaticResource FavoriteIconConverter}}" />
+                                    <TextBlock Text="{x:Bind ViewModel.FavoriteButtonText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!--  Series Overview  -->
+                        <TextBlock
+                            MaxWidth="600"
+                            Margin="{StaticResource HeaderMargin}"
+                            Style="{StaticResource SecondaryTextStyle}"
+                            Text="{x:Bind ViewModel.EpisodeOverview, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!--  Fixed content at top (for episodes)  -->
+                    <StackPanel Visibility="{x:Bind ViewModel.IsSeriesOverview, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                        <!--  Episode Thumbnail with Progress Overlay  -->
+                        <Grid
+                            Width="280"
+                            Height="157"
+                            Margin="0,0,0,16"
+                            HorizontalAlignment="Left">
+                            <Image Source="{x:Bind ViewModel.EpisodeThumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+
+                            <!--  Progress overlay on image  -->
+                            <Grid VerticalAlignment="Bottom" Visibility="{x:Bind ViewModel.WatchProgressPercentage, Mode=OneWay, Converter={StaticResource ProgressBarVisibilityConverter}}">
+                                <Rectangle Height="{StaticResource ProgressBarHeight}" Fill="{StaticResource SystemControlBackgroundBaseMediumLowBrush}" />
+                                <Rectangle
+                                    Width="{x:Bind ViewModel.WatchProgressPercentage, Mode=OneWay, Converter={StaticResource PercentageToWidthConverter}, ConverterParameter=280}"
+                                    Height="{StaticResource ProgressBarHeight}"
+                                    HorizontalAlignment="Left"
+                                    Fill="{StaticResource SystemControlHighlightAccentBrush}" />
+                            </Grid>
+                        </Grid>
+
+                        <!--  Episode Title and Info  -->
+                        <TextBlock
+                            Style="{StaticResource HeaderTextStyle}"
+                            Text="{x:Bind ViewModel.EpisodeTitle, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+
+                        <StackPanel
+                            Margin="{StaticResource HeaderMargin}"
+                            Orientation="Horizontal"
+                            Spacing="6">
+                            <TextBlock Style="{StaticResource StandardBodyTextStyle}" Text="{x:Bind ViewModel.EpisodeNumber, Mode=OneWay}" />
+                            <TextBlock Style="{StaticResource SeparatorTextStyle}" Visibility="{x:Bind ViewModel.IsAirDateSeparatorVisible, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBlock
+                                Style="{StaticResource StandardBodyTextStyle}"
+                                Text="{x:Bind ViewModel.AirDate, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.AirDate, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+                            <TextBlock Style="{StaticResource SeparatorTextStyle}" Visibility="{x:Bind ViewModel.IsRuntimeSeparatorVisible, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBlock
+                                Style="{StaticResource StandardBodyTextStyle}"
+                                Text="{x:Bind ViewModel.Runtime, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.Runtime, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+                            <TextBlock Style="{StaticResource SeparatorTextStyle}" Visibility="{x:Bind ViewModel.IsResolutionSeparatorVisible, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBlock
+                                Style="{StaticResource StandardBodyTextStyle}"
+                                Text="{x:Bind ViewModel.Resolution, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.Resolution, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+                        </StackPanel>
+
+                        <!--  Action Buttons  -->
+                        <StackPanel
+                            Margin="{StaticResource HeaderMargin}"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <!--  Play/Resume Button Container - maintains consistent position  -->
+                            <Grid MinWidth="140">
+                                <Button
+                                    x:Name="PlayButton"
+                                    Command="{x:Bind ViewModel.PlayCommand}"
+                                    Style="{StaticResource SeasonActionButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.CanResume, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                                    XYFocusDown="{x:Bind DescriptionScrollViewer}"
+                                    XYFocusLeft="{x:Bind EpisodesList}"
+                                    XYFocusUp="{x:Bind SeasonTabs}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Play" />
+                                        <TextBlock Text="Play" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button
+                                    x:Name="ResumeButton"
+                                    Command="{x:Bind ViewModel.ResumeCommand}"
+                                    Style="{StaticResource SeasonActionButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.CanResume, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    XYFocusDown="{x:Bind DescriptionScrollViewer}"
+                                    XYFocusLeft="{x:Bind EpisodesList}"
+                                    XYFocusUp="{x:Bind SeasonTabs}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Play" />
+                                        <TextBlock Text="Resume" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <Button
+                                MinWidth="160"
+                                Command="{x:Bind ViewModel.PlayFromBeginningCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Visibility="{x:Bind ViewModel.CanResume, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                XYFocusDown="{x:Bind DescriptionScrollViewer}"
+                                XYFocusUp="{x:Bind SeasonTabs}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Refresh" />
+                                    <TextBlock Text="Play from Beginning" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button
+                                MinWidth="140"
+                                Command="{x:Bind ViewModel.ToggleWatchedCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                XYFocusDown="{x:Bind DescriptionScrollViewer}"
+                                XYFocusUp="{x:Bind SeasonTabs}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Accept" />
+                                    <TextBlock Text="{x:Bind ViewModel.MarkWatchedText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Scrollable description  -->
+                    <ScrollViewer
+                        x:Name="DescriptionScrollViewer"
+                        Grid.Row="1"
+                        Margin="0,8,0,0"
+                        IsTabStop="True"
+                        TabNavigation="Once"
+                        VerticalScrollBarVisibility="Auto"
+                        Visibility="{x:Bind ViewModel.IsSeriesOverview, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                        XYFocusUp="{x:Bind PlayButton}">
+                        <TextBlock
+                            Margin="8,8,8,16"
+                            Style="{StaticResource SecondaryTextStyle}"
+                            Text="{x:Bind ViewModel.EpisodeOverview, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Grid>
+
+                <!--  Episode List / Series Poster  -->
+                <Grid Padding="24,0,12,16" Background="{StaticResource TintScrimBrush}">
+                    <!--  Series Poster (shown for overview)  -->
+                    <Image
+                        Width="200"
+                        Height="300"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Source="{x:Bind ViewModel.SeriesPoster, Mode=OneWay}"
+                        Stretch="UniformToFill"
+                        Visibility="{x:Bind ViewModel.IsSeriesOverview, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <!--  Episodes List (shown for seasons)  -->
+                    <ListView
+                        x:Name="EpisodesList"
+                        GettingFocus="OnEpisodesListGettingFocus"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnEpisodeClick"
+                        ItemsSource="{x:Bind ViewModel.Episodes, Mode=OneWay}"
+                        ScrollViewer.BringIntoViewOnFocusChange="False"
+                        ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                        SelectedIndex="{x:Bind ViewModel.SelectedEpisodeIndex, Mode=TwoWay}"
+                        SelectionMode="Single"
+                        SingleSelectionFollowsFocus="False"
+                        Visibility="{x:Bind ViewModel.IsSeriesOverview, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                        XYFocusDown="{x:Bind DescriptionScrollViewer}"
+                        XYFocusRight="{x:Bind PlayButton}"
+                        XYFocusUp="{x:Bind PlayButton}">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0,0,0,8" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:BaseItemDto">
+                                <Grid Padding="4" Background="{StaticResource TintScrimBrush}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!--  Episode Title with Number  -->
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Opacity="{x:Bind UserData.Played, Converter={StaticResource PlayedToOpacityConverter}, FallbackValue=1}"
+                                        Style="{StaticResource StandardBodyTextStyle}"
+                                        TextTrimming="CharacterEllipsis">
+                                        <Run Text="{x:Bind IndexNumber}" /><Run Text=". " />
+                                        <Run Text="{x:Bind Name}" />
+                                    </TextBlock>
+
+                                    <!--  Episode Overview with 2 line max  -->
+                                    <TextBlock
+                                        Grid.Row="1"
+                                        MaxHeight="40"
+                                        Margin="0,4,0,0"
+                                        Opacity="{x:Bind UserData.Played, Converter={StaticResource PlayedToOpacityConverter}, FallbackValue=1}"
+                                        Style="{StaticResource StandardCaptionTextStyle}"
+                                        Text="{x:Bind Overview}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!--  Loading Indicator  -->
+        <ui:LoadingOverlay IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}" LoadingText="Loading details..." />
+    </Grid>
+</local:DetailsPage>

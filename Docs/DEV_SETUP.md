@@ -1,166 +1,170 @@
-# Development Environment Setup
+# Development setup
+
+How to build, run and test Gelatinarm. Structure: [ARCHITECTURE.md](ARCHITECTURE.md).
+Code rules: [CONVENTIONS.md](CONVENTIONS.md).
 
 ## Prerequisites
-- Windows 10/11 with Visual Studio 2022
-- Xbox Developer Mode enabled (for testing on console)
-- .NET SDK compatible with UWP development
-- Jellyfin server instance for testing
 
-## Getting Started
+- Windows 10/11 with Visual Studio and the **Universal Windows Platform
+  development** workload. Releases are built with Visual Studio 2026 (v18)
+  Community.
+- Windows SDK **10.0.22621.0** (target); minimum OS 10.0.17763.0.
+- The .NET SDK (`dotnet` on the PATH): the build runs XAML Styler through it.
+- A Jellyfin server with movies, series with several seasons, music and a
+  collection.
+- For console testing, an Xbox in Developer Mode.
 
-### 1. Clone and Open Project
-```bash
-git clone [repository-url]
-cd gelatinarm
+NuGet packages restore on first build. The project is an old-style UWP `.csproj`
+on .NET Native, C# 9 (`LangVersion` 9.0).
+
+## Build
+
+In Visual Studio: open `Gelatinarm.sln`, `Debug` and `x64`, build.
+
+From a command line:
+
 ```
-Open `Gelatinarm.sln` in Visual Studio 2022
-
-### 2. First Build
-1. Set build configuration to `Debug` and platform to `x64`
-2. Build solution (Ctrl+Shift+B)
-3. NuGet packages will restore automatically
-
-### 3. Running the Application
-
-#### On Windows (Development)
-1. Set `Gelatinarm` as startup project
-2. Select "Local Machine" as target
-3. Press F5 to run with debugging
-
-#### On Xbox
-1. Enable Developer Mode on Xbox
-2. Pair Visual Studio with Xbox
-3. Select "Remote Machine" as target
-4. Enter Xbox IP address
-5. Deploy and run
-
-### 4. Testing Workflow
-1. **Server Connection**: Enter your Jellyfin server URL
-2. **Login**: Use existing Jellyfin credentials
-3. **Browse**: Navigate content using keyboard or Xbox controller
-4. **Play**: Select any media to test playback
-
-## Common Development Tasks
-
-### Adding a New Feature
-1. Identify where it belongs (View, Service, or Control)
-2. Follow existing patterns in similar files
-3. Register new services in App.xaml.cs
-4. Update navigation if adding new pages
-
-### Debugging Network Issues
-1. Check `AuthenticationService` for login problems
-2. Enable network logging in `App.xaml.cs`
-3. Use Fiddler to inspect HTTP traffic
-4. Check server logs for errors
-
-### Testing Xbox Features
-- Always test with controller
-- Verify focus navigation works
-- Check memory usage on Xbox One (3GB limit)
-- Test suspend/resume scenarios
-
-### Modifying UI
-- XAML files in `/Views` and `/Controls`
-- Use existing styles from App.xaml
-- Test on different screen sizes
-- Ensure gamepad navigation works
-
-## Project Conventions
-
-### Naming
-- Views: `[Feature]Page.xaml`
-- ViewModels: `[Feature]ViewModel.cs`
-- Services: `[Function]Service.cs`
-- Interfaces: `I[Name].cs`
-
-### Code Organization
-- One class per file
-- Interfaces defined with their implementations or in ServiceInterfaces.cs for shared interfaces
-- Constants in appropriate Constants file
-- Helpers for reusable logic
-
-### Async Patterns
-```csharp
-// In ViewModels
-await LoadDataAsync();
-
-// In Services  
-return await SomeOperation().ConfigureAwait(false);
+"C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" ^
+  Gelatinarm.sln /t:Build /p:Configuration=Debug /p:Platform=x64 ^
+  /nologo /v:minimal /m /p:AppxPackageSigningEnabled=false
 ```
 
-### Error Handling
-Use the unified error handling pattern:
-```csharp
-// In Services
-var context = CreateErrorContext("OperationName", ErrorCategory.Network);
-try
-{
-    return await PerformOperationAsync();
-}
-catch (Exception ex)
-{
-    return await ErrorHandler.HandleErrorAsync<T>(ex, context, defaultValue, showUserMessage: true);
-}
+`/p:AppxPackageSigningEnabled=false` is required: `Gelatinarm_TemporaryKey.pfx`
+is not in the repo (`*.pfx` is ignored) and the Store signs the package. Without
+it the build fails at signing (APPX0104/APPX0102/APPX0107).
 
-// In ViewModels - override LoadDataCoreAsync for automatic error handling
-protected override async Task LoadDataCoreAsync(CancellationToken cancellationToken)
-{
-    // Errors are automatically handled by BaseViewModel
-    var data = await _service.GetDataAsync(cancellationToken);
-    await RunOnUIThreadAsync(() => Items.ReplaceAll(data));
-}
-```
+### Editions: Standard and 4K
 
-## Troubleshooting
+The same source builds two apps (Xbox makes an app choose between background
+music and 4K video; see the root README):
 
-### Build Errors
-- Clean solution and rebuild
-- Check NuGet package restoration
-- Verify Windows SDK version
-- Ensure UWP workload is installed in Visual Studio
+| | Standard (`Debug`, `Release`) | 4K (`Debug4K`, `Release4K`) |
+| --- | --- | --- |
+| Package identity | `55770patel4prez.Gelatinarm` | same name + `4K`, display name "Gelatinarm 4K" |
+| Capability | `backgroundMediaPlayback` | `hevcPlayback` (restricted) |
+| Background music | yes | no; the app is closed when a game starts |
+| Video | capped at 1920x1080 by the device profile | no cap |
 
-### Service Initialization Failures
-Common warning: "Failed to get [Service] - continuing without it"
-- Non-critical services can fail without stopping the app
-- Check App.xaml.cs InitializeCoreServices for initialization order
-- Critical services that fail will prevent app startup
+Pick the configuration in Visual Studio, or pass `/p:Configuration=Release4K`
+(`/p:Edition=4K` works with any configuration). Both editions install side by
+side; a Store release of the 4K edition needs its own reserved name in Partner
+Center.
 
-### Runtime Crashes
-- Check debug output window for initialization errors
-- Verify all required services are registered in ConfigureServices
-- Check for null reference exceptions in ViewModels
-- Ensure ViewModels are registered as Transient or Singleton appropriately
+There is one manifest, `Package.appxmanifest`. The 4K build writes
+`obj\x64\<Configuration>\Package.4K.appxmanifest` from it (the
+`WriteEditionManifest` task in `Gelatinarm.csproj`) and fails if a substitution
+does not match exactly once. `EDITION_4K` is defined for the 4K edition; it lifts
+the resolution cap in `DeviceProfileService`.
 
-### Xbox Deployment Issues
-- Ensure Developer Mode is active
-- Check network connectivity between PC and Xbox
-- Verify Visual Studio pairing (may need to re-pair)
-- Check Xbox IP address hasn't changed
-- Ensure both devices are on same network
+**Judge warnings from a rebuild** (`/t:Rebuild`): an incremental build skips
+compilation and shows no C# warnings. The baseline is no errors and only
+ILT0005 warnings from .NET Native; anything else is new.
 
-### Authentication Problems
-- Check server URL format (include protocol: https://...)
-- Verify server is accessible from Xbox/PC
-- Token stored in Windows Credential Vault - may need to clear
-- Check AuthenticationService logs for specific errors
-- Verify Jellyfin server version compatibility
+Two things a build catches that an editor does not:
 
-### Navigation Issues
-- Pages must inherit from BasePage for proper initialization
-- Check NavigationService.NavigateToItemDetails for unsupported media types
-- Verify navigation parameter passing in InitializePageAsync
-- Check for navigation loops in back stack
+- Every `.cs` file is listed in `Gelatinarm.csproj` as a
+  `<Compile Include="..." />`; an unlisted file is silently left out. Every
+  folder with XAML is named in the `AdditionalFiles` line; a page in a folder
+  left out of it is skipped by the XAML rules.
+- Types named in `Properties/Default.rd.xml` are matched by string; a renamed or
+  deleted one shows only as an ILT warning in a Release build.
 
-## Key Files to Understand First
-1. `App.xaml.cs` - Application setup
-2. `MainPage.xaml/cs` - Home screen
-3. `BaseViewModel.cs` - ViewModel pattern
-4. `NavigationService.cs` - Navigation
-5. `AuthenticationService.cs` - Server communication
+### Analyzers
 
-## Useful Resources
-- Jellyfin API documentation
-- UWP development guides
-- Xbox development documentation
-- MVVM pattern references
+Four packages run at build: `Microsoft.CodeAnalysis.NetAnalyzers`,
+`Microsoft.CodeAnalysis.CSharp.CodeStyle`, `SonarAnalyzer.CSharp` and
+`Roslynator.Analyzers`. `.editorconfig` sets their severities; any warning
+beyond ILT0005 fails the gate. Among them: constant log templates (CA2254),
+unnecessary usings (IDE0005), formatting (IDE0055), unused private members,
+parameters and assigned values, members that could be static, redundant casts,
+discards, parentheses and null checks, defaults passed explicitly, conditions
+always true or false, catch blocks that log without the exception, nested
+conditionals, and the allocation rules that matter on an Xbox One (constant
+arrays built per call, LINQ over indexable collections). Roslynator's rules are
+listed one by one; Sonar's default set is on. A rule that conflicts with a
+deliberate choice is turned off in `.editorconfig` with the reason beside it,
+never suppressed in code. IDE0005 needs the compiler to write a documentation
+file, so the project sets `DocumentationFile` and turns off CS1591. The one
+`SuppressMessage` is on XAML event handlers with an unused parameter.
+
+`Gelatinarm.Analyzers` (a netstandard2.0 Roslyn project in the solution,
+referenced as an analyzer; it ships nothing) holds the project's own rules, the
+GEL warnings. They resolve references by symbol across the compilation, XAML
+included (the pages are `AdditionalFiles`; the XAML compiler's `.g.cs` counts
+`x:Bind` and event wiring as uses). `Descriptors.cs` lists every rule with its
+title, message and the finding that made it a rule, grouped by kind (dead code,
+XAML, consistency, safety). Options (the same-named state that is deliberate,
+the tables the clone check skips) are read from `.editorconfig`, where the
+option names its rule. To add a rule: add its descriptor and the check in the
+analyzer of its kind, and prove it fires on a seeded defect first. A GEL warning
+is fixed, never suppressed; a rule that conflicts with a deliberate choice is
+turned off in `.editorconfig` with the reason beside it.
+
+### XAML form
+
+Every XAML file is in XAML Styler's default form (`xstyler`, the local dotnet
+tool pinned in `.config/dotnet-tools.json`; the build restores it). The
+`CheckXamlStyle` target runs before the XAML compiler and fails the build naming
+each file that has strayed; `msbuild Gelatinarm.csproj /t:FormatXaml` (or
+`dotnet xstyler -f <file>`) puts it back. `/p:CheckXamlStyle=false` skips the
+check on a machine without the SDK.
+
+## Run
+
+- Windows: target Local Machine, F5. An Xbox controller works over USB or
+  Bluetooth; keyboard arrows and Space drive the player.
+- Xbox: enable Developer Mode, pair Visual Studio with the console, target Remote
+  Machine with the console's IP, deploy and run from the Visual Studio window (a
+  command-line deploy from a non-interactive session does not bring up the
+  remote debugger).
+
+Focus, playback, memory, HDR and codec behaviour are the console's; Windows is
+for quick iteration.
+
+## Test
+
+There are no automated tests; changes are tested by hand on a console. The
+server log is the second witness for playback: it records every start, progress
+report and stop with its position.
+
+Before a release, run through at least:
+
+1. Sign-in: server entry, username/password, Quick Connect, a second user and
+   switching profiles, sign-out.
+2. Browsing: home screen sections, library selection, each library type, filters
+   and sorting (the A-Z column appears only when sorting by name), search,
+   favourites.
+3. Detail pages: movie, series/season/episode, album, artist, person,
+   collection, moving between them and going Back.
+4. Playback: start, resume from a saved position, the controller mapping
+   ([ARCHITECTURE.md](ARCHITECTURE.md#controller-input)), audio and subtitle
+   changes (playback restarts at the same position), next episode, stop, and the
+   server's recorded progress.
+5. Music: a song and an album, playing on while browsing, right trigger held to
+   jump to the player, sign-out while playing (it must stop). A FLAC with large
+   embedded cover art must start without a failed first attempt, and the server
+   log shows `-acodec flac`.
+6. Settings: change each one, restart the app, check it persisted.
+7. Controller only: every screen reachable and escapable with the D-pad and B,
+   no focus traps.
+8. Memory: on an Xbox One if possible, a long browse through a large library and
+   an extended playback session.
+
+For a failure, note the console model, the build configuration, the exact steps
+and what the server log shows.
+
+## Release
+
+1. Bump the version in `Package.appxmanifest` past the last Store submission
+   (`AssemblyInfo.cs` must match; the build checks).
+2. Build the Store upload package as in the root
+   [README](../README.md#generating-store-release-unsigned). The package is
+   uploaded unsigned; the Store signs it.
+
+## Formatting
+
+`.editorconfig` defines formatting, `.gitattributes` line endings: files are
+stored LF and checked out CRLF, except `*.yml`, `*.yaml` and `*.sh` (LF). The
+workflow `.github/workflows/formatting.yml` checks both on every pull request
+and push to `main`. A branch that shows a one-line change as a whole-file
+rewrite has committed CRLF: `git add --renormalize . && git commit`.

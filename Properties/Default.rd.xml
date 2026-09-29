@@ -44,10 +44,6 @@
         <!-- Preserve Jellyfin SDK types -->
         <Namespace Name="Jellyfin.Sdk.Generated.Models" Dynamic="Required All" />
         <Namespace Name="Jellyfin.Sdk.Generated" Dynamic="Required All" />
-        <Namespace Name="Gelatinarm.ViewModels" Dynamic="Required All" />
-        <Namespace Name="Gelatinarm.Services" Dynamic="Required All" />
-        <Namespace Name="Gelatinarm.Models" Dynamic="Required All" />
-        <Namespace Name="Gelatinarm.Helpers" Dynamic="Required All" />
         
         <!-- JSON Serialization -->
         <Namespace Name="System.Text.Json.Serialization" Dynamic="Required All" />
@@ -60,7 +56,25 @@
 
         <!-- Application Namespaces -->
         <Namespace Name="Gelatinarm" Dynamic="Required All" />
-        <Namespace Name="Gelatinarm.Controls" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Details" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Favorites" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Home" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Library" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Music" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Playback" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Player" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Search" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Settings" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Async" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Base" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Device" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Errors" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Images" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Navigation" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Preferences" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Server" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.Shared.Ui" Dynamic="Required All" />
+        <Namespace Name="Gelatinarm.SignIn" Dynamic="Required All" />
 
         <!-- System and Runtime -->
         <Namespace Name="System.ComponentModel" Dynamic="Required Public" />
@@ -82,87 +96,6 @@
         <Namespace Name="Windows.Storage" Dynamic="Required Public" />
         <Namespace Name="Windows.Networking.Connectivity" Dynamic="Required Public" />
 
-        <!-- Microsoft UI and DI -->
-        <Namespace Name="Microsoft.UI.Xaml.Controls" Dynamic="Required Public" />
-
-        <!-- Types that need full reflection -->
-        <!-- ViewModels -->
-        <Type Name="Gelatinarm.ViewModels.BaseViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.MainViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.SettingsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.FavoritesViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.LibraryViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.LibrarySelectionViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.MediaPlayerViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.LoginViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.ServerSelectionViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.AlbumDetailsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.ArtistDetailsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.CollectionDetailsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.MovieDetailsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.NetworkSettingsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.PersonDetailsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.PlaybackSettingsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.QuickConnectInstructionsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.SeasonDetailsViewModel" Dynamic="Required All" />
-        <Type Name="Gelatinarm.ViewModels.ServerSettingsViewModel" Dynamic="Required All" />
-
-        <!-- Service Interfaces -->
-        <Type Name="Gelatinarm.Services.IAuthenticationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ICacheManagerService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ICacheProvider" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IDeviceProfileService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IDialogService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IEpisodeQueueService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IErrorHandlingService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IImageLoadingService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IControllerInputService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMediaControlService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMediaDiscoveryService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMediaNavigationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMediaOptimizationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMediaPlaybackService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMediaSessionService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMemoryMonitor" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IMusicPlayerService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.INavigationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.INavigationStateService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.INetworkMonitor" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IPlaybackControlService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IPlaybackQueueService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IPreferencesService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ISubtitleService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ISystemMonitorService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IUnifiedDeviceService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IUserDataService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.IUserProfileService" Dynamic="Required All" />
-
-        <!-- Service Implementations -->
-        <Type Name="Gelatinarm.Services.AuthenticationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.UnifiedDeviceService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.PreferencesService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.MediaPlaybackService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.NavigationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.UserProfileService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.MediaDiscoveryService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.SystemMonitorService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.UserDataService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ErrorHandlingService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.MediaControlService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ImageLoadingService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.CacheManagerService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.DeviceProfileService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.DialogService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.ControllerInputService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.MediaOptimizationService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.MusicPlayerService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.PlaybackControlService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.MediaQueueService" Dynamic="Required All" />
-        <Type Name="Gelatinarm.Services.SubtitleService" Dynamic="Required All" />
-
-        <!-- Base Classes -->
-        <Type Name="Gelatinarm.Services.BaseService" Dynamic="Required All" />
-        
         <!-- Additional critical types for .NET Native -->
         <!-- Async/Await and Threading -->
         <Namespace Name="System.Threading" Dynamic="Required All" />

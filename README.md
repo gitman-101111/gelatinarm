@@ -22,20 +22,21 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 
 ### 📺 Media Playback
 - **Movies & TV Shows** - Stream your entire video library
-- **Direct Play** - Play compatible formats without transcoding
+- **Direct Play** - Compatible files play as-is, straight from your server, with no transcoding
+- **Playback statistics (Y)** - Shows whether you're direct playing, remuxing or transcoding, and the server's reasons
 - **Hardware acceleration** - Optimized decoding for smooth playback
 - **HDR support** - HDR10 (all Xbox models), HDR10+, HLG, and Dolby Vision Profile 8.1 (Xbox Series S/X only)
 - **Auto-Play Next Episode** - Seamlessly continue to the next episode
 - **Episode Shuffle Mode** - Random episode playback for your favorite shows
-- **Multiple Audio & Subtitle Tracks** - Switch between languages and subtitles on the fly
-- **Adaptive streaming** - HLS/DASH support with automatic bitrate adjustment
+- **Multiple Audio & Subtitle Tracks** - Switch languages and subtitles during playback (the stream restarts from the server at the same position)
+- **Server streaming fallback** - Anything the Xbox can't play directly is remuxed or transcoded by your server over HLS
 - **Buffering optimization** - Smart buffering for smooth playback
 - **Profile Switching** - Switch between different users on the same server, keeping settings, playback history, etc. separate
 
 ### 🎵 Music & Audio
 - **Background playback** - Keep music playing while using other apps
-- **Mini player** - Persistent playback controls
-- **Queue management** - Play next, add to queue, shuffle, repeat (no reordering/editing at the moment...)
+- **Mini player** - Play/pause, previous/next, shuffle and repeat, from anywhere in the app
+- **Queue management** - Play next, add to queue, shuffle, repeat
 - **Instant Mix** - Create automatic playlists from any song
 
 ### 📚 Library Management
@@ -53,101 +54,108 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 - **Memory optimization** - Smart caching and resource management
 - **SSL certificate support** - Optional self-signed certificate acceptance
 
-## Codec Support
+## Format Support
 
-### Video Codec Comparison
+Gelatinarm tells your Jellyfin server exactly what the Xbox can play. If a file
+qualifies, it **direct plays** (the Xbox reads the file as-is). If not, the server
+**remuxes** it (repackages it, quality untouched) or **transcodes** it (re-encodes
+the parts the Xbox can't handle). Press **Y** during playback to see which one is
+happening and why. If a file that should direct play fails to open, Gelatinarm
+retries it as a server stream from the same position.
 
-| Codec | Gelatinarm Support | Xbox Hardware Support | Notes |
-|-------|-------------------|----------------------|-------|
-| **H.264/AVC** | ✅ Direct Play | ✅ Full | Hardware accelerated, all profiles |
-| **H.265/HEVC** | ✅ Direct Play* | ✅ Full | *Xbox One S/X and Series S/X only |
-| **VP9** | ✅ Direct Play | ✅ Full | Hardware accelerated |
-| **VP8** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **AV1** | ✅ Direct Play* | ✅ Limited | *Xbox Series S/X only, up to 4K@60fps |
-| **MPEG-1** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **MPEG-2** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **MPEG-4 Part 2** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **VC-1** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **Motion JPEG** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **H.263** | ✅ Direct Play | ✅ Supported | All Xbox models |
-| **DV** | ✅ Direct Play | ✅ Supported | All Xbox models |
+### Video
 
-### HDR Format Support
+| Codec | Direct play | Otherwise | Notes |
+|-------|:-----------:|-----------|-------|
+| **H.264/AVC** | ✅ | – | 8-bit, up to level 5.2 (High/Main/Baseline) |
+| **H.265/HEVC** | ✅ One S and later | ❌ original Xbox One: transcoded to H.264 | 8/10-bit Main and Main 10. Hardware HEVC is detected on the console |
+| **VP9** | ✅ | – | Profile 0 and 2 |
+| **AV1** | ❌ | Transcoded | No Xbox decodes AV1 in the system player |
+| **MPEG-1/2, MPEG-4 Part 2, VC-1, WMV** | ✅ | – | By container, per Microsoft's codec tables |
+| **10-bit H.264, VP8, H.263, Motion JPEG, anything else** | ❌ | Transcoded | |
 
-| Format | Xbox One S/X | Xbox Series S/X | Notes |
-|--------|--------------|-----------------|-------|
-| **HDR10** | ✅ Supported | ✅ Supported | Hardware accelerated on all models |
-| **HDR10+** | ✅ Supported* | ✅ Supported* | *Display must support HDR10+ |
-| **HLG** | ✅ Supported* | ✅ Supported* | *Display must support HLG |
-| **Dolby Vision** | ❌ Not Supported | ✅ Profile 8.1 Only | Profile 5 and 7 not supported, will transcode |
+When the server has to convert the video (an unsupported format, a burned-in subtitle,
+or a source above 1080p), it encodes HEVC if the server allows HEVC encoding
+(Jellyfin's transcoding settings) and the console decodes HEVC, and H.264 otherwise.
+HEVC keeps more detail at the same bitrate.
 
-### Audio Codec Comparison
+### HDR
 
-**Audio Direct Stream**: Enable in Settings → Playback to allow audio stream copy to compatible receivers
+HDR is only direct played when your **display** reports support for it; otherwise
+the server tone-maps and transcodes.
 
-| Codec | Gelatinarm Support | Xbox Hardware Support | Notes |
-|-------|-------------------|----------------------|-------|
-| **AAC/HE-AAC** | ✅ Direct Play | ✅ Full | All profiles supported |
-| **MP3** | ✅ Direct Play | ✅ Full | All bitrates supported |
-| **FLAC** | ✅ Direct Play | ✅ Full | See artwork limitation below |
-| **ALAC** | ✅ Direct Play | ✅ Full | Apple Lossless |
-| **PCM/LPCM** | ✅ Direct Play | ✅ Full | Uncompressed audio |
-| **WMA/WMA Pro** | ✅ Direct Play | ✅ Full | All variants |
-| **WMA Voice** | ✅ Direct Play | ✅ Full | Voice codecs |
-| **G.711 (A-law/µ-law)** | ✅ Direct Play | ✅ Full | Telephony PCM |
-| **GSM 6.10** | ✅ Direct Play | ✅ Full | Telephony codec |
-| **IMA ADPCM** | ✅ Direct Play | ✅ Full | Adaptive differential PCM |
-| **MS ADPCM** | ✅ Direct Play | ✅ Full | Microsoft ADPCM |
-| **AMR-NB** | ✅ Direct Play | ✅ Full | Adaptive Multi-Rate (narrowband) |
-| **AC3 (DD)** | ✅ Direct Play | ✅ Full | Dolby Digital |
-| **MPEG-1/2 Audio** | ✅ Direct Play | ✅ Full | MP2 in MPEG containers |
+| Format | Xbox One S/X | Xbox Series S/X |
+|--------|:------------:|:---------------:|
+| **HDR10** | ✅ | ✅ |
+| **HDR10+** | ✅ (display permitting) | ✅ (display permitting) |
+| **HLG** | ✅ (display permitting) | ✅ (display permitting) |
+| **Dolby Vision** | ❌ Transcoded | ✅ (not checked against the display: a file that plays today keeps playing) |
 
-## 4K Playback on Xbox
+### Audio in video files
 
-Gelatinarm runs in standard app mode on Xbox, which means it prioritizes **background music playback** over expanded video resources. This is a deliberate design choice with the following implications:
+| Codec | Direct play | Otherwise |
+|-------|:-----------:|-----------|
+| **AAC, MP3, AC3 (Dolby Digital)** | ✅ | – |
+| **ALAC, AMR** | ✅ in MP4/MOV | – |
+| **MP2** | ✅ in TS/MPG | – |
+| **WMA** | ✅ in ASF/WMV | – |
+| **FLAC, PCM, E-AC3 (Dolby Digital Plus), DTS, TrueHD, Opus, Vorbis** | ❌ | Audio converted by the server; the video is still copied untouched if it qualifies. FLAC in MKV plays silent on the console, so it is converted on purpose |
 
-### What this means for you:
-- ✅ **Background music works perfectly** - Continue listening while playing games or using other apps
-- ✅ **4K video playback is supported** - Within the standard memory constraints
-- ✅ **HDR content works** - HDR10 on all models, Dolby Vision Profile 8.1 on Series S/X
-- ⚠️ **Some 4K content may transcode** - If it exceeds memory limits, Jellyfin will automatically adjust
+When the server has to make a stream anyway, **Settings → Playback → Audio Direct
+Stream** lets it pass AAC and AC3 through instead of re-encoding them.
 
-### Technical Background
-Xbox apps must choose between two modes:
-1. **Standard mode** (what Gelatinarm uses): Allows background audio but limits memory to ~1GB
-2. **Expanded mode**: Provides 5GB+ memory for 4K video but disables all background functionality
+### Containers
 
-We chose standard mode because background music is a core feature for most users. The app handles 4K content well within these constraints, and any content that needs more resources will be seamlessly transcoded by your Jellyfin server.
+| Container | Direct play |
+|-----------|:-----------:|
+| **MKV, WebM, MP4, M4V, MOV** | ✅ |
+| **TS, M2TS, MTS, MPG, MPEG** | ✅ MPEG-1/2 and H.264 video with AC3 or MP2 audio |
+| **AVI, WMV/ASF, 3GP** | ✅ (older codecs) |
+| **Anything else** | ❌ Remuxed by the server |
 
-For more technical details about this Xbox limitation, see [Microsoft's documentation on HEVC video on Xbox](https://learn.microsoft.com/en-us/windows/uwp/audio-video-camera/hevc-xbox).
+### Music
 
-### Supported Container Formats
-Direct play support for all common containers:
-- **MPEG-4**: MP4, M4V, MOV, M4A
-- **Matroska**: MKV, WebM
-- **Windows Media**: WMV, ASF, WMA
-- **MPEG**: TS, M2TS, MTS, MPG, MPEG, VOB
-- **Legacy**: AVI, FLV
-- **Mobile**: 3GP, 3G2
-- **Audio**: MP3, AAC, FLAC, WAV, ALAC, WMA, AMR
+| Format | Direct play |
+|--------|:-----------:|
+| **MP3, AAC/M4A, FLAC, ALAC, WAV, WMA, AMR** | ✅ |
 
-### Supported Subtitle Formats
-- **SRT** - Most compatible, external and embedded
-- **ASS/SSA** - Advanced styling preserved
-- **VTT** - WebVTT format
-- **PGS** - Blu-ray subtitles
-- **VOBSUB** - Requires server-side burn-in
+The Xbox's player cannot open audio files with embedded cover art larger than
+1500×1500 pixels. Gelatinarm streams those tracks through your server with the
+artwork removed: lossless files (FLAC, ALAC, WAV) as lossless FLAC, surround
+channels included, and lossy files as MP3. Files with smaller (or no) embedded
+artwork play directly.
+
+### Subtitles
+
+The Xbox player cannot draw subtitles itself, so a selected subtitle (SRT, ASS/SSA,
+VTT, PGS, VobSub, DVB) is **burned into the video by the server**. That means
+choosing a subtitle always turns a direct play into a server transcode. With
+subtitles off, direct play is unaffected.
+
+## Video Resolution: up to 1080p
+
+Xbox apps choose between two modes:
+1. **Standard**: music keeps playing in the background while you play a game or use
+   another app; video is limited to 1080p.
+2. **4K** (the `hevcPlayback` capability): 2 GB more memory and 4K video, but the app
+   is closed whenever a game starts, so background music is not possible.
+
+Gelatinarm uses **standard mode**, so music keeps playing in the background. It
+tells the server that the console accepts video up to 1920x1080; the server scales
+anything larger down (a 4K film arrives as 1080p). HEVC and other formats at 1080p
+or below still play as they are.
+
+The same source also builds a **4K edition** ("Gelatinarm 4K", the `Release4K`
+configuration) that makes the other choice: 4K video, no background music. It
+installs alongside the standard app. See [Docs/DEV_SETUP.md](Docs/DEV_SETUP.md).
+
+For details, see [Microsoft's documentation on 4K video playback on Xbox](https://learn.microsoft.com/en-us/windows/uwp/audio-video-camera/hevc-xbox).
 
 ## Known Limitations
 
-### Audio Playback with Embedded Artwork
-- **Issue**: FLAC files with embedded artwork larger than ~1500×1500 pixels may fail to play directly
-- **Cause**: Xbox MediaPlayer limitation with large embedded images
-- **Solution**: The app automatically falls back to transcoding when this occurs
-- **Workaround**: Ensure your Jellyfin server has separate album artwork
-
-### Platform Limitations
-- **External subtitles** - Only embedded subtitles are supported due to UWP MediaPlaybackItem architecture. External subtitle tracks must be added when creating the MediaPlaybackItem and cannot be dynamically changed during playback. Since we initialize playback in MediaPlayerPage, we cannot pre-load external subtitles. The app will automatically request the server to embed all subtitles in the stream.
+- **Subtitles are burned in** - The app does not render subtitle tracks itself, so a selected subtitle (embedded or external) is burned into the video by the server. That requires a video transcode, and changing subtitles restarts the stream.
+- **Audio track switching** - Choosing a non-default audio track also restarts the stream from the server with that track.
+- **Remote connections** - If your server sees the Xbox as a remote client, its internet streaming bitrate limit applies and high-bitrate files are transcoded. Configure your server's LAN networks if the Xbox is on your home network.
 
 ## Xbox Controller Mapping
 
@@ -158,7 +166,6 @@ Direct play support for all common containers:
 | **B** | Back/Cancel |
 | **D-Pad/Left Stick** | Navigate UI |
 | **Right Trigger (Hold 0.5s)** | Jump to MiniPlayer |
-| **LB/RB** | Switch tabs (where applicable) |
 
 ### Video Playback Controls
 
@@ -202,7 +209,7 @@ Music playback uses standard system media controls. Use the Xbox Guide button to
 - Xbox One, Xbox One S, Xbox One X, Xbox Series S, or Xbox Series X
 - Internet connection
 - Jellyfin server (version 10.8.0 or later; 12.0 or later recommended)
-- Xbox configured to Developer Mode for sideloading (or install from Microsoft Store when available)
+- Developer Mode only for sideloading; not needed when installing from the Microsoft Store
 
 ## Installation
 
@@ -217,35 +224,30 @@ Install directly from the Microsoft Store - search for "Gelatinarm" or use the l
 
 ## Building from Source
 
+See [Docs/DEV_SETUP.md](Docs/DEV_SETUP.md) for the full setup, command-line builds and testing.
+
 ### Prerequisites
 - Windows 10/11
-- Visual Studio 2022 with UWP development workload
+- Visual Studio with the UWP development workload (releases are built with Visual Studio 2026)
 - Windows 11 SDK (10.0.22621.0)
 
 ### Build Steps
 1. Clone the repository
-2. Open `Gelatinarm.sln` in Visual Studio 2022
+2. Open `Gelatinarm.sln` in Visual Studio
 3. Set configuration to Release and platform to x64
 4. Build the solution
 5. Deploy to your Xbox in Developer Mode
 
 ### Generating Store Release (Unsigned)
 
-**Note**: This method is ONLY needed if you cannot sign the package due to cross-architecture limitations (e.g., building x64 packages on ARM machines). If you can sign normally in Visual Studio, use the standard publishing workflow instead.
-
-#### When to Use This Method
-- Building x64 packages on ARM development machines
-- Cross-architecture builds where signing fails
-- When Visual Studio's built-in Store publishing fails due to signing errors
+The Store signs the package at publication, so the upload package is built unsigned.
 
 #### 1. Update Version Number
-- Open `Package.appxmanifest` in Visual Studio
-- Go to the **Packaging** tab
-- Increment the **Version** number (e.g., 1.0.1.0 → 1.0.2.0)
-- Save the file
+- Open `Package.appxmanifest` in Visual Studio, **Packaging** tab
+- Increment the **Version** number (e.g., 1.0.1.0 → 1.0.2.0) and save
 
 #### 2. Build Store Upload Package (PowerShell)
-Run the following command from the project root:
+From the project root:
 
 ```powershell
 cd C:\gelatinarm
@@ -261,17 +263,14 @@ cd C:\gelatinarm
 
 #### 3. Upload to Store
 - The build creates an `.msixupload` or `.appxupload` file in `.\AppPackages\`
-- Upload this file to Microsoft Partner Center
-- Microsoft will sign the package with their certificate during publication
-
-**Why Unsigned?** The `/p:AppxPackageSigningEnabled=false` parameter bypasses the signing step that fails when building for a different architecture than your development machine. Microsoft Store handles the final signing, so unsigned packages are acceptable for Store submission.
+- Upload it to Microsoft Partner Center
 
 ## Contributing
 
 Contributions are welcome! Please:
 1. Check existing issues before creating new ones
-2. Follow the existing code style and patterns
-3. Test on actual Xbox hardware when possible
+2. Read [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) and follow [Docs/CONVENTIONS.md](Docs/CONVENTIONS.md)
+3. Test on actual Xbox hardware when possible (see [Docs/DEV_SETUP.md](Docs/DEV_SETUP.md#test))
 4. Update documentation for new features
 
 ## Acknowledgments

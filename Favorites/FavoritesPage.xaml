@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.Favorites.FavoritesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Fixed Header with Title and Filters  -->
+        <Border Style="{StaticResource PageHeaderBarStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Title  -->
+                <TextBlock Style="{StaticResource PageHeaderTextStyle}" Text="Favorites" />
+
+                <!--  Filter Buttons  -->
+                <StackPanel
+                    Grid.Column="1"
+                    Margin="24,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal">
+                    <Button
+                        x:Name="AllButton"
+                        Click="FilterButton_Click"
+                        Content="All"
+                        Style="{StaticResource ActiveFilterButtonStyle}"
+                        Tag="All" />
+                    <Button
+                        x:Name="MoviesButton"
+                        Click="FilterButton_Click"
+                        Content="Movies"
+                        Style="{StaticResource FilterButtonStyle}"
+                        Tag="Movies" />
+                    <Button
+                        x:Name="ShowsButton"
+                        Click="FilterButton_Click"
+                        Content="TV Shows"
+                        Style="{StaticResource FilterButtonStyle}"
+                        Tag="Shows" />
+                    <Button
+                        x:Name="MusicButton"
+                        Click="FilterButton_Click"
+                        Content="Music"
+                        Style="{StaticResource FilterButtonStyle}"
+                        Tag="Music" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--  Favorites Grid  -->
+        <ListView
+            x:Name="FavoritesList"
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            IsItemClickEnabled="True"
+            ItemClick="FavoritesGrid_ItemClick"
+            ItemTemplate="{StaticResource CompactPosterTemplate}"
+            ItemsSource="{x:Bind ViewModel.FavoriteItems, Mode=OneWay}"
+            SelectionMode="None">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid
+                        HorizontalAlignment="Left"
+                        ItemHeight="245"
+                        ItemWidth="150"
+                        Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Margin" Value="6" />
+                    <Setter Property="Padding" Value="0" />
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+
+        <!--  Empty State  -->
+        <StackPanel
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}">
+            <TextBlock
+                HorizontalAlignment="Center"
+                Foreground="{StaticResource SystemControlForegroundBaseMediumBrush}"
+                Style="{StaticResource SectionHeaderTextStyle}"
+                Text="{x:Bind ViewModel.EmptyStateTitle, Mode=OneWay}" />
+            <TextBlock
+                MaxWidth="400"
+                HorizontalAlignment="Center"
+                Style="{StaticResource SecondaryTextStyle}"
+                Text="{x:Bind ViewModel.EmptyStateMessage, Mode=OneWay}"
+                TextAlignment="Center" />
+        </StackPanel>
+
+        <!--  Loading State  -->
+        <ui:LoadingOverlay
+            Grid.RowSpan="2"
+            IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+            LoadingText="Loading favorites..." />
+    </Grid>
+</base:BasePage>

@@ -1,0 +1,232 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="using:Gelatinarm.Shared.Ui">
+    <!--  Essential Margins  -->
+    <Thickness x:Key="HeaderMargin">0,8,0,8</Thickness>
+    <Thickness x:Key="StandardControlMargin">8</Thickness>
+    <Thickness x:Key="CompactControlMargin">4</Thickness>
+    <Thickness x:Key="ContentMargin">16</Thickness>
+    <x:Double x:Key="ProgressBarHeight">4</x:Double>
+    <Thickness x:Key="DialogMargin">24</Thickness>
+
+    <!--  Additional Margins  -->
+    <Thickness x:Key="SectionMargin">0,0,0,32</Thickness>
+    <Thickness x:Key="SafeAreaPadding">48,24,48,24</Thickness>
+
+    <!--  Essential Button Styles  -->
+    <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+        <Setter Property="Height" Value="32" />
+    </Style>
+
+    <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource SystemChromeMediumBrush}" />
+        <Setter Property="Height" Value="32" />
+    </Style>
+
+    <!--  Essential Control Styles  -->
+
+    <Style x:Key="TransparentButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!--  The browse pages' header bar (library, search, favourites, settings) and the title in it  -->
+    <Style x:Key="PageHeaderBarStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource SystemChromeMediumLowBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource SystemBaseLowBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="48,16" />
+    </Style>
+
+    <Style x:Key="StandardPageContainerStyle" TargetType="StackPanel">
+        <Setter Property="Spacing" Value="24" />
+    </Style>
+
+    <!--  Quick Connect Instruction Styles  -->
+    <Style x:Key="InstructionStepContainerStyle" TargetType="StackPanel">
+        <Setter Property="Orientation" Value="Horizontal" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style x:Key="InstructionStepNumberStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <Style x:Key="InstructionHighlightBoxStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+        <Setter Property="Padding" Value="20,12" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!--  Control Styles for Settings  -->
+    <Style x:Key="StandardSliderStyle" TargetType="Slider">
+        <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+    </Style>
+
+    <Style x:Key="StandardToggleSwitchStyle" TargetType="ToggleSwitch">
+        <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="StandardComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="MinWidth" Value="200" />
+    </Style>
+
+    <Style x:Key="StandardTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Margin" Value="{StaticResource StandardControlMargin}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Padding" Value="12,8" />
+    </Style>
+
+    <Style
+        x:Key="LibraryHeaderComboBoxStyle"
+        BasedOn="{StaticResource StandardComboBoxStyle}"
+        TargetType="ComboBox">
+        <Setter Property="MinWidth" Value="150" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="NonInteractiveListViewItemStyle" TargetType="ListViewItem">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <ContentPresenter />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  Media Grid Styles  -->
+    <Style x:Key="StandardMediaGridViewItemStyle" TargetType="GridViewItem">
+        <Setter Property="Margin" Value="6" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+        <Setter Property="FocusVisualSecondaryBrush" Value="Transparent" />
+        <Setter Property="FocusVisualPrimaryThickness" Value="3" />
+        <Setter Property="FocusVisualSecondaryThickness" Value="0" />
+        <Setter Property="FocusVisualMargin" Value="-4" />
+    </Style>
+
+    <!--  A horizontal row of media tiles: the home rows and the details pages' related rows  -->
+    <Style x:Key="MediaRowGridViewStyle" TargetType="GridView">
+        <Setter Property="ui:ControllerInputHelper.KeepsSidewaysFocus" Value="True" />
+        <Setter Property="SelectionMode" Value="None" />
+        <Setter Property="IsItemClickEnabled" Value="True" />
+        <Setter Property="TabNavigation" Value="Local" />
+        <Setter Property="Padding" Value="0,0,24,0" />
+        <Setter Property="ScrollViewer.VerticalScrollMode" Value="Disabled" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource StandardMediaGridViewItemStyle}" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  A button that reads as text: Show More, the album page's artist link  -->
+    <Style x:Key="TextBlockButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="{TemplateBinding Background}">
+                        <ContentPresenter
+                            x:Name="ContentPresenter"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver" />
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  Track Button Style  -->
+    <Style x:Key="TrackButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                        <ContentPresenter
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver" />
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid" Storyboard.TargetProperty="Background">
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource SystemControlBackgroundListMediumBrush}" />
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  Filter Button Styles  -->
+    <Style x:Key="FilterButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource SystemChromeMediumBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Margin" Value="{StaticResource CompactControlMargin}" />
+        <Setter Property="Height" Value="32" />
+    </Style>
+
+    <Style
+        x:Key="ActiveFilterButtonStyle"
+        BasedOn="{StaticResource FilterButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource SystemControlHighlightAccentBrush}" />
+    </Style>
+</ResourceDictionary>

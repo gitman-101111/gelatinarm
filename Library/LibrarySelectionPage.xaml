@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.Library.LibrarySelectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:models="using:Jellyfin.Sdk.Generated.Models"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Border Style="{StaticResource PageHeaderBarStyle}">
+            <TextBlock Style="{StaticResource PageHeaderTextStyle}" Text="Library" />
+        </Border>
+
+        <!--  Library Selection  -->
+        <GridView
+            x:Name="LibraryTypeGrid"
+            Grid.Row="1"
+            Padding="{StaticResource SafeAreaPadding}"
+            IsItemClickEnabled="True"
+            ItemClick="OnLibraryClick"
+            ItemsSource="{x:Bind ViewModel.Libraries, Mode=OneWay}"
+            SelectionMode="None">
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid MaximumRowsOrColumns="4" Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
+
+            <GridView.ItemContainerStyle>
+                <Style TargetType="GridViewItem">
+                    <Setter Property="Margin" Value="8" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="GridViewItem">
+                                <Grid>
+                                    <ContentPresenter x:Name="ContentPresenter" />
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver" />
+                                            <VisualState x:Name="Pressed">
+                                                <Storyboard>
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="ContentPresenter"
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        To="0.7"
+                                                        Duration="0:0:0.1" />
+                                                </Storyboard>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </GridView.ItemContainerStyle>
+
+            <GridView.ItemTemplate>
+                <DataTemplate x:DataType="models:BaseItemDto">
+                    <Border
+                        Width="240"
+                        Height="180"
+                        Background="{StaticResource SystemControlBackgroundListLowBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <FontIcon
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontSize="60"
+                                Glyph="{x:Bind Converter={StaticResource LibraryIconConverter}, FallbackValue='&#xE8F1;'}" />
+
+                            <TextBlock
+                                Grid.Row="1"
+                                Padding="0,8,0,16"
+                                HorizontalAlignment="Center"
+                                Style="{StaticResource SubheaderTextStyle}"
+                                Text="{x:Bind Name}" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
+
+        <!--  Loading Overlay: last, so it draws over the page  -->
+        <ui:LoadingOverlay
+            Grid.RowSpan="2"
+            IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+            LoadingText="Loading libraries..." />
+    </Grid>
+</base:BasePage>

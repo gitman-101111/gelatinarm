@@ -1,0 +1,169 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<local:MusicDetailsPage
+    x:Class="Gelatinarm.Music.AlbumDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Gelatinarm.Music"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Details/DetailsResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--  The artist's name as a link: the shared text button, at the header's size  -->
+            <Style
+                x:Key="ArtistLinkButtonStyle"
+                BasedOn="{StaticResource TextBlockButtonStyle}"
+                TargetType="Button">
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="FontSize" Value="18" />
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <ScrollViewer Padding="48,24,48,48" VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!--  Header  -->
+                <Grid Margin="0,0,0,32">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Album Cover  -->
+                    <Image
+                        Width="180"
+                        Height="180"
+                        HorizontalAlignment="Left"
+                        Source="{x:Bind ViewModel.PrimaryImage, Mode=OneWay}"
+                        Stretch="UniformToFill" />
+
+                    <!--  Album Info  -->
+                    <StackPanel
+                        Grid.Column="1"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Top">
+                        <TextBlock
+                            Style="{StaticResource PageTitleTextStyle}"
+                            Text="{x:Bind ViewModel.Title, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                        <Button
+                            x:Name="ArtistButton"
+                            Margin="0,4,0,0"
+                            Command="{x:Bind ViewModel.NavigateToArtistCommand, Mode=OneWay}"
+                            Content="{x:Bind ViewModel.ArtistName, Mode=OneWay}"
+                            Opacity="0.8"
+                            Style="{StaticResource ArtistLinkButtonStyle}"
+                            Visibility="{x:Bind ViewModel.ArtistName, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}"
+                            XYFocusDown="{x:Bind PlayButton}" />
+                        <TextBlock
+                            Margin="0,4,0,0"
+                            Style="{StaticResource SecondaryTextStyle}"
+                            Text="{x:Bind ViewModel.Year, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.Year, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+                        <StackPanel
+                            Margin="0,8,0,0"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <TextBlock
+                                Style="{StaticResource SecondaryTextStyle}"
+                                Text="{x:Bind ViewModel.TrackCount, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.TrackCount, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+                            <TextBlock Style="{StaticResource SeparatorTextStyle}" />
+                            <TextBlock
+                                Style="{StaticResource SecondaryTextStyle}"
+                                Text="{x:Bind ViewModel.Duration, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.Duration, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+                        </StackPanel>
+                        <TextBlock
+                            Margin="0,8,0,0"
+                            Style="{StaticResource SecondaryTextStyle}"
+                            Text="{x:Bind ViewModel.Genres, Mode=OneWay}"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind ViewModel.Genres, Converter={StaticResource NullableToVisibilityConverter}, Mode=OneWay}" />
+
+                        <!--  Action Buttons  -->
+                        <StackPanel
+                            Margin="0,16,0,0"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                x:Name="PlayButton"
+                                MinWidth="100"
+                                MinHeight="36"
+                                Command="{x:Bind ViewModel.PlayCommand, Mode=OneWay}"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                XYFocusDown="{x:Bind TracksListView}"
+                                XYFocusUp="{x:Bind ArtistButton}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Play" />
+                                    <TextBlock Text="{x:Bind ViewModel.PlayButtonText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                MinWidth="100"
+                                MinHeight="36"
+                                Command="{x:Bind ViewModel.ShuffleCommand, Mode=OneWay}"
+                                Style="{StaticResource SecondaryButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Shuffle" />
+                                    <TextBlock Text="Shuffle" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                MinWidth="100"
+                                MinHeight="36"
+                                Command="{x:Bind ViewModel.ToggleFavoriteCommand, Mode=OneWay}"
+                                Style="{StaticResource SecondaryButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="{x:Bind ViewModel.IsFavorite, Converter={StaticResource FavoriteIconConverter}, Mode=OneWay}" />
+                                    <TextBlock Text="Favorite" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!--  Tracks Section  -->
+                <TextBlock
+                    Grid.Row="1"
+                    Margin="0,0,0,16"
+                    Style="{StaticResource SectionHeaderTextStyle}"
+                    Text="Tracks" />
+
+                <ListView
+                    x:Name="TracksListView"
+                    Grid.Row="2"
+                    Margin="0,0,0,24"
+                    IsItemClickEnabled="True"
+                    ItemTemplate="{StaticResource TrackRowTemplate}"
+                    ItemsSource="{x:Bind ViewModel.Tracks, Mode=OneWay}"
+                    PreviewKeyDown="OnPreviewKeyDown"
+                    SelectionMode="None"
+                    TabNavigation="Local"
+                    XYFocusUp="{x:Bind PlayButton}">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="12" />
+                            <Setter Property="Margin" Value="0,2" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Grid>
+        </ScrollViewer>
+
+        <!--  Loading State  -->
+        <ui:LoadingOverlay IsLoading="{x:Bind ViewModel.IsLoading, Mode=OneWay}" LoadingText="Loading album details..." />
+    </Grid>
+</local:MusicDetailsPage>

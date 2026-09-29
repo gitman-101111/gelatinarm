@@ -4,18 +4,36 @@ VisualStudioVersion = 17.14.36212.18
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gelatinarm", "Gelatinarm.csproj", "{12345678-1234-1234-1234-123456789ABC}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gelatinarm.Analyzers", "Gelatinarm.Analyzers\Gelatinarm.Analyzers.csproj", "{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
+		Debug4K|x64 = Debug4K|x64
 		Release|x64 = Release|x64
+		Release4K|x64 = Release4K|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
 		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.Build.0 = Debug|x64
 		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.Deploy.0 = Debug|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug4K|x64.ActiveCfg = Debug4K|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug4K|x64.Build.0 = Debug4K|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug4K|x64.Deploy.0 = Debug4K|x64
 		{12345678-1234-1234-1234-123456789ABC}.Release|x64.ActiveCfg = Release|x64
 		{12345678-1234-1234-1234-123456789ABC}.Release|x64.Build.0 = Release|x64
 		{12345678-1234-1234-1234-123456789ABC}.Release|x64.Deploy.0 = Release|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release4K|x64.ActiveCfg = Release4K|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release4K|x64.Build.0 = Release4K|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release4K|x64.Deploy.0 = Release4K|x64
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Debug|x64.ActiveCfg = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Debug|x64.Build.0 = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Debug4K|x64.ActiveCfg = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Debug4K|x64.Build.0 = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Release|x64.ActiveCfg = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Release|x64.Build.0 = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Release4K|x64.ActiveCfg = Release|Any CPU
+		{7A6B3C2D-1E4F-4A5B-9C8D-0E1F2A3B4C5D}.Release4K|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

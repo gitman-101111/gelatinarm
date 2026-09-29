@@ -2,6 +2,13 @@
 # Git stores text normalized; working tree is checked out as CRLF.
 * text=auto eol=crlf
 
+# Files consumed by Linux tooling must stay LF. The blanket eol=crlf above
+# would otherwise check these out with CRLF, and bash fails on the trailing
+# carriage return with "$'\r': command not found".
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.sh        text eol=lf
+
 # Explicit text types
 *.cs        text eol=crlf
 *.xaml      text eol=crlf

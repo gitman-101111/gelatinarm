@@ -27,14 +27,26 @@
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <PackageCertificateThumbprint>AC4F440ACFBAB6486F1DE45D5F962CFB05DA427A</PackageCertificateThumbprint>
-    <PackageCertificateKeyFile>Gelatinarm_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <!-- IDE0005 (unnecessary using) reports only when the compiler writes documentation; CS1591
+         (missing XML comment) is then turned off, since summaries here say why, not what -->
+    <DocumentationFile>obj\$(Platform)\$(Configuration)\Gelatinarm.xml</DocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+  <!-- Two editions from one source (see Docs/DEV_SETUP.md). Standard keeps background music
+       and caps video at 1080p; 4K takes the restricted hevcPlayback capability, which lifts
+       the cap but closes the app when a game starts. Debug4K/Release4K select the 4K
+       edition; /p:Edition=4K works with any configuration. -->
+  <PropertyGroup>
+    <Edition Condition="'$(Edition)' == '' and ('$(Configuration)' == 'Debug4K' or '$(Configuration)' == 'Release4K')">4K</Edition>
+    <Edition Condition="'$(Edition)' == ''">Standard</Edition>
+    <BaseConfiguration Condition="'$(Configuration)' == 'Debug' or '$(Configuration)' == 'Debug4K'">Debug</BaseConfiguration>
+    <BaseConfiguration Condition="'$(Configuration)' == 'Release' or '$(Configuration)' == 'Release4K'">Release</BaseConfiguration>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BaseConfiguration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x64\Debug\</OutputPath>
+    <OutputPath>bin\x64\$(Configuration)\</OutputPath>
     <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <NoWarn>;2008;CS1998;CS0108</NoWarn>
+    <NoWarn>;2008;1591</NoWarn>
     <DebugType>full</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <UseVSHostingProcess>false</UseVSHostingProcess>
@@ -43,11 +55,11 @@
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
     <EnableGatekeeperAnalysis>false</EnableGatekeeperAnalysis>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>bin\x64\Release\</OutputPath>
+  <PropertyGroup Condition="'$(BaseConfiguration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\$(Configuration)\</OutputPath>
     <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
     <Optimize>true</Optimize>
-    <NoWarn>;2008;CS1998;CS0108</NoWarn>
+    <NoWarn>;2008;1591</NoWarn>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <UseVSHostingProcess>false</UseVSHostingProcess>
@@ -56,6 +68,16 @@
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
     <EnableGatekeeperAnalysis>false</EnableGatekeeperAnalysis>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Edition)' == '4K'">
+    <DefineConstants>$(DefineConstants);EDITION_4K</DefineConstants>
+  </PropertyGroup>
+  <!-- The packaging targets treat any configuration not named exactly "Debug" as a Store
+       build and add an upload package, whose signing clean-up then fails
+       (RemoveDisposableSigningCertificate: no CertificateThumbprint). Debug4K is a debug
+       build: sideload package only, as Debug gets. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug4K'">
+    <UapAppxPackageBuildMode Condition="'$(UapAppxPackageBuildMode)' == ''">SideloadOnly</UapAppxPackageBuildMode>
   </PropertyGroup>
   <ItemGroup>
     <!-- .NET for UWP: 6.2.14 -->
@@ -83,13 +105,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug">
       <Version>10.0.1</Version>
     </PackageReference>
-    <!-- UWP Community Toolkit -->
-    <PackageReference Include="CommunityToolkit.Uwp.Animations">
-      <Version>8.2.251219</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications">
-      <Version>7.1.3</Version>
-    </PackageReference>
     <!-- Additional Dependencies for SDK -->
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces">
       <Version>10.0.1</Version>
@@ -100,6 +115,35 @@
     <PackageReference Include="Microsoft.Extensions.Options">
       <Version>10.0.1</Version>
     </PackageReference>
+    <!-- Build-time analyzers only (not shipped). The rules .editorconfig raises to warnings fail the
+         audit's build gate (baseline: no warnings but ILT0005): constant log templates, unused
+         usings, members, parameters and values, and the perf rules that matter on an Xbox One. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers">
+      <Version>10.0.401</Version>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeStyle">
+      <Version>4.14.0</Version>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- Semantic redundancy rules the regex scans cannot see: conditions always true or false,
+         dead stores, redundant casts and jumps, one-use wrappers. Severities in .editorconfig. -->
+    <PackageReference Include="SonarAnalyzer.CSharp">
+      <Version>10.34.0.3385</Version>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Roslynator.Analyzers">
+      <Version>5.0.0</Version>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- The audit's own rules (Docs/DEV_SETUP.md lists them), built with the app and run by the
+         compiler on every build. The XAML and rd.xml go in as AdditionalFiles so the rules can read them. -->
+    <ProjectReference Include="Gelatinarm.Analyzers\Gelatinarm.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetConfiguration="Configuration=Release" SetPlatform="Platform=AnyCPU" />
+    <AdditionalFiles Include="App.xaml;Details\*.xaml;Favorites\*.xaml;Home\*.xaml;Library\*.xaml;Music\*.xaml;Player\*.xaml;Search\*.xaml;Settings\*.xaml;Shared\Navigation\*.xaml;Shared\Ui\*.xaml;SignIn\*.xaml;Styles\*.xaml;Properties\Default.rd.xml;Package.appxmanifest" />
     <PackageReference Include="Microsoft.Extensions.Http">
       <Version>10.0.1</Version>
     </PackageReference>
@@ -114,176 +158,218 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
-    <!-- Constants -->
-    <Compile Include="Constants\BrandingConstants.cs" />
-    <Compile Include="Constants\PreferenceConstants.cs" />
-    <Compile Include="Constants\MediaConstants.cs" />
-    <Compile Include="Constants\MediaPlayerConstants.cs" />
-    <Compile Include="Constants\RetryConstants.cs" />
-    <Compile Include="Constants\LibraryConstants.cs" />
-    <Compile Include="Constants\SystemConstants.cs" />
-    <Compile Include="Constants\UIConstants.cs" />
-    <!-- Controls -->
-    <Compile Include="Controls\BaseControl.cs" />
-    <Compile Include="Controls\ControllerInputHelper.cs" />
-    <Compile Include="Controls\LoadingOverlay.xaml.cs">
-      <DependentUpon>LoadingOverlay.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\MusicPlayer.xaml.cs">
-      <DependentUpon>MusicPlayer.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\RootContainer.xaml.cs">
-      <DependentUpon>RootContainer.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\UnwatchedIndicator.xaml.cs">
-      <DependentUpon>UnwatchedIndicator.xaml</DependentUpon>
-    </Compile>
-    <!-- Helpers -->
-    <Compile Include="Helpers\AsyncHelper.cs" />
-    <Compile Include="Helpers\BufferingStateCoordinator.cs" />
-    <Compile Include="Helpers\PlaybackStateCoordinator.cs" />
-    <Compile Include="Helpers\PlaybackSessionState.cs" />
-    <Compile Include="Helpers\PlaybackSessionSnapshot.cs" />
-    <Compile Include="Helpers\SeekCompletionCoordinator.cs" />
-    <Compile Include="Helpers\ImageHelper.cs" />
-    <Compile Include="Helpers\NetworkHelper.cs" />
-    <Compile Include="Helpers\ObservableCollectionExtensions.cs" />
-    <Compile Include="Helpers\RetryHelper.cs" />
-    <Compile Include="Helpers\ServiceLocator.cs" />
-    <Compile Include="Helpers\TimeFormattingHelper.cs" />
-    <Compile Include="Helpers\UIHelper.cs" />
-    <Compile Include="Helpers\UrlHelper.cs" />
-    <!-- Models -->
-    <Compile Include="Models\AppPreferences.cs" />
-    <Compile Include="Models\ErrorHandling.cs" />
-    <Compile Include="Models\FilterItem.cs" />
-    <Compile Include="Models\DecadeFilterItem.cs" />
-    <Compile Include="Models\MediaPlaybackModels.cs" />
-    <Compile Include="Models\NetworkMetrics.cs" />
-    <Compile Include="Models\QuickConnectInstructionsParameters.cs" />
-    <Compile Include="Models\SearchPageParams.cs" />
-    <!-- Converters - Data -->
-    <Compile Include="Converters\Data\InverseBooleanConverter.cs" />
-    <Compile Include="Converters\Data\PercentageToWidthConverter.cs" />
-    <Compile Include="Converters\Data\PlayedToOpacityConverter.cs" />
-    <!-- Converters - Image -->
-    <Compile Include="Converters\Image\ImageConverter.cs" />
-    <Compile Include="Converters\Image\LibraryIconConverter.cs" />
-    <Compile Include="Converters\Image\PersonImageConverter.cs" />
-    <!-- Converters - Text -->
-    <Compile Include="Converters\Text\MediaTextConverters.cs" />
-    <Compile Include="Converters\Text\RuntimeTicksConverter.cs" />
-    <Compile Include="Converters\Text\SortFilterConverters.cs" />
-    <Compile Include="Converters\Text\YearDisplayConverter.cs" />
-    <!-- Converters - Visibility -->
-    <Compile Include="Converters\Visibility\VisibilityConverters.cs" />
-    <!-- Converters - MediaPlayer -->
-    <Compile Include="Converters\MediaPlayerConverters.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <!-- Services -->
-    <Compile Include="Services\AuthenticationService.cs" />
-    <Compile Include="Services\BaseService.cs" />
-    <Compile Include="Services\CacheManagerService.cs" />
-    <Compile Include="Services\DeviceProfileService.cs" />
-    <Compile Include="Services\FileCacheProvider.cs" />
-    <Compile Include="Services\MediaQueueService.cs" />
-    <Compile Include="Services\ImageLoadingService.cs" />
-    <Compile Include="Services\MediaDiscoveryService.cs" />
-    <Compile Include="Services\MediaOptimizationService.cs" />
-    <Compile Include="Services\MediaPlaybackService.cs" />
-    <Compile Include="Services\MusicPlayerService.cs" />
-    <Compile Include="Services\NavigationService.cs" />
-    <Compile Include="Services\PreferencesService.cs" />
-    <Compile Include="Services\ServiceInterfaces.cs" />
-    <Compile Include="Services\SystemMonitorService.cs" />
-    <Compile Include="Services\UnifiedDeviceService.cs" />
-    <Compile Include="Services\UserProfileService.cs" />
-    <Compile Include="Services\MediaControlService.cs" />
-    <Compile Include="Services\DialogService.cs" />
-    <Compile Include="Services\ErrorHandlingService.cs" />
-    <Compile Include="Services\ControllerInputService.cs" />
-    <Compile Include="Services\PlaybackControlService.cs" />
-    <Compile Include="Services\PlaybackResumeCoordinator.cs" />
-    <Compile Include="Services\PlaybackSourceResolver.cs" />
-    <Compile Include="Services\SubtitleService.cs" />
-    <Compile Include="Services\UserDataService.cs" />
-    <!-- ViewModels -->
-    <Compile Include="ViewModels\BaseViewModel.cs" />
-    <Compile Include="ViewModels\FavoritesViewModel.cs" />
-    <Compile Include="ViewModels\LibrarySelectionViewModel.cs" />
-    <Compile Include="ViewModels\LibraryViewModel.cs" />
-    <Compile Include="ViewModels\MainViewModel.cs" />
-    <Compile Include="ViewModels\SettingsViewModel.cs" />
-    <Compile Include="ViewModels\AlbumDetailsViewModel.cs" />
-    <Compile Include="ViewModels\ArtistDetailsViewModel.cs" />
-    <Compile Include="ViewModels\DetailsViewModel.cs" />
-    <Compile Include="ViewModels\CollectionDetailsViewModel.cs" />
-    <Compile Include="ViewModels\LoginViewModel.cs" />
-    <Compile Include="ViewModels\MediaPlayerViewModel.cs" />
-    <Compile Include="ViewModels\MovieDetailsViewModel.cs" />
-    <Compile Include="ViewModels\NetworkSettingsViewModel.cs" />
-    <Compile Include="ViewModels\PersonDetailsViewModel.cs" />
-    <Compile Include="ViewModels\PlaybackSettingsViewModel.cs" />
-    <Compile Include="ViewModels\QuickConnectInstructionsViewModel.cs" />
-    <Compile Include="ViewModels\SeasonDetailsViewModel.cs" />
-    <Compile Include="ViewModels\ServerSelectionViewModel.cs" />
-    <Compile Include="ViewModels\ServerSettingsViewModel.cs" />
-    <!-- Views -->
-    <Compile Include="Views\AlbumDetailsPage.xaml.cs">
-      <DependentUpon>AlbumDetailsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\ArtistDetailsPage.xaml.cs">
-      <DependentUpon>ArtistDetailsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\BasePage.cs" />
-    <Compile Include="Views\DetailsPage.cs" />
-    <Compile Include="Views\CollectionDetailsPage.xaml.cs">
+    <!-- Details -->
+    <Compile Include="Details\CollectionDetailsPage.xaml.cs">
       <DependentUpon>CollectionDetailsPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\FavoritesPage.xaml.cs">
-      <DependentUpon>FavoritesPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\LibraryPage.xaml.cs">
-      <DependentUpon>LibraryPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\LibrarySelectionPage.xaml.cs">
-      <DependentUpon>LibrarySelectionPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\LoginPage.xaml.cs">
-      <DependentUpon>LoginPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\MainPage.xaml.cs">
-      <DependentUpon>MainPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\MediaPlayerPage.xaml.cs">
-      <DependentUpon>MediaPlayerPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\MovieDetailsPage.xaml.cs">
+    <Compile Include="Details\CollectionDetailsViewModel.cs" />
+    <Compile Include="Details\DetailsPage.cs" />
+    <Compile Include="Details\DetailsViewModel.cs" />
+    <Compile Include="Details\MediaLabels.cs" />
+    <Compile Include="Details\MovieDetailsPage.xaml.cs">
       <DependentUpon>MovieDetailsPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\PersonDetailsPage.xaml.cs">
+    <Compile Include="Details\MovieDetailsViewModel.cs" />
+    <Compile Include="Details\MovieVersion.cs" />
+    <Compile Include="Details\PersonDetailsPage.xaml.cs">
       <DependentUpon>PersonDetailsPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\QuickConnectInstructionsPage.xaml.cs">
-      <DependentUpon>QuickConnectInstructionsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\SearchPage.xaml.cs">
-      <DependentUpon>SearchPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\SeasonDetailsPage.xaml.cs">
+    <Compile Include="Details\PersonDetailsViewModel.cs" />
+    <Compile Include="Details\PersonImageConverter.cs" />
+    <Compile Include="Details\SeasonDetailsPage.xaml.cs">
       <DependentUpon>SeasonDetailsPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\ServerSelectionPage.xaml.cs">
-      <DependentUpon>ServerSelectionPage.xaml</DependentUpon>
+    <Compile Include="Details\SeasonDetailsViewModel.cs" />
+    <Compile Include="Details\UserDataService.cs" />
+    <!-- Favorites -->
+    <Compile Include="Favorites\FavoritesPage.xaml.cs">
+      <DependentUpon>FavoritesPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\SettingsPage.xaml.cs">
+    <Compile Include="Favorites\FavoritesViewModel.cs" />
+    <!-- Home -->
+    <Compile Include="Home\HomeConstants.cs" />
+    <Compile Include="Home\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Home\MainViewModel.cs" />
+    <Compile Include="Home\MediaDiscoveryService.cs" />
+    <!-- Library -->
+    <Compile Include="Library\DecadeFilterItem.cs" />
+    <Compile Include="Library\FilterItem.cs" />
+    <Compile Include="Library\LibraryConstants.cs" />
+    <Compile Include="Library\LibraryIconConverter.cs" />
+    <Compile Include="Library\LibraryPage.xaml.cs">
+      <DependentUpon>LibraryPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Library\LibrarySelectionPage.xaml.cs">
+      <DependentUpon>LibrarySelectionPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Library\LibrarySelectionViewModel.cs" />
+    <Compile Include="Library\LibraryViewModel.cs" />
+    <Compile Include="Library\SortFilterConverter.cs" />
+    <!-- Music -->
+    <Compile Include="Music\AlbumDetailsPage.xaml.cs">
+      <DependentUpon>AlbumDetailsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Music\AlbumDetailsViewModel.cs" />
+    <Compile Include="Music\ArtistDetailsPage.xaml.cs">
+      <DependentUpon>ArtistDetailsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Music\ArtistDetailsViewModel.cs" />
+    <Compile Include="Music\MediaControlService.cs" />
+    <Compile Include="Music\MusicConstants.cs" />
+    <Compile Include="Music\MusicDetailsPage.cs" />
+    <Compile Include="Music\MusicDetailsViewModel.cs" />
+    <Compile Include="Music\MusicPlayer.xaml.cs">
+      <DependentUpon>MusicPlayer.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Music\MusicPlayerService.Fallback.cs" />
+    <Compile Include="Music\MusicPlayerService.Reporting.cs" />
+    <Compile Include="Music\MusicPlayerService.TransportControls.cs" />
+    <Compile Include="Music\MusicPlayerService.cs" />
+    <Compile Include="Music\MusicQueueService.cs" />
+    <Compile Include="Music\ShuffleHelper.cs" />
+    <Compile Include="Music\TrackRow.xaml.cs">
+      <DependentUpon>TrackRow.xaml</DependentUpon>
+    </Compile>
+    <!-- Playback -->
+    <Compile Include="Playback\AudioTrack.cs" />
+    <Compile Include="Playback\DeviceProfileService.cs" />
+    <Compile Include="Playback\MediaOptimizationService.cs" />
+    <Compile Include="Playback\MediaPlaybackService.cs" />
+    <Compile Include="Playback\MediaStreamHelper.cs" />
+    <Compile Include="Playback\PlaybackConstants.cs" />
+    <Compile Include="Playback\PlaybackReport.cs" />
+    <Compile Include="Playback\SubtitleTrack.cs" />
+    <!-- Player -->
+    <Compile Include="Player\BufferingStateCoordinator.cs" />
+    <Compile Include="Player\ControllerInputService.cs" />
+    <Compile Include="Player\EpisodeNavigationParameter.cs" />
+    <Compile Include="Player\MediaAction.cs" />
+    <Compile Include="Player\MediaPlaybackParams.cs" />
+    <Compile Include="Player\MediaPlayerConverters.cs" />
+    <Compile Include="Player\MediaPlayerPage.xaml.Controls.cs" />
+    <Compile Include="Player\MediaPlayerPage.xaml.Input.cs" />
+    <Compile Include="Player\MediaPlayerPage.xaml.cs">
+      <DependentUpon>MediaPlayerPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Player\MediaPlayerViewModel.Hls.cs" />
+    <Compile Include="Player\MediaPlayerViewModel.Input.cs" />
+    <Compile Include="Player\MediaPlayerViewModel.SkipSegments.cs" />
+    <Compile Include="Player\MediaPlayerViewModel.Stats.cs" />
+    <Compile Include="Player\MediaPlayerViewModel.cs" />
+    <Compile Include="Player\MediaQueueService.cs" />
+    <Compile Include="Player\PlaybackControlService.cs" />
+    <Compile Include="Player\PlaybackResumeCoordinator.cs" />
+    <Compile Include="Player\PlaybackSessionSnapshot.cs" />
+    <Compile Include="Player\PlaybackSessionState.cs" />
+    <Compile Include="Player\PlaybackSourceResolver.cs" />
+    <Compile Include="Player\PlaybackStateCoordinator.cs" />
+    <Compile Include="Player\PlaybackStats.cs" />
+    <Compile Include="Player\PlayerConstants.cs" />
+    <Compile Include="Player\ResumeStuckException.cs" />
+    <Compile Include="Player\SeekCompletionCoordinator.cs" />
+    <Compile Include="Player\SkipSegmentType.cs" />
+    <!-- Properties -->
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <!-- Search -->
+    <Compile Include="Search\SearchConstants.cs" />
+    <Compile Include="Search\SearchPage.xaml.cs">
+      <DependentUpon>SearchPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Search\SearchPageParams.cs" />
+    <!-- Settings -->
+    <Compile Include="Settings\HomeSettingsViewModel.cs" />
+    <Compile Include="Settings\PlaybackSettingsViewModel.cs" />
+    <Compile Include="Settings\ServerSettingsViewModel.cs" />
+    <Compile Include="Settings\SettingsPage.xaml.cs">
       <DependentUpon>SettingsPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Settings\SettingsViewModel.cs" />
+    <Compile Include="Settings\SettingsViewModelBase.cs" />
+    <!-- Shared -->
+    <Compile Include="Shared\Async\AsyncHelper.cs" />
+    <Compile Include="Shared\Async\RetryConstants.cs" />
+    <Compile Include="Shared\Async\RetryHelper.cs" />
+    <Compile Include="Shared\Base\BaseControl.cs" />
+    <Compile Include="Shared\Base\BasePage.cs" />
+    <Compile Include="Shared\Base\BaseService.cs" />
+    <Compile Include="Shared\Base\BaseViewModel.cs" />
+    <Compile Include="Shared\Base\IPageViewModel.cs" />
+    <Compile Include="Shared\Device\AppMemory.cs" />
+    <Compile Include="Shared\Device\UnifiedDeviceService.cs" />
+    <Compile Include="Shared\Device\XboxDevice.cs" />
+    <Compile Include="Shared\Errors\DialogService.cs" />
+    <Compile Include="Shared\Errors\ErrorContext.cs" />
+    <Compile Include="Shared\Errors\ErrorHandlingService.cs" />
+    <Compile Include="Shared\Images\ImageConstants.cs" />
+    <Compile Include="Shared\Images\ImageConverter.cs" />
+    <Compile Include="Shared\Images\ImageHelper.cs" />
+    <Compile Include="Shared\Images\ImageLoadingService.cs" />
+    <Compile Include="Shared\Navigation\NavigationService.cs" />
+    <Compile Include="Shared\Navigation\RootContainer.xaml.cs">
+      <DependentUpon>RootContainer.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Shared\Preferences\AppPreferences.cs" />
+    <Compile Include="Shared\Preferences\PreferenceConstants.cs" />
+    <Compile Include="Shared\Preferences\PreferencesService.cs" />
+    <Compile Include="Shared\Server\BrandingConstants.cs" />
+    <Compile Include="Shared\Server\CacheManagerService.cs" />
+    <Compile Include="Shared\Server\ConnectionTimeoutHandler.cs" />
+    <Compile Include="Shared\Server\NetworkHelper.cs" />
+    <Compile Include="Shared\Server\ServiceLocator.cs" />
+    <Compile Include="Shared\Server\SystemConstants.cs" />
+    <Compile Include="Shared\Server\UrlHelper.cs" />
+    <Compile Include="Shared\Ui\ControllerInputHelper.cs" />
+    <Compile Include="Shared\Ui\InverseBooleanConverter.cs" />
+    <Compile Include="Shared\Ui\LoadingOverlay.xaml.cs">
+      <DependentUpon>LoadingOverlay.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Shared\Ui\MediaTextConverter.cs" />
+    <Compile Include="Shared\Ui\ObservableCollectionExtensions.cs" />
+    <Compile Include="Shared\Ui\OneWayConverter.cs" />
+    <Compile Include="Shared\Ui\PercentageToWidthConverter.cs" />
+    <Compile Include="Shared\Ui\PlayedToOpacityConverter.cs" />
+    <Compile Include="Shared\Ui\RuntimeTicksConverter.cs" />
+    <Compile Include="Shared\Ui\TimeFormattingHelper.cs" />
+    <Compile Include="Shared\Ui\UiConstants.cs" />
+    <Compile Include="Shared\Ui\UiHelper.cs" />
+    <Compile Include="Shared\Ui\UnwatchedIndicator.xaml.cs">
+      <DependentUpon>UnwatchedIndicator.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Shared\Ui\VisibilityConverter.cs" />
+    <!-- SignIn -->
+    <Compile Include="SignIn\AuthenticationService.cs" />
+    <Compile Include="SignIn\LoginPage.xaml.cs">
+      <DependentUpon>LoginPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SignIn\LoginViewModel.cs" />
+    <Compile Include="SignIn\ProfileSelectionPage.xaml.cs">
+      <DependentUpon>ProfileSelectionPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SignIn\ProfileSelectionViewModel.cs" />
+    <Compile Include="SignIn\QuickConnectInstructionsPage.xaml.cs">
+      <DependentUpon>QuickConnectInstructionsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SignIn\QuickConnectInstructionsParameters.cs" />
+    <Compile Include="SignIn\QuickConnectInstructionsViewModel.cs" />
+    <Compile Include="SignIn\QuickConnectResult.cs" />
+    <Compile Include="SignIn\ServerSelectionPage.xaml.cs">
+      <DependentUpon>ServerSelectionPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SignIn\ServerSelectionViewModel.cs" />
+    <Compile Include="SignIn\SignInConstants.cs" />
+    <Compile Include="SignIn\UserProfile.cs" />
+    <Compile Include="SignIn\UserProfileService.cs" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(Edition)' != '4K'">
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
+  </ItemGroup>
+  <ItemGroup Condition="'$(Edition)' == '4K'">
+    <None Include="Package.appxmanifest" />
+    <AppxManifest Include="$(IntermediateOutputPath)Package.4K.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\BadgeLogo.scale-100.png" />
@@ -315,7 +401,6 @@
     <Content Include="Assets\Square44x44Logo.targetsize-256.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-32.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-48.png" />
-    <None Include="Gelatinarm_TemporaryKey.pfx" />
     <None Include="Package.StoreAssociation.xml" />
     <Content Include="Properties\Default.rd.xml" />
     <Content Include="Assets\StoreLogo.scale-100.png" />
@@ -350,89 +435,122 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <!-- Control XAML files -->
-    <Page Include="Controls\LoadingOverlay.xaml">
+    <!-- Details -->
+    <Page Include="Details\CollectionDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\MusicPlayer.xaml">
+    <Page Include="Details\DetailsResources.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\RootContainer.xaml">
+    <Page Include="Details\MovieDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\UnwatchedIndicator.xaml">
+    <Page Include="Details\PersonDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <!-- View XAML files -->
-    <Page Include="Views\AlbumDetailsPage.xaml">
+    <Page Include="Details\SeasonDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\ArtistDetailsPage.xaml">
+    <!-- Favorites -->
+    <Page Include="Favorites\FavoritesPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\CollectionDetailsPage.xaml">
+    <!-- Home -->
+    <Page Include="Home\MainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\FavoritesPage.xaml">
+    <!-- Library -->
+    <Page Include="Library\LibraryPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\LibraryPage.xaml">
+    <Page Include="Library\LibrarySelectionPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\LibrarySelectionPage.xaml">
+    <!-- Music -->
+    <Page Include="Music\AlbumDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\LoginPage.xaml">
+    <Page Include="Music\ArtistDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\MainPage.xaml">
+    <Page Include="Music\MusicPlayer.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\MediaPlayerPage.xaml">
+    <Page Include="Music\TrackRow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\DetailsPage.xaml">
+    <!-- Player -->
+    <Page Include="Player\MediaPlayerPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\MovieDetailsPage.xaml">
+    <!-- Search -->
+    <Page Include="Search\SearchPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\PersonDetailsPage.xaml">
+    <!-- Settings -->
+    <Page Include="Settings\SettingsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\QuickConnectInstructionsPage.xaml">
+    <!-- Shared -->
+    <Page Include="Shared\Navigation\RootContainer.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\SearchPage.xaml">
+    <Page Include="Shared\Ui\LoadingOverlay.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\SeasonDetailsPage.xaml">
+    <Page Include="Shared\Ui\UnwatchedIndicator.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\ServerSelectionPage.xaml">
+    <!-- SignIn -->
+    <Page Include="SignIn\LoginPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\SettingsPage.xaml">
+    <Page Include="SignIn\ProfileSelectionPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SignIn\QuickConnectInstructionsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SignIn\ServerSelectionPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <!-- Styles -->
+    <Page Include="Styles\Colours.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\Controls.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\Templates.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\Text.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -441,4 +559,115 @@
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <!-- The 4K edition's manifest is written from Package.appxmanifest at build time, so the
+       two never drift (one version number, one set of assets). Every substitution must
+       match exactly once, or the build fails rather than packaging a half-converted
+       manifest. -->
+  <UsingTask TaskName="WriteEditionManifest" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Source ParameterType="System.String" Required="true" />
+      <Destination ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var text = File.ReadAllText(Source);
+        var failed = false;
+        Func<string, string, string, string> swap = (input, pattern, replacement) =>
+        {
+            var count = Regex.Matches(input, pattern).Count;
+            if (count != 1)
+            {
+                Log.LogError("4K manifest: expected one match for {0} in {1}, found {2}", pattern, Source, count);
+                failed = true;
+                return input;
+            }
+            return Regex.Replace(input, pattern, replacement);
+        };
+
+        // Own identity, so both editions can be installed side by side
+        text = swap(text, "(<Identity\\s+Name=\")([^\"]+)(\")", "$1${2}4K$3");
+        text = swap(text, "PhoneProductId=\"[^\"]+\"", "PhoneProductId=\"a73cbff0-25c2-4f62-9bfe-fc4d6dc2dd50\"");
+        text = swap(text, "<DisplayName>Gelatinarm</DisplayName>", "<DisplayName>Gelatinarm 4K</DisplayName>");
+        text = swap(text, "(<uap:VisualElements\\s+)DisplayName=\"Gelatinarm\"", "$1DisplayName=\"Gelatinarm 4K\"");
+        text = swap(text, "ShortName=\"Gelatinarm\"", "ShortName=\"Gelatinarm 4K\"");
+
+        // 4K instead of background music
+        text = swap(text, "IgnorableNamespaces=\"([^\"]*)\"",
+            "xmlns:rescap=\"http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities\"\r\n  IgnorableNamespaces=\"$1 rescap\"");
+        text = swap(text, "<uap3:Capability Name=\"backgroundMediaPlayback\" />", "<rescap:Capability Name=\"hevcPlayback\" />");
+
+        if (failed)
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(Destination));
+        if (!File.Exists(Destination) || File.ReadAllText(Destination) != text)
+        {
+            File.WriteAllText(Destination, text, new UTF8Encoding(true));
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="WriteEditionManifest" BeforeTargets="PrepareForBuild" Condition="'$(Edition)' == '4K'">
+    <WriteEditionManifest Source="$(MSBuildProjectDirectory)\Package.appxmanifest" Destination="$(MSBuildProjectDirectory)\$(IntermediateOutputPath)Package.4K.appxmanifest" />
+  </Target>
+  <!-- XAML Styler is the one form the XAML is written in. The build checks every page against it
+       (xstyler, the local dotnet tool in .config/dotnet-tools.json, in passive mode) and fails when
+       one strays; FormatXaml rewrites them into form. One xstyler run over all files costs what one
+       file does, so the check is a single pass, skipped while no XAML has changed. -->
+  <ItemGroup>
+    <XamlToStyle Include="@(ApplicationDefinition);@(Page)" />
+  </ItemGroup>
+  <!-- xstyler names a failing file on the line before its FAIL; pairing them gives one error per file -->
+  <UsingTask TaskName="XamlStylerFailures" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Lines ParameterType="System.String[]" Required="true" />
+      <Files ParameterType="System.String[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Collections.Generic" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var files = new List<string>();
+        for (var i = 1; i < Lines.Length; i++)
+        {
+            if (Lines[i].Trim() == "FAIL" && Lines[i - 1].StartsWith("Checking: "))
+            {
+                files.Add(Lines[i - 1].Substring("Checking: ".Length).Trim());
+            }
+        }
+
+        Files = files.ToArray();
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="RestoreXamlStyler" Inputs="$(MSBuildProjectDirectory)\.config\dotnet-tools.json" Outputs="$(IntermediateOutputPath)xamlstyler.restored" Condition="'$(CheckXamlStyle)' != 'false'">
+    <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)" StandardOutputImportance="low" />
+    <Touch Files="$(IntermediateOutputPath)xamlstyler.restored" AlwaysCreate="true" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)xamlstyler.restored" />
+    </ItemGroup>
+  </Target>
+  <Target Name="CheckXamlStyle" DependsOnTargets="RestoreXamlStyler" BeforeTargets="MarkupCompilePass1" Inputs="@(XamlToStyle);$(MSBuildProjectDirectory)\.config\dotnet-tools.json" Outputs="$(IntermediateOutputPath)xamlstyle.checked" Condition="'$(CheckXamlStyle)' != 'false'">
+    <Exec Command="dotnet tool run xstyler -- -p -l Default -f &quot;@(XamlToStyle->'%(FullPath)', ',')&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="true" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="XamlStyleExitCode" />
+      <Output TaskParameter="ConsoleOutput" ItemName="XamlStyleOutput" />
+    </Exec>
+    <XamlStylerFailures Condition="'$(XamlStyleExitCode)' != '0'" Lines="@(XamlStyleOutput)">
+      <Output TaskParameter="Files" ItemName="XamlNotStyled" />
+    </XamlStylerFailures>
+    <Error Condition="'$(XamlStyleExitCode)' != '0' and '@(XamlNotStyled)' == ''" Text="XAML Styler: @(XamlStyleOutput, ' ')" />
+    <Error Condition="'@(XamlNotStyled)' != ''" ContinueOnError="ErrorAndContinue" File="%(XamlNotStyled.Identity)" Text="Not in XAML Styler form. Run msbuild Gelatinarm.csproj /t:FormatXaml (or dotnet xstyler -f &quot;%(XamlNotStyled.Identity)&quot;) and rebuild." />
+    <Touch Files="$(IntermediateOutputPath)xamlstyle.checked" AlwaysCreate="true" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)xamlstyle.checked" />
+    </ItemGroup>
+  </Target>
+  <Target Name="FormatXaml" DependsOnTargets="RestoreXamlStyler">
+    <Exec Command="dotnet tool run xstyler -- -l Minimal -f &quot;@(XamlToStyle->'%(FullPath)', ',')&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
 </Project>

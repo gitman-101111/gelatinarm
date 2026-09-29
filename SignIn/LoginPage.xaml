@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<base:BasePage
+    x:Class="Gelatinarm.SignIn.LoginPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:base="using:Gelatinarm.Shared.Base"
+    xmlns:ui="using:Gelatinarm.Shared.Ui"
+    Background="{StaticResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <StackPanel Margin="{StaticResource DialogMargin}">
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource PageTitleTextStyle}"
+                Text="Sign In" />
+        </StackPanel>
+
+        <!--  Login Form  -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel
+                Width="350"
+                Margin="{StaticResource SectionMargin}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8">
+                <StackPanel>
+                    <TextBlock
+                        Margin="{StaticResource StandardControlMargin}"
+                        Style="{StaticResource SecondaryTextStyle}"
+                        Text="Username" />
+                    <TextBox
+                        x:Name="UsernameTextBox"
+                        TabIndex="1"
+                        Text="{x:Bind ViewModel.Username, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel>
+                    <TextBlock
+                        Margin="{StaticResource StandardControlMargin}"
+                        Style="{StaticResource SecondaryTextStyle}"
+                        Text="Password" />
+                    <PasswordBox Password="{x:Bind ViewModel.Password, Mode=TwoWay}" TabIndex="2" />
+                </StackPanel>
+
+                <Button
+                    Height="48"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.LoginCommand}"
+                    Content="Sign In"
+                    FontSize="16"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    TabIndex="3" />
+
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource StandardCaptionTextStyle}"
+                    Text="- OR -" />
+
+                <Button
+                    Height="48"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.QuickConnectCommand}"
+                    Content="Quick Connect"
+                    FontSize="16"
+                    IsEnabled="{x:Bind ViewModel.IsQuickConnectEnabled, Mode=OneWay}"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    TabIndex="4" />
+
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{StaticResource SystemControlErrorTextForegroundBrush}"
+                    Style="{StaticResource StandardCaptionTextStyle}"
+                    Text="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+                    TextWrapping="Wrap"
+                    Visibility="{x:Bind ViewModel.ErrorText, Mode=OneWay, Converter={StaticResource NullableToVisibilityConverter}}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  Loading Overlay: last, so it draws over the page  -->
+        <ui:LoadingOverlay
+            Grid.RowSpan="2"
+            IsLoading="{x:Bind ViewModel.IsSigningIn, Mode=OneWay}"
+            LoadingText="Signing in..." />
+    </Grid>
+</base:BasePage>
