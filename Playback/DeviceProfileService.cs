@@ -474,6 +474,18 @@ namespace Gelatinarm.Playback
                 supportedTypes.Add("HLG");
             }
 
+            // These Dolby Vision files carry an HDR10-compatible base layer that any HDR10
+            // display can show, as jellyfin-web assumes. DOVIInvalid catches some ordinary
+            // profile 8 files (jellyfin/jellyfin#18097).
+            if (_deviceService.SupportsHDR10)
+            {
+                supportedTypes.Add("DOVIWithHDR10");
+                supportedTypes.Add("DOVIWithHDR10Plus");
+                supportedTypes.Add("DOVIWithEL");
+                supportedTypes.Add("DOVIWithELHDR10Plus");
+                supportedTypes.Add("DOVIInvalid");
+            }
+
             // Dolby Vision (Series consoles on a DV display). The range types go in
             // this one list rather than a separate HEVC codec profile: Jellyfin applies
             // every codec profile for a codec and all of their conditions must pass,
@@ -481,7 +493,11 @@ namespace Gelatinarm.Playback
             if (_deviceService.SupportsDolbyVision)
             {
                 supportedTypes.Add("DOVI");
-                supportedTypes.Add("DOVIWithHDR10");
+                if (!_deviceService.SupportsHDR10)
+                {
+                    supportedTypes.Add("DOVIWithHDR10");
+                }
+
                 supportedTypes.Add("DOVIWithHLG");
                 supportedTypes.Add("DOVIWithSDR");
             }
