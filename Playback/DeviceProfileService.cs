@@ -137,7 +137,8 @@ namespace Gelatinarm.Playback
             // Kept outside the tables because they played on the console: AAC, AC3 and MP3 in MKV
             // (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560 wide).
             // Beyond those, a codec the console accepts but cannot decode plays silent, with no
-            // failure to retry on (FLAC in MKV did).
+            // failure to retry on (FLAC in MKV did). E-AC3 in MKV, MP4 and TS is in the lists
+            // without a console test yet (upstream issue #23).
             //
             // Every profile states its Type. The server only considers Video-type profiles for
             // video and Audio-type for music, and an omitted Type deserializes as the enum's
@@ -149,18 +150,19 @@ namespace Gelatinarm.Playback
             const string Vc1 = "vc1,wvc1,wmv3,";
             const string Aac = "aac,mp4a,";
             const string Ac3 = "ac3,ac-3,";
+            const string Eac3 = "eac3,ec-3,";
             const string Amr = "amrnb,amr_nb,";
             const string Wma = "wma,wmap,wmav1,wmav2,wmapro,wmavoice,";
             const string Lpcm = "pcm,lpcm,pcm_s16le,pcm_s24le,pcm_s32le,pcm_u8,pcm_f32le,";
 
             return new List<DirectPlayProfile>
             {
-                Video("mp4,m4v,mov,fmp4", H264 + hevc + vp9 + Vc1 + "mpeg4,mp4v", Aac + Ac3 + Amr + "alac,mp3"),
+                Video("mp4,m4v,mov,fmp4", H264 + hevc + vp9 + Vc1 + "mpeg4,mp4v", Aac + Ac3 + Eac3 + Amr + "alac,mp3"),
                 Video("3gp", H264 + "mpeg4,mp4v", Amr),
-                Video("mkv,webm,matroska", H264 + hevc + vp9 + Vc1 + "mpeg2video,mpeg4,mp4v", Aac + Ac3 + "mp3"),
+                Video("mkv,webm,matroska", H264 + hevc + vp9 + Vc1 + "mpeg2video,mpeg4,mp4v", Aac + Ac3 + Eac3 + "mp3"),
                 Video("avi", H264 + Vc1 + "mpeg4,mp4v", Ac3 + "mp3"),
                 Video("asf,wmv", Vc1 + "wmv1", Wma + Ac3),
-                Video("mpg,mpeg,ts,m2ts,mts", H264 + "mpeg2video", Ac3 + "mp2"),
+                Video("mpg,mpeg,ts,m2ts,mts", H264 + "mpeg2video", Ac3 + Eac3 + "mp2"),
                 Audio("mp3", "mp3"),
                 Audio("aac", Aac),
                 Audio("m4a,m4b", Aac + Ac3 + Amr + "alac,mp3,flac"),
