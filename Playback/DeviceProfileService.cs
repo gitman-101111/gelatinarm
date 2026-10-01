@@ -460,11 +460,9 @@ namespace Gelatinarm.Playback
 
             if (_deviceService.SupportsHDR10)
             {
+                // HDR10+ is HDR10 plus dynamic metadata that a display without HDR10+ ignores, and
+                // jellyfin-web likewise accepts it on any HDR10 display
                 supportedTypes.Add("HDR10");
-            }
-
-            if (_deviceService.SupportsHDR10Plus)
-            {
                 supportedTypes.Add("HDR10Plus");
             }
 
