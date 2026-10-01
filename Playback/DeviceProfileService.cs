@@ -484,7 +484,9 @@ namespace Gelatinarm.Playback
                 supportedTypes.Add("DOVIInvalid");
             }
 
-            // Dolby Vision (Series consoles on a DV display). The range types go in
+            // Profile 5 and the HLG- and SDR-based files have no HDR10 picture, so they need
+            // Dolby Vision output: a Series console on a display that reports low-latency
+            // Dolby Vision (UnifiedDeviceService.SupportsDolbyVision). The range types go in
             // this one list rather than a separate HEVC codec profile: Jellyfin applies
             // every codec profile for a codec and all of their conditions must pass,
             // so a DV-only HEVC profile disqualified every non-DV HEVC file.

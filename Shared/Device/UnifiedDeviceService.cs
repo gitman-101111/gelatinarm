@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using Windows.Graphics.Display;
+using Windows.Graphics.Display.Core;
 using Windows.Security.ExchangeActiveSyncProvisioning;
 using Windows.Storage;
 using Windows.System;
@@ -27,6 +29,7 @@ namespace Gelatinarm.Shared.Device
         private const int OneMaxBitrate = 80000000;
 
         private readonly DisplayInformation _displayInfo;
+        private readonly bool _displaySupportsLowLatencyDolbyVision;
         private readonly object _localSettingsLock = new();
         private string _deviceId;
         private volatile ApplicationDataContainer _localSettings;
@@ -45,6 +48,7 @@ namespace Gelatinarm.Shared.Device
             }
 
             IsXboxSeriesConsole = DetectXboxSeriesModel();
+            _displaySupportsLowLatencyDolbyVision = DetectLowLatencyDolbyVisionDisplay();
             DetectHdrSupport();
 
             RegisterForDeviceEvents();
@@ -83,7 +87,7 @@ namespace Gelatinarm.Shared.Device
         // HLG carries no metadata to detect, so it rides on full HDR10 support on a Series console
         public bool SupportsHlg => _supportsHdr10 && IsXboxSeriesConsole;
 
-        public bool SupportsDolbyVision => IsXboxSeriesConsole;
+        public bool SupportsDolbyVision => IsXboxSeriesConsole && _displaySupportsLowLatencyDolbyVision;
 
         public int MaxSupportedBitrate => IsXboxSeriesConsole ? SeriesMaxBitrate : OneMaxBitrate;
 
@@ -151,12 +155,33 @@ namespace Gelatinarm.Shared.Device
                 }
 
                 Logger.LogInformation(
-                    "Display: HDR={HasHdr}, HDR10={SupportsHdr10}, HDR10+={SupportsHdr10Plus}, HLG={SupportsHlg}, DolbyVision={SupportsDolbyVision}",
-                    hasHdr, _supportsHdr10, supportsHdr10Plus, SupportsHlg, SupportsDolbyVision);
+                    "Display: HDR={HasHdr}, HDR10={SupportsHdr10}, HDR10+={SupportsHdr10Plus}, HLG={SupportsHlg}, DolbyVisionLowLatency={DisplaySupportsLowLatencyDolbyVision}, DolbyVision={SupportsDolbyVision}",
+                    hasHdr, _supportsHdr10, supportsHdr10Plus, SupportsHlg, _displaySupportsLowLatencyDolbyVision, SupportsDolbyVision);
             }
             catch (Exception ex)
             {
                 ErrorHandler.HandleError(ex, CreateErrorContext("DetectHdrSupport"));
+            }
+        }
+
+        // The Xbox sends Dolby Vision only in its low-latency (player-led) form, for media apps as
+        // well as games, so a TV that takes only TV-led Dolby Vision gets none from it; UWP has no
+        // TV-led query anyway (HdrMetadataFormat stops at HDR10+). IsDolbyVisionLowLatencySupported
+        // arrived in 10.0.17763, the minimum version, so it needs no ApiInformation check.
+        private bool DetectLowLatencyDolbyVisionDisplay()
+        {
+            try
+            {
+                var modes = HdmiDisplayInformation.GetForCurrentView()?.GetSupportedDisplayModes();
+                return modes?.Any(mode => mode.IsDolbyVisionLowLatencySupported) == true;
+            }
+            catch (Exception ex)
+            {
+                // Unknown counts as unsupported: the Dolby Vision files an HDR10 display can show are
+                // accepted through SupportsHDR10 anyway, so this only sends profile 5 and the HLG- and
+                // SDR-based files to a transcode instead of a direct play in the wrong colours.
+                ErrorHandler.HandleError(ex, CreateErrorContext("DetectLowLatencyDolbyVisionDisplay", ErrorCategory.Media, ErrorSeverity.Warning));
+                return false;
             }
         }
 
