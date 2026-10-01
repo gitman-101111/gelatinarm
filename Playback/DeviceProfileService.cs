@@ -257,11 +257,11 @@ namespace Gelatinarm.Playback
                 Container = "mp4",
                 Type = TranscodingProfile_Type.Video,
                 VideoCodec = videoCodec,
-                // Only AAC and AC3 are safe to stream-copy into HLS/MPEG-TS.
-                // MP3 and FLAC are not valid HLS audio codecs -- Xbox's AdaptiveMediaSource
-                // fails to open manifests that contain them. Any other codec will be
-                // transcoded to AAC (first in the list) by the server.
-                AudioCodec = "aac,ac3",
+                // Only AAC, AC3 and E-AC3 are stream-copied into HLS/MPEG-TS; E-AC3 there
+                // has no console test yet. MP3 and FLAC are not valid HLS audio codecs --
+                // Xbox's AdaptiveMediaSource fails to open manifests that contain them. Any
+                // other codec will be transcoded to AAC (first in the list) by the server.
+                AudioCodec = "aac,ac3,eac3",
                 Context = TranscodingProfile_Context.Streaming,
                 Protocol = TranscodingProfile_Protocol.Hls,
                 MinSegments = 5,
