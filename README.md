@@ -96,20 +96,21 @@ the server tone-maps and transcodes.
 | Codec | Direct play | Otherwise |
 |-------|:-----------:|-----------|
 | **AAC, MP3, AC3 (Dolby Digital)** | ✅ | – |
+| **E-AC3 (Dolby Digital Plus, including Atmos)** | ✅ in MKV, MP4/MOV and TS | – |
 | **ALAC, AMR** | ✅ in MP4/MOV | – |
 | **MP2** | ✅ in TS/MPG | – |
 | **WMA** | ✅ in ASF/WMV | – |
-| **FLAC, PCM, E-AC3 (Dolby Digital Plus), DTS, TrueHD, Opus, Vorbis** | ❌ | Audio converted by the server; the video is still copied untouched if it qualifies. FLAC in MKV plays silent on the console, so it is converted on purpose |
+| **FLAC, PCM, DTS, TrueHD, Opus, Vorbis** | ❌ | Audio converted by the server; the video is still copied untouched if it qualifies. FLAC in MKV plays silent on the console, so it is converted on purpose |
 
 When the server has to make a stream anyway, **Settings → Playback → Audio Direct
-Stream** lets it pass AAC and AC3 through instead of re-encoding them.
+Stream** lets it pass AAC, AC3 and E-AC3 through instead of re-encoding them.
 
 ### Containers
 
 | Container | Direct play |
 |-----------|:-----------:|
 | **MKV, WebM, MP4, M4V, MOV** | ✅ |
-| **TS, M2TS, MTS, MPG, MPEG** | ✅ MPEG-1/2 and H.264 video with AC3 or MP2 audio |
+| **TS, M2TS, MTS, MPG, MPEG** | ✅ MPEG-1/2 and H.264 video with AC3, E-AC3 or MP2 audio |
 | **AVI, WMV/ASF, 3GP** | ✅ (older codecs) |
 | **Anything else** | ❌ Remuxed by the server |
 
