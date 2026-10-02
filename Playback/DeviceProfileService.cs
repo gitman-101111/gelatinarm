@@ -134,10 +134,10 @@ namespace Gelatinarm.Playback
             // gives each container.
             // https://learn.microsoft.com/en-us/windows/uwp/apps-for-xbox/supported-technologies
             // https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs
-            // Kept outside the tables because they played on the console: AAC, AC3 and MP3 in MKV
-            // (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560 wide).
-            // Beyond those, a codec the console accepts but cannot decode plays silent, with no
-            // failure to retry on (FLAC in MKV did).
+            // Kept outside the tables because they played on the console: AAC, AC3, DTS (core) and
+            // MP3 in MKV (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560
+            // wide). Beyond those, a codec the console accepts but cannot decode plays silent, with
+            // no failure to retry on (FLAC in MKV did).
             //
             // Every profile states its Type. The server only considers Video-type profiles for
             // video and Audio-type for music, and an omitted Type deserializes as the enum's
@@ -149,6 +149,7 @@ namespace Gelatinarm.Playback
             const string Vc1 = "vc1,wvc1,wmv3,";
             const string Aac = "aac,mp4a,";
             const string Ac3 = "ac3,ac-3,";
+            const string Dts = "dts,dca,";
             const string Amr = "amrnb,amr_nb,";
             const string Wma = "wma,wmap,wmav1,wmav2,wmapro,wmavoice,";
             const string Lpcm = "pcm,lpcm,pcm_s16le,pcm_s24le,pcm_s32le,pcm_u8,pcm_f32le,";
@@ -157,7 +158,7 @@ namespace Gelatinarm.Playback
             {
                 Video("mp4,m4v,mov,fmp4", H264 + hevc + vp9 + Vc1 + "mpeg4,mp4v", Aac + Ac3 + Amr + "alac,mp3"),
                 Video("3gp", H264 + "mpeg4,mp4v", Amr),
-                Video("mkv,webm,matroska", H264 + hevc + vp9 + Vc1 + "mpeg2video,mpeg4,mp4v", Aac + Ac3 + "mp3"),
+                Video("mkv,webm,matroska", H264 + hevc + vp9 + Vc1 + "mpeg2video,mpeg4,mp4v", Aac + Ac3 + Dts + "mp3"),
                 Video("avi", H264 + Vc1 + "mpeg4,mp4v", Ac3 + "mp3"),
                 Video("asf,wmv", Vc1 + "wmv1", Wma + Ac3),
                 Video("mpg,mpeg,ts,m2ts,mts", H264 + "mpeg2video", Ac3 + "mp2"),
@@ -389,6 +390,27 @@ namespace Gelatinarm.Playback
                         Condition = ProfileCondition_Condition.LessThanEqual,
                         Property = ProfileCondition_Property.AudioChannels,
                         Value = "6",
+                        IsRequired = false
+                    }
+                }.ToList()
+            });
+
+            // ffprobe reports DTS-HD MA/HRA, DTS:X and DTS Express as codec "dts" too, told
+            // apart only by profile. Only the core profiles direct play: Media Foundation gives
+            // DTS-HD and LBR their own subtypes (MFAudioFormat_DTS_HD, _DTS_XLL, _DTS_LBR), so a
+            // core decoder is no evidence for them, and Express has no core at all. The rest
+            // keep the video copied and only the audio re-encoded.
+            profiles.Add(new CodecProfile
+            {
+                Type = CodecProfile_Type.VideoAudio,
+                Codec = "dts,dca",
+                Conditions = new[]
+                {
+                    new ProfileCondition
+                    {
+                        Condition = ProfileCondition_Condition.EqualsAny,
+                        Property = ProfileCondition_Property.AudioProfile,
+                        Value = "DTS|DTS-ES|DTS 96/24",
                         IsRequired = false
                     }
                 }.ToList()
