@@ -134,11 +134,11 @@ namespace Gelatinarm.Playback
             // gives each container.
             // https://learn.microsoft.com/en-us/windows/uwp/apps-for-xbox/supported-technologies
             // https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs
-            // Kept outside the tables because they played on the console: AAC, AC3 and MP3 in MKV
-            // (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560 wide).
+            // Kept outside the tables because they played on the console: AAC, AC3, E-AC3 and MP3
+            // in MKV (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560 wide).
             // Beyond those, a codec the console accepts but cannot decode plays silent, with no
-            // failure to retry on (FLAC in MKV did). E-AC3 in MKV, MP4 and TS is in the lists
-            // without a console test yet (upstream issue #23).
+            // failure to retry on (FLAC in MKV did). E-AC3 in MP4 and TS is listed without a
+            // console test yet.
             //
             // Every profile states its Type. The server only considers Video-type profiles for
             // video and Audio-type for music, and an omitted Type deserializes as the enum's
@@ -257,10 +257,10 @@ namespace Gelatinarm.Playback
                 Container = "mp4",
                 Type = TranscodingProfile_Type.Video,
                 VideoCodec = videoCodec,
-                // Only AAC, AC3 and E-AC3 are stream-copied into HLS/MPEG-TS; E-AC3 there
-                // has no console test yet. MP3 and FLAC are not valid HLS audio codecs --
-                // Xbox's AdaptiveMediaSource fails to open manifests that contain them. Any
-                // other codec will be transcoded to AAC (first in the list) by the server.
+                // Only AAC, AC3 and E-AC3 are safe to stream-copy into HLS/MPEG-TS.
+                // MP3 and FLAC are not valid HLS audio codecs -- Xbox's AdaptiveMediaSource
+                // fails to open manifests that contain them. Any other codec will be
+                // transcoded to AAC (first in the list) by the server.
                 AudioCodec = "aac,ac3,eac3",
                 Context = TranscodingProfile_Context.Streaming,
                 Protocol = TranscodingProfile_Protocol.Hls,
