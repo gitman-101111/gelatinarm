@@ -25,7 +25,7 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 - **Direct Play** - Compatible files play as-is, straight from your server, with no transcoding
 - **Playback statistics (Y)** - Shows whether you're direct playing, remuxing or transcoding, and the server's reasons
 - **Hardware acceleration** - Optimized decoding for smooth playback
-- **HDR support** - HDR10 (all Xbox models), HDR10+, HLG, and Dolby Vision Profile 8.1 (Xbox Series S/X only)
+- **HDR support** - HDR10 and HDR10+ (all Xbox models), HLG, and Dolby Vision (Xbox Series S/X; Dolby Vision files with an HDR10 base layer play as HDR10 on Xbox One S/X too)
 - **Auto-Play Next Episode** - Seamlessly continue to the next episode
 - **Episode Shuffle Mode** - Random episode playback for your favorite shows
 - **Multiple Audio & Subtitle Tracks** - Switch languages and subtitles during playback (the stream restarts from the server at the same position)
@@ -82,14 +82,16 @@ HEVC keeps more detail at the same bitrate.
 ### HDR
 
 HDR is only direct played when your **display** reports support for it; otherwise
-the server tone-maps and transcodes.
+the server tone-maps and transcodes. HDR10+ files, and Dolby Vision files with an
+HDR10 base layer, need only an HDR10 display: they carry a standard HDR10 picture.
 
 | Format | Xbox One S/X | Xbox Series S/X |
 |--------|:------------:|:---------------:|
 | **HDR10** | ✅ | ✅ |
-| **HDR10+** | ✅ (display permitting) | ✅ (display permitting) |
+| **HDR10+** | ✅ | ✅ |
 | **HLG** | ✅ (display permitting) | ✅ (display permitting) |
-| **Dolby Vision** | ❌ Transcoded | ✅ (not checked against the display: a file that plays today keeps playing) |
+| **Dolby Vision with an HDR10 base layer** (profiles 7 and 8.1) | ✅ as HDR10 | ✅ |
+| **Other Dolby Vision** (profile 5, HLG- or SDR-based) | ❌ Transcoded | ✅ (not checked against the display: a file that plays today keeps playing) |
 
 ### Audio in video files
 
