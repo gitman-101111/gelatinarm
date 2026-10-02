@@ -14,7 +14,6 @@ namespace Gelatinarm.Shared.Device
     public interface IUnifiedDeviceService : IDisposable
     {
         bool SupportsHDR10 { get; }
-        bool SupportsHDR10Plus { get; }
         bool SupportsHlg { get; }
         bool SupportsDolbyVision { get; }
         int MaxSupportedBitrate { get; }
@@ -80,7 +79,6 @@ namespace Gelatinarm.Shared.Device
         }
 
         public bool SupportsHDR10 => _supportsHdr10;
-        public bool SupportsHDR10Plus { get; private set; }
 
         // HLG carries no metadata to detect, so it rides on full HDR10 support on a Series console
         public bool SupportsHlg => _supportsHdr10 && IsXboxSeriesConsole;
@@ -132,12 +130,13 @@ namespace Gelatinarm.Shared.Device
 
                 var aci = _displayInfo.GetAdvancedColorInfo();
                 var hasHdr = aci.IsAdvancedColorKindAvailable(AdvancedColorKind.HighDynamicRange);
+                var supportsHdr10Plus = false;
                 try
                 {
                     _supportsHdr10 = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10);
                     try
                     {
-                        SupportsHDR10Plus = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10Plus);
+                        supportsHdr10Plus = aci.IsHdrMetadataFormatCurrentlySupported(HdrMetadataFormat.Hdr10Plus);
                     }
                     catch
                     {
@@ -153,7 +152,7 @@ namespace Gelatinarm.Shared.Device
 
                 Logger.LogInformation(
                     "Display: HDR={HasHdr}, HDR10={SupportsHdr10}, HDR10+={SupportsHdr10Plus}, HLG={SupportsHlg}, DolbyVision={SupportsDolbyVision}",
-                    hasHdr, _supportsHdr10, SupportsHDR10Plus, SupportsHlg, SupportsDolbyVision);
+                    hasHdr, _supportsHdr10, supportsHdr10Plus, SupportsHlg, SupportsDolbyVision);
             }
             catch (Exception ex)
             {
