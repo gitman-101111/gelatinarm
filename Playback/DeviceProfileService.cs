@@ -134,12 +134,10 @@ namespace Gelatinarm.Playback
             // gives each container.
             // https://learn.microsoft.com/en-us/windows/uwp/apps-for-xbox/supported-technologies
             // https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs
-            // Kept outside the tables because they played on the console: AAC, AC3 and MP3 in MKV
-            // (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560 wide).
-            // Beyond those, a codec the console accepts but cannot decode plays silent, with no
-            // failure to retry on (FLAC in MKV did). DTS in MKV is listed without a console test
-            // yet: neither table has DTS, and owners report the console's own Media Player app
-            // does not play it (AVForums, 2015). If a DTS track in MKV plays silent, remove it.
+            // Kept outside the tables because they played on the console: AAC, AC3, DTS (core) and
+            // MP3 in MKV (the audio table has no MKV column), FLAC in .m4a, and WMV1 in ASF (2560
+            // wide). Beyond those, a codec the console accepts but cannot decode plays silent, with
+            // no failure to retry on (FLAC in MKV did).
             //
             // Every profile states its Type. The server only considers Video-type profiles for
             // video and Audio-type for music, and an omitted Type deserializes as the enum's
