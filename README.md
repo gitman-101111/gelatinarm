@@ -99,7 +99,8 @@ the server tone-maps and transcodes.
 | **ALAC, AMR** | ✅ in MP4/MOV | – |
 | **MP2** | ✅ in TS/MPG | – |
 | **WMA** | ✅ in ASF/WMV | – |
-| **FLAC, PCM, E-AC3 (Dolby Digital Plus), DTS, TrueHD, Opus, Vorbis** | ❌ | Audio converted by the server; the video is still copied untouched if it qualifies. FLAC in MKV plays silent on the console, so it is converted on purpose |
+| **DTS** | ✅ in MKV (core DTS only) | DTS-HD MA/HRA, DTS:X and DTS Express are converted by the server; the video is still copied untouched if it qualifies |
+| **FLAC, PCM, E-AC3 (Dolby Digital Plus), TrueHD, Opus, Vorbis** | ❌ | Audio converted by the server; the video is still copied untouched if it qualifies. FLAC in MKV plays silent on the console, so it is converted on purpose |
 
 When the server has to make a stream anyway, **Settings → Playback → Audio Direct
 Stream** lets it pass AAC and AC3 through instead of re-encoding them.
