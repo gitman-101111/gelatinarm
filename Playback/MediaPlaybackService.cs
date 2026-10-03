@@ -30,11 +30,12 @@ namespace Gelatinarm.Playback
         /// <summary>
         ///     Asks the server how to play <paramref name="itemId" /> for this user and console, under
         ///     the Maximum Bitrate setting; <paramref name="configure" /> adds what the caller needs
-        ///     (tracks, start position, what delivery to allow); <paramref name="hevcVideoCopyExpected" />
-        ///     shapes the profile's transcoding entries (IDeviceProfileService). Null on failure.
+        ///     (tracks, start position, what delivery to allow); <paramref name="hevcVideoCopyExpected" />,
+        ///     <paramref name="source" /> and <paramref name="dolbyVisionAloneFailed" /> shape the
+        ///     profile for this file (IDeviceProfileService). Null on failure.
         /// </summary>
         Task<PlaybackInfoResponse> GetPlaybackInfoAsync(Guid itemId, Action<PlaybackInfoDto> configure = null,
-            bool hevcVideoCopyExpected = false);
+            bool hevcVideoCopyExpected = false, MediaSourceInfo source = null, bool dolbyVisionAloneFailed = false);
     }
 
     public class MediaPlaybackService : BaseService, IMediaPlaybackService, IMediaSessionService
@@ -64,7 +65,8 @@ namespace Gelatinarm.Playback
         }
 
         public async Task<PlaybackInfoResponse> GetPlaybackInfoAsync(Guid itemId,
-            Action<PlaybackInfoDto> configure = null, bool hevcVideoCopyExpected = false)
+            Action<PlaybackInfoDto> configure = null, bool hevcVideoCopyExpected = false, MediaSourceInfo source = null,
+            bool dolbyVisionAloneFailed = false)
         {
             var context = CreateErrorContext("GetPlaybackInfo", ErrorCategory.Media);
             try
@@ -74,8 +76,9 @@ namespace Gelatinarm.Playback
                     return null;
                 }
 
-                var deviceProfile = _deviceProfileService.GetDeviceProfile(hevcVideoCopyExpected);
                 var preferences = await _preferencesService.GetAppPreferencesAsync().ConfigureAwait(false);
+                var deviceProfile = _deviceProfileService.GetDeviceProfile(hevcVideoCopyExpected, source,
+                    preferences.PlayHdrOnAnyDisplay, dolbyVisionAloneFailed);
 
                 // The server checks this against the file for direct play and uses it as the
                 // transcode ceiling. Read per request so a settings change applies at once.

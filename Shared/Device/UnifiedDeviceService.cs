@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Windows.Graphics.Display;
+using Windows.Graphics.Display.Core;
 using Windows.Security.ExchangeActiveSyncProvisioning;
 using Windows.Storage;
 using Windows.System;
@@ -13,10 +15,14 @@ namespace Gelatinarm.Shared.Device
 {
     public interface IUnifiedDeviceService : IDisposable
     {
+        // What the display reports. HDR10 is whether the console offers this app an HDR display
+        // mode: only the 4K edition is offered any, and only with a display that takes HDR.
         bool SupportsHDR10 { get; }
         bool SupportsHDR10Plus { get; }
-        bool SupportsHlg { get; }
-        bool SupportsDolbyVision { get; }
+        bool DisplaySupportsDolbyVision { get; }
+
+        // The consoles that decode HLG and Dolby Vision
+        bool IsXboxSeriesConsole { get; }
         int MaxSupportedBitrate { get; }
         string GetDeviceName();
         string GetDeviceId();
@@ -57,7 +63,7 @@ namespace Gelatinarm.Shared.Device
         // Which codecs play is the device profile's job (DeviceProfileService, from Microsoft's
         // tables and a runtime HEVC check). This service only reports what the console and
         // the display can do.
-        private bool IsXboxSeriesConsole { get; }
+        public bool IsXboxSeriesConsole { get; }
 
         public string GetDeviceName()
         {
@@ -81,11 +87,7 @@ namespace Gelatinarm.Shared.Device
 
         public bool SupportsHDR10 => _supportsHdr10;
         public bool SupportsHDR10Plus { get; private set; }
-
-        // HLG carries no metadata to detect, so it rides on full HDR10 support on a Series console
-        public bool SupportsHlg => _supportsHdr10 && IsXboxSeriesConsole;
-
-        public bool SupportsDolbyVision => IsXboxSeriesConsole;
+        public bool DisplaySupportsDolbyVision { get; private set; }
 
         public int MaxSupportedBitrate => IsXboxSeriesConsole ? SeriesMaxBitrate : OneMaxBitrate;
 
@@ -111,14 +113,8 @@ namespace Gelatinarm.Shared.Device
 
         private void OnAdvancedColorInfoChanged(DisplayInformation sender, object args)
         {
-            ErrorHandler.Run(CreateErrorContext("OnAdvancedColorInfoChanged"), () =>
-            {
-                var newHdrInfo = sender.GetAdvancedColorInfo();
-                var isHdrCurrentlyEnabled =
-                    newHdrInfo.IsAdvancedColorKindAvailable(AdvancedColorKind.HighDynamicRange);
-                _supportsHdr10 = isHdrCurrentlyEnabled;
-                Logger.LogInformation("AdvancedColorInfoChanged: HDR Enabled: {IsHdrCurrentlyEnabled}", isHdrCurrentlyEnabled);
-            });
+            // Raised when the display or its mode changes, the app's own switch to HDR included
+            ErrorHandler.Run(CreateErrorContext("OnAdvancedColorInfoChanged"), DetectHdrSupport);
         }
 
         private void DetectHdrSupport()
@@ -151,14 +147,68 @@ namespace Gelatinarm.Shared.Device
                     _supportsHdr10 = hasHdr;
                 }
 
+                try
+                {
+                    ReadHdmiModes();
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(ex, CreateErrorContext("ReadHdmiModes", ErrorCategory.Media, ErrorSeverity.Warning));
+                }
+
                 Logger.LogInformation(
-                    "Display: HDR={HasHdr}, HDR10={SupportsHdr10}, HDR10+={SupportsHdr10Plus}, HLG={SupportsHlg}, DolbyVision={SupportsDolbyVision}",
-                    hasHdr, _supportsHdr10, SupportsHDR10Plus, SupportsHlg, SupportsDolbyVision);
+                    "Display reports: HDR={HasHdr}, HDR10={SupportsHdr10}, HDR10+={SupportsHdr10Plus}, Dolby Vision={DisplaySupportsDolbyVision}; " +
+                    "colour mode now {CurrentKind}, peak {MaxNits} nits, SDR white {SdrWhiteNits} nits",
+                    hasHdr, _supportsHdr10, SupportsHDR10Plus, DisplaySupportsDolbyVision, aci.CurrentAdvancedColorKind,
+                    aci.MaxLuminanceInNits, aci.SdrWhiteLevelInNits);
             }
             catch (Exception ex)
             {
                 ErrorHandler.HandleError(ex, CreateErrorContext("DetectHdrSupport"));
             }
+        }
+
+        // The HDMI modes the console offers the app say what it can show: Microsoft describes
+        // them as following "device type, specifications, and settings". The standard edition
+        // was offered 6 modes, none HDR, and the 4K edition 12, three of them HDR, on the same
+        // console and display (2026-10-03); the colour information above reported HDR10 in
+        // both. So HDR10 is read from here. Dolby Vision likewise, though not verified on a
+        // display that has it.
+        private void ReadHdmiModes()
+        {
+            var hdmi = HdmiDisplayInformation.GetForCurrentView();
+            if (hdmi == null)
+            {
+                Logger.LogInformation("HDMI display information is not available");
+                return;
+            }
+
+            var st2084Modes = 0;
+            var bt2020Modes = 0;
+            var dolbyVisionModes = 0;
+            var offered = new List<string>();
+            var modes = hdmi.GetSupportedDisplayModes();
+            foreach (var mode in modes)
+            {
+                offered.Add($"{mode.ResolutionWidthInRawPixels}x{mode.ResolutionHeightInRawPixels}@{mode.RefreshRate:0.###} " +
+                            $"{mode.ColorSpace} {mode.BitsPerPixel}b{(mode.IsSmpte2084Supported ? " HDR" : string.Empty)}");
+                st2084Modes += mode.IsSmpte2084Supported ? 1 : 0;
+                bt2020Modes += mode.ColorSpace == HdmiDisplayColorSpace.BT2020 ? 1 : 0;
+                dolbyVisionModes += mode.IsDolbyVisionLowLatencySupported ? 1 : 0;
+            }
+
+            _supportsHdr10 = st2084Modes > 0;
+            DisplaySupportsDolbyVision = dolbyVisionModes > 0;
+
+            var current = hdmi.GetCurrentDisplayMode();
+            Logger.LogInformation(
+                "HDMI mode now: {Width}x{Height} at {RefreshRate} Hz, {ColorSpace}, {BitsPerPixel} bits, ST 2084 {St2084}, " +
+                "HDR metadata {Metadata}, Dolby Vision {DolbyVision}. Modes offered: {ModeCount}, of which ST 2084 {St2084Modes}, " +
+                "BT.2020 {Bt2020Modes}, Dolby Vision {DolbyVisionModes}: {Modes}",
+                current?.ResolutionWidthInRawPixels, current?.ResolutionHeightInRawPixels, current?.RefreshRate,
+                current?.ColorSpace, current?.BitsPerPixel, current?.IsSmpte2084Supported, current?.Is2086MetadataSupported,
+                current?.IsDolbyVisionLowLatencySupported, modes.Count, st2084Modes, bt2020Modes, dolbyVisionModes,
+                string.Join("; ", offered));
         }
 
         private bool DetectXboxSeriesModel()

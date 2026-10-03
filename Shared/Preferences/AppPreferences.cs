@@ -37,6 +37,17 @@ namespace Gelatinarm.Shared.Preferences
         public bool EnableDirectPlay { get; set; } = true;
         public bool AllowAudioStreamCopy { get; set; } = false; // Default to false to avoid audio compatibility issues
 
+        // HDR formats direct play whatever the display reports (true), or only the formats it reports
+        public bool PlayHdrOnAnyDisplay { get; set; } = true;
+
+        // The display is put in HDR mode for an HDR video (true), or stays in its default mode,
+        // where the console shows HDR converted to SDR
+        public bool SwitchDisplayToHdr { get; set; } = true;
+
+        // The display is put at the video's frame rate (true), or stays at its own, where the
+        // console converts
+        public bool MatchFrameRate { get; set; } = false;
+
         // 0 means the console's own maximum: no practical cap, so any file the console can
         // decode may direct play, and transcodes are not squeezed below what the network allows.
         public int MaxStreamingBitrateMbps { get; set; } = 0;

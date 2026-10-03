@@ -55,10 +55,11 @@ namespace Gelatinarm.Player
 
         /// <summary>
         ///     Selects the track inside a direct-played file, where the player has every track
-        ///     and needs no restart. False when the stream is the server's (it carries one track)
-        ///     or the player lists no such track; then <see cref="ChangeAudioTrackAsync" />.
+        ///     and needs no restart. False when the stream is the server's (it carries one track),
+        ///     the server would not direct play that track (the console cannot decode it) or the
+        ///     player lists no such track; then <see cref="ChangeAudioTrackAsync" />.
         /// </summary>
-        bool TrySelectPlayerAudioTrack(AudioTrack audioTrack);
+        Task<bool> TrySelectPlayerAudioTrackAsync(AudioTrack audioTrack);
 
         /// <summary>
         ///     Applies the track chosen before playback inside a direct-played file once the player
@@ -116,9 +117,17 @@ namespace Gelatinarm.Player
         private readonly IMediaSessionService _mediaSessionService;
         private readonly PlaybackResumeCoordinator _resumeCoordinator;
         private readonly PlaybackSourceResolver _sourceResolver;
+        // What the display's HDR mode is asked for. Dolby Vision alone is not among them: it has
+        // no HDR10 or HLG picture to show there.
+        private static readonly string[] HdrRangeTypes =
+            { "HDR10", "HDR10Plus", "HLG", "DOVIWithHDR10", "DOVIWithHDR10Plus", "DOVIWithHLG" };
+
         private bool _directPlayDisabledForSession;
         private MediaSourceInfo _currentMediaSource;
         private PlaybackProgressInfo_PlayMethod _playMethod = PlaybackProgressInfo_PlayMethod.DirectPlay;
+
+        private readonly IDisplayModeService _displayModeService;
+        private bool _videoArrivesUnconverted;
 
         private MediaPlayer _mediaPlayer;
         private MediaSource _openStream;
@@ -137,8 +146,10 @@ namespace Gelatinarm.Player
             IMediaOptimizationService mediaOptimizationService,
             IPreferencesService preferencesService,
             IMediaSessionService mediaSessionService,
-            IUnifiedDeviceService deviceService) : base(logger)
+            IUnifiedDeviceService deviceService,
+            IDisplayModeService displayModeService) : base(logger)
         {
+            _displayModeService = displayModeService;
             _mediaPlaybackService = mediaPlaybackService;
             _deviceProfileService = deviceProfileService;
             _mediaOptimizationService = mediaOptimizationService;
@@ -164,7 +175,22 @@ namespace Gelatinarm.Player
             ResetResumeTracking();
         }
 
+        private static bool IsDolbyVisionAlone(MediaSourceInfo source)
+        {
+            var video = source.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
+            return string.Equals(video?.VideoRangeType?.ToString(), "DOVI", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task<PlaybackInfoResponse> GetPlaybackInfoAsync()
+        {
+            var response = await RequestPlaybackInfoAsync(_playbackParams?.AudioStreamIndex);
+            _playSessionId = response.PlaySessionId;
+            return response;
+        }
+
+        // What the server would do with the item on audioStreamIndex, which need not be the track
+        // that is playing: a track change inside a direct play asks before it switches
+        private async Task<PlaybackInfoResponse> RequestPlaybackInfoAsync(int? audioStreamIndex)
         {
             var item = _playbackParams?.Item;
             if (item?.Id.HasValue != true)
@@ -177,7 +203,7 @@ namespace Gelatinarm.Player
             // Stereo or less is always copied, to spare an unnecessary transcode
             var shouldAllowAudioStreamCopy = preferences.AllowAudioStreamCopy;
 
-            var audioStream = MediaStreamHelper.AudioStream(item.MediaStreams, _playbackParams.AudioStreamIndex);
+            var audioStream = MediaStreamHelper.AudioStream(item.MediaStreams, audioStreamIndex);
             if (audioStream?.Channels <= 2)
             {
                 shouldAllowAudioStreamCopy = true;
@@ -198,15 +224,23 @@ namespace Gelatinarm.Player
             var source = item.MediaSources?.FirstOrDefault(s => s.Id == mediaSourceId)
                          ?? item.MediaSources?.FirstOrDefault()
                          ?? new MediaSourceInfo { MediaStreams = item.MediaStreams };
-            var hevcVideoCopyExpected = _deviceProfileService.ExpectsVideoCopy(source, _playbackParams.SubtitleStreamIndex,
-                preferences.MaxStreamingBitrateMbps);
 
-            LogPlaybackInfoRequest(preferences, shouldAllowAudioStreamCopy, mediaSourceId, hevcVideoCopyExpected);
+            // Dolby Vision with no HDR10, HLG or SDR layer (profile 5) fails to decode on a
+            // display without Dolby Vision, and fails again when the server copies it into a
+            // stream (device: an MP4, DecodingError 0xC00D36B4 twice). The retry therefore no
+            // longer claims it, and the server converts the picture.
+            var dolbyVisionAloneFailed = _directPlayDisabledForSession && IsDolbyVisionAlone(source);
+            var hevcVideoCopyExpected = !dolbyVisionAloneFailed && _deviceProfileService.ExpectsVideoCopy(source,
+                _playbackParams.SubtitleStreamIndex, preferences.MaxStreamingBitrateMbps, preferences.PlayHdrOnAnyDisplay);
+
+            _videoArrivesUnconverted = hevcVideoCopyExpected;
+
+            LogPlaybackInfoRequest(preferences, shouldAllowAudioStreamCopy, mediaSourceId, audioStreamIndex, hevcVideoCopyExpected);
 
             var response = await _mediaPlaybackService.GetPlaybackInfoAsync(item.Id.Value, request =>
             {
                 request.MediaSourceId = mediaSourceId;
-                request.AudioStreamIndex = _playbackParams.AudioStreamIndex;
+                request.AudioStreamIndex = audioStreamIndex;
                 request.SubtitleStreamIndex = _playbackParams.SubtitleStreamIndex;
                 // Always send StartTimeTicks - server may use it even for HLS
                 request.StartTimeTicks = _playbackParams.StartPositionTicks;
@@ -215,25 +249,53 @@ namespace Gelatinarm.Player
                 request.EnableTranscoding = true;
                 request.AllowAudioStreamCopy = shouldAllowAudioStreamCopy;
                 request.AllowVideoStreamCopy = true;
-            }, hevcVideoCopyExpected);
+            }, hevcVideoCopyExpected, source, dolbyVisionAloneFailed);
             if (response == null)
             {
                 throw new InvalidOperationException($"Failed to get playback info for {item.Name}");
             }
 
-            _playSessionId = response.PlaySessionId;
             return response;
         }
 
         // A failure reaches the caller, which reports it (playback start, a track change, a restart)
-        public Task<MediaSource> CreateMediaSourceAsync(PlaybackInfoResponse playbackInfo)
+        public async Task<MediaSource> CreateMediaSourceAsync(PlaybackInfoResponse playbackInfo)
         {
             _currentMediaSource = _sourceResolver.SelectBestMediaSource(playbackInfo.MediaSources)
                                   ?? throw new InvalidOperationException("No valid media source found");
 
-            return _currentMediaSource.SupportsDirectPlay == true
+            await MatchDisplayModeAsync();
+
+            return await (_currentMediaSource.SupportsDirectPlay == true
                 ? CreateDirectPlayMediaSourceAsync(playbackInfo)
-                : CreateStreamingMediaSourceAsync(playbackInfo);
+                : CreateStreamingMediaSourceAsync(playbackInfo));
+        }
+
+        // HDR video that reaches the console as it is (direct play, or copied into a server
+        // stream) is shown in the display's HDR mode; anything else in the default mode, where a
+        // stream the server converted is already standard range. With Match Frame Rate the
+        // display also takes the video's rate. Before playback starts, as Microsoft asks: the
+        // switch blanks the screen for a moment. Only the 4K edition switches the display: it
+        // alone is offered HDR modes, and the standard edition is kept free of mode switches
+        // (owner decision, 2026-10-03).
+        private async Task MatchDisplayModeAsync()
+        {
+            var preferences = await _preferencesService.GetAppPreferencesAsync();
+            var video = _currentMediaSource.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
+            var unconverted = _currentMediaSource.SupportsDirectPlay == true || _videoArrivesUnconverted;
+            var hdr = XboxDevice.IsFourKEdition && preferences.SwitchDisplayToHdr && unconverted &&
+                      HdrRangeTypes.Contains(video?.VideoRangeType?.ToString(), StringComparer.OrdinalIgnoreCase);
+            double? frameRate = XboxDevice.IsFourKEdition && preferences.MatchFrameRate
+                ? video?.AverageFrameRate ?? video?.RealFrameRate
+                : null;
+            if (hdr || frameRate > 0)
+            {
+                await _displayModeService.MatchAsync(hdr, frameRate);
+            }
+            else
+            {
+                await _displayModeService.RestoreDefaultAsync();
+            }
         }
 
         public void StartPlayback(MediaSource mediaSource, long? startPositionTicks)
@@ -407,24 +469,40 @@ namespace Gelatinarm.Player
         }
 
         private void LogPlaybackInfoRequest(AppPreferences preferences, bool shouldAllowAudioStreamCopy, string mediaSourceId,
-            bool hevcVideoCopyExpected)
+            int? audioStreamIndex, bool hevcVideoCopyExpected)
         {
             Logger.LogInformation(
                 "Requesting playback info: MediaSourceId {MediaSourceId}, audio {AudioStreamIndex}, subtitle " +
                 "{SubtitleStreamIndex}, start {StartTime:hh\\:mm\\:ss}, EnableDirectPlay {EnableDirectPlay}{Reason}, " +
                 "AllowAudioStreamCopy {AllowAudioStreamCopy} (direct stream, transcoding and video copy always allowed), " +
                 "HEVC video copy expected {HevcVideoCopyExpected}",
-                mediaSourceId, _playbackParams.AudioStreamIndex, _playbackParams.SubtitleStreamIndex,
+                mediaSourceId, audioStreamIndex, _playbackParams.SubtitleStreamIndex,
                 TimeSpan.FromTicks(_playbackParams.StartPositionTicks ?? 0),
                 preferences.EnableDirectPlay && !_directPlayDisabledForSession,
                 _directPlayDisabledForSession ? " (direct play failed earlier in this session)" : string.Empty,
                 shouldAllowAudioStreamCopy, hevcVideoCopyExpected);
         }
 
-        public bool TrySelectPlayerAudioTrack(AudioTrack audioTrack)
+        public async Task<bool> TrySelectPlayerAudioTrackAsync(AudioTrack audioTrack)
         {
-            if (_playMethod != PlaybackProgressInfo_PlayMethod.DirectPlay
-                || !SelectPlayerAudioTrack(_mediaPlayer?.Source as MediaPlaybackItem, audioTrack.ServerStreamIndex))
+            if (_playMethod != PlaybackProgressInfo_PlayMethod.DirectPlay)
+            {
+                return false;
+            }
+
+            // The player holds every track of a direct-played file and decodes only some: a DTS
+            // track selected there plays silent (device). So the server is asked about the track
+            // as it was about the one playback opened on; if it no longer grants direct play,
+            // the caller restarts the stream and the server converts the audio.
+            var playbackInfo = await RequestPlaybackInfoAsync(audioTrack.ServerStreamIndex);
+            if (_sourceResolver.SelectBestMediaSource(playbackInfo.MediaSources)?.SupportsDirectPlay != true)
+            {
+                Logger.LogInformation("The server does not direct play audio stream {ServerStreamIndex}; restarting as a server stream",
+                    audioTrack.ServerStreamIndex);
+                return false;
+            }
+
+            if (!SelectPlayerAudioTrack(_mediaPlayer?.Source as MediaPlaybackItem, audioTrack.ServerStreamIndex))
             {
                 return false;
             }
@@ -448,9 +526,15 @@ namespace Gelatinarm.Player
             Logger.LogDebug("Player audio tracks at open: {TrackCount}, selected {SelectedIndex}: {Tracks}",
                 tracks.Count, tracks.SelectedIndex,
                 string.Join("; ", tracks.Select(t => $"{t.Language} {t.Label} {t.SupportInfo.DecoderStatus}")));
-            if (_playbackParams?.AudioStreamIndex is int serverStreamIndex && serverStreamIndex >= 0)
+
+            // With no track asked for, the server's choice. When the file flags no default track
+            // and the profile does not take the first one's codec (DTS, say), the server grants
+            // direct play on another track and names it here (Jellyfin StreamBuilder: candidate
+            // audio streams); the player by itself would open the first, in silence.
+            var serverStreamIndex = _playbackParams?.AudioStreamIndex ?? _currentMediaSource?.DefaultAudioStreamIndex;
+            if (serverStreamIndex >= 0)
             {
-                SelectPlayerAudioTrack(playbackItem, serverStreamIndex);
+                SelectPlayerAudioTrack(playbackItem, serverStreamIndex.Value);
             }
         }
 
@@ -535,6 +619,7 @@ namespace Gelatinarm.Player
             if (_mediaPlayer == player)
             {
                 _mediaPlayer = null;
+                FireAndForget(() => _displayModeService.RestoreDefaultAsync());
             }
         }
 

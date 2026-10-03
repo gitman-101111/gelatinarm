@@ -396,7 +396,7 @@ namespace Gelatinarm.Player
                 {
                     Logger.LogInformation(
                         "Audio track change requested: {AudioTrackDisplayName} (Index={AudioTrackServerStreamIndex})", audioTrack.DisplayName, audioTrack.ServerStreamIndex);
-                    if (!_playbackControlService.TrySelectPlayerAudioTrack(audioTrack))
+                    if (!await _playbackControlService.TrySelectPlayerAudioTrackAsync(audioTrack))
                     {
                         PrepareForPlaybackRestart();
                         await _playbackControlService.ChangeAudioTrackAsync(audioTrack);
@@ -497,7 +497,10 @@ namespace Gelatinarm.Player
             Logger.LogInformation("Tracks: {AudioTracksCount} audio, {SubtitleTracksCount} subtitle",
                 AudioTracks.Count, SubtitleTracks.Count - 1);
 
-            SelectedAudioTrack = SelectInitialTrack(AudioTracks, _playbackParams?.AudioStreamIndex,
+            // With no track asked for, the server names the one it plays: not always the file's
+            // default (see PlaybackControlService.SelectChosenAudioTrack)
+            SelectedAudioTrack = SelectInitialTrack(AudioTracks,
+                _playbackParams?.AudioStreamIndex ?? playbackInfo.MediaSources?.FirstOrDefault()?.DefaultAudioStreamIndex,
                 a => a.ServerStreamIndex, a => a.IsDefault);
 
             OnPropertyChanged(nameof(HasMultipleAudioTracks));

@@ -131,6 +131,7 @@ namespace Gelatinarm
             services.AddSingleton<IPreferencesService, PreferencesService>();
 
             services.AddSingleton<IUnifiedDeviceService, UnifiedDeviceService>();
+            services.AddSingleton<IDisplayModeService, DisplayModeService>();
 
             services.AddHttpClient(SystemConstants.JellyfinHttpClientName, (serviceProvider, client) =>
                 {

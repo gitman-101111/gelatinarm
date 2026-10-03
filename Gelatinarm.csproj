@@ -297,6 +297,7 @@
     <Compile Include="Shared\Base\BaseViewModel.cs" />
     <Compile Include="Shared\Base\IPageViewModel.cs" />
     <Compile Include="Shared\Device\AppMemory.cs" />
+    <Compile Include="Shared\Device\DisplayModeService.cs" />
     <Compile Include="Shared\Device\UnifiedDeviceService.cs" />
     <Compile Include="Shared\Device\XboxDevice.cs" />
     <Compile Include="Shared\Errors\DialogService.cs" />

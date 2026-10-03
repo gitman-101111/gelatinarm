@@ -174,6 +174,33 @@
                     </ComboBox>
                     <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="Maximum lets the server send any file the console can play as-is. A lower limit makes the server convert anything above it down to that bitrate - use one only if your connection to the server is slow." />
 
+                    <!--  Only the 4K edition switches the display's mode  -->
+                    <StackPanel Visibility="{x:Bind ViewModel.PlaybackSettings.SwitchesDisplayMode}">
+                        <ToggleSwitch
+                            Header="HDR Display Mode"
+                            IsOn="{x:Bind ViewModel.PlaybackSettings.SwitchDisplayToHdr, Mode=TwoWay}"
+                            OffContent="Keep the display as it is; HDR video is shown converted"
+                            OnContent="Switch the display to HDR for HDR video"
+                            Style="{StaticResource StandardToggleSwitchStyle}" />
+                        <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, the display switches to HDR when an HDR video starts and back when you leave the player; the screen may go black for a moment each time. Disable if your display handles the switch badly: HDR video is then converted to standard range by the console." />
+
+                        <ToggleSwitch
+                            Header="HDR on Any Display"
+                            IsOn="{x:Bind ViewModel.PlaybackSettings.PlayHdrOnAnyDisplay, Mode=TwoWay}"
+                            OffContent="Only the HDR formats the console offers a display mode for"
+                            OnContent="Play HDR files directly on any display"
+                            Style="{StaticResource StandardToggleSwitchStyle}" />
+                        <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, HDR10, HDR10+, HLG and Dolby Vision files play directly even when the console offers no HDR mode for your display, and the console converts the picture. Disable to have the server convert them instead." />
+
+                        <ToggleSwitch
+                            Header="Match Frame Rate"
+                            IsOn="{x:Bind ViewModel.PlaybackSettings.MatchFrameRate, Mode=TwoWay}"
+                            OffContent="Keep the display at its usual rate"
+                            OnContent="Switch the display to the video's frame rate"
+                            Style="{StaticResource StandardToggleSwitchStyle}" />
+                        <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, the display switches to the video's frame rate (24 or 50 Hz) when playback starts and back when you leave the player; the screen may go black for a moment each time. This removes the slight judder of 24 fps films shown at 60 Hz. Needs Allow 24Hz and Allow 50Hz in the console's video settings." />
+                    </StackPanel>
+
                     <ToggleSwitch
                         Header="Audio Direct Stream"
                         IsOn="{x:Bind ViewModel.PlaybackSettings.AllowAudioStreamCopy, Mode=TwoWay}"

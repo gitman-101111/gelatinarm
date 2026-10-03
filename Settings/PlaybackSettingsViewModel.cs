@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Gelatinarm.Shared.Device;
 using Gelatinarm.Shared.Preferences;
 using Microsoft.Extensions.Logging;
 
@@ -16,10 +17,13 @@ namespace Gelatinarm.Settings
         private bool _autoPlayNextEpisode = Defaults.AutoPlayNextEpisode;
         private bool _autoSkipIntros = Defaults.AutoSkipIntroEnabled;
         private bool _autoSkipOutros = Defaults.AutoSkipOutroEnabled;
+        private bool _matchFrameRate = Defaults.MatchFrameRate;
         private int _controlsHideDelay = Defaults.ControlsHideDelay;
         private bool _enableDirectPlay = Defaults.EnableDirectPlay;
         private string _maxStreamingBitrateMbps = Defaults.MaxStreamingBitrateMbps.ToString(CultureInfo.InvariantCulture);
         private bool _pauseOnFocusLoss = Defaults.PauseOnFocusLoss;
+        private bool _playHdrOnAnyDisplay = Defaults.PlayHdrOnAnyDisplay;
+        private bool _switchDisplayToHdr = Defaults.SwitchDisplayToHdr;
         private string _videoStretchMode = Defaults.VideoStretchMode;
 
         public PlaybackSettingsViewModel(
@@ -42,6 +46,9 @@ namespace Gelatinarm.Settings
                 _enableDirectPlay = appPrefs.EnableDirectPlay;
                 _maxStreamingBitrateMbps = appPrefs.MaxStreamingBitrateMbps.ToString(CultureInfo.InvariantCulture);
                 _allowAudioStreamCopy = appPrefs.AllowAudioStreamCopy;
+                _playHdrOnAnyDisplay = appPrefs.PlayHdrOnAnyDisplay;
+                _switchDisplayToHdr = appPrefs.SwitchDisplayToHdr;
+                _matchFrameRate = appPrefs.MatchFrameRate;
                 _videoStretchMode = appPrefs.VideoStretchMode;
                 _audioNormalizationEnabled = appPrefs.AudioNormalizationEnabled;
 
@@ -53,6 +60,9 @@ namespace Gelatinarm.Settings
                 OnPropertyChanged(nameof(EnableDirectPlay));
                 OnPropertyChanged(nameof(MaxStreamingBitrateMbps));
                 OnPropertyChanged(nameof(AllowAudioStreamCopy));
+                OnPropertyChanged(nameof(PlayHdrOnAnyDisplay));
+                OnPropertyChanged(nameof(SwitchDisplayToHdr));
+                OnPropertyChanged(nameof(MatchFrameRate));
                 OnPropertyChanged(nameof(VideoStretchMode));
                 OnPropertyChanged(nameof(AudioNormalizationEnabled));
             });
@@ -116,6 +126,27 @@ namespace Gelatinarm.Settings
         {
             get => _allowAudioStreamCopy;
             set => SetAndSave(ref _allowAudioStreamCopy, value, (prefs, v) => prefs.AllowAudioStreamCopy = v);
+        }
+
+        public bool PlayHdrOnAnyDisplay
+        {
+            get => _playHdrOnAnyDisplay;
+            set => SetAndSave(ref _playHdrOnAnyDisplay, value, (prefs, v) => prefs.PlayHdrOnAnyDisplay = v);
+        }
+
+        // Only the 4K edition switches the display's mode: the settings for it show there alone
+        public bool SwitchesDisplayMode { get; } = XboxDevice.IsFourKEdition;
+
+        public bool SwitchDisplayToHdr
+        {
+            get => _switchDisplayToHdr;
+            set => SetAndSave(ref _switchDisplayToHdr, value, (prefs, v) => prefs.SwitchDisplayToHdr = v);
+        }
+
+        public bool MatchFrameRate
+        {
+            get => _matchFrameRate;
+            set => SetAndSave(ref _matchFrameRate, value, (prefs, v) => prefs.MatchFrameRate = v);
         }
 
         public string VideoStretchMode
