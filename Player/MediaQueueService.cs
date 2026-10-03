@@ -122,19 +122,23 @@ namespace Gelatinarm.Player
         }
 
         /// <summary>
-        ///     Opens the player on another item of this queue, from its start, keeping the chosen
-        ///     tracks and where playback was started from
+        ///     Opens the player on another item of this queue, from its start, keeping where
+        ///     playback was started from
         /// </summary>
         private void PlayQueueItem(BaseItemDto item)
         {
             // An episode found in the series list, past the queue, keeps the queue position
             var index = _queue.FindIndex(queued => queued.Id == item.Id);
 
+            // The chosen tracks are not carried over. A track is a stream index in the current
+            // file and names some other stream in the next one, even within a series (device: a
+            // collection's next film opened on a silent DTS track). The next item opens on the
+            // server's default, which follows the user's language preferences. "No subtitle"
+            // (-1) holds for any file.
             var playbackParams = new MediaPlaybackParams
             {
                 Item = item,
-                AudioStreamIndex = _playbackParams.AudioStreamIndex,
-                SubtitleStreamIndex = _playbackParams.SubtitleStreamIndex,
+                SubtitleStreamIndex = _playbackParams.SubtitleStreamIndex < 0 ? _playbackParams.SubtitleStreamIndex : null,
                 StartPositionTicks = 0,
                 QueueItems = _queue.ToList(),
                 StartIndex = index >= 0 ? index : _queueIndex,
