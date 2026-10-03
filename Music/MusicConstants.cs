@@ -4,10 +4,17 @@ namespace Gelatinarm.Music
     {
         public const int MediaSourceClearDelayMs = 500;
 
-        // Xbox's MediaPlayer fails (SourceNotSupported) on audio files whose embedded cover
-        // art is larger than about this, in either dimension. Such files skip the direct
-        // attempt and are streamed by the server with the picture stripped.
-        public const int MaxDirectPlayEmbeddedArtworkPixels = 1500;
+        // The console refuses a FLAC file whose audio starts further in than about 4 MB, which a
+        // large embedded cover causes: refused at 4.2 MB and above, played at 3.3 MB, whatever
+        // the cover's size in pixels (tested on Xbox Series X). MP3 and M4A files played with
+        // 9 MB and 5 MB covers. Such a file skips the direct attempt.
+        public const int MaxFlacBytesBeforeAudio = 4000000;
+
+        // Reading where a FLAC file's audio starts: the metadata block headers sit at the start
+        // of the file, and one read reaches past everything but a cover
+        public const int FlacHeaderReadBytes = 65536;
+        public const int MaxFlacHeaderReads = 4;
+        public const int FlacHeaderReadTimeoutSeconds = 3;
 
         public const int MaxDiscoveryQueryLimit = 100;
 

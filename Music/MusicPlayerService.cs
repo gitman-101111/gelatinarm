@@ -337,6 +337,8 @@ namespace Gelatinarm.Music
                 var index = getIndex(_mediaControlService.RepeatMode == RepeatMode.All);
                 if (index >= 0)
                 {
+                    Logger.LogInformation("{Operation}: to queue item {QueuePosition}/{QueueCount}", operation, index + 1,
+                        _queueService.Queue.Count);
                     _queueService.SetCurrentIndex(index);
                     FireAndForget(() => PlayItemAsync(_queueService.Queue[index]), "PlayItemAsync");
                 }
@@ -565,8 +567,11 @@ namespace Gelatinarm.Music
                 return;
             }
 
-            // Cancel any in-flight callbacks from the previous session before subscribing
-            AsyncHelper.Supersede(ref _playbackCancellationTokenSource);
+            // Cancel any in-flight callbacks from the previous session before subscribing. A
+            // start that a newer one supersedes gives up at its next step: two skips in quick
+            // succession once ran both starts side by side, the one that set its source last
+            // played, and the playback reports named either track (device).
+            var start = AsyncHelper.Supersede(ref _playbackCancellationTokenSource);
 
             SubscribeToEvents();
 
@@ -576,6 +581,10 @@ namespace Gelatinarm.Music
                 _mediaControlService.MediaPlayer, item.NormalizationGain).ConfigureAwait(false);
 
             await StopPlaybackReportingAsync().ConfigureAwait(false);
+            if (start.IsCancellationRequested)
+            {
+                return;
+            }
 
             _isInFallbackMode = false;
 
@@ -587,6 +596,12 @@ namespace Gelatinarm.Music
             // The server's session id, as for video: the stream URLs built here and every report
             // name it, so the stop report ends the server's transcode
             var playbackInfo = await _mediaPlaybackService.GetPlaybackInfoAsync(item.Id.Value).ConfigureAwait(false);
+            if (start.IsCancellationRequested)
+            {
+                Logger.LogDebug("{ItemName} was skipped before it started", item.Name);
+                return;
+            }
+
             _currentPlaySessionId = playbackInfo?.PlaySessionId;
 
             Logger.LogInformation(
@@ -637,11 +652,12 @@ namespace Gelatinarm.Music
 
                 // Known to fail on Xbox: go straight to the server stream instead of waiting
                 // for MediaFailed, which costs the user a failed start first.
-                if (item.Type == BaseItemDto_Type.Audio && HasOversizedEmbeddedArtwork(mediaSource))
+                if (item.Type == BaseItemDto_Type.Audio &&
+                    await FlacAudioStartsTooLateAsync(item, mediaSource).ConfigureAwait(false))
                 {
                     Logger.LogInformation(
-                        "Embedded artwork over {MaxPixels}px - streaming {ItemName} via the server without it",
-                        MusicConstants.MaxDirectPlayEmbeddedArtworkPixels, item.Name);
+                        "FLAC audio starts beyond {MaxBytes} bytes - streaming {ItemName} via the server",
+                        MusicConstants.MaxFlacBytesBeforeAudio, item.Name);
                     await PlayItemWithTranscodingFallbackAsync(item, mediaSource).ConfigureAwait(false);
                     return;
                 }
@@ -718,6 +734,10 @@ namespace Gelatinarm.Music
                     }
 
                     var source = await _mediaOptimizationService.CreateStreamSourceAsync(mediaUrl).ConfigureAwait(false);
+                    if (!ReferenceEquals(_currentMediaSource, mediaSource))
+                    {
+                        return; // another track has started since
+                    }
 
                     var playbackItem = new MediaPlaybackItem(source);
                     _lastPlaybackStartTime = DateTime.UtcNow;

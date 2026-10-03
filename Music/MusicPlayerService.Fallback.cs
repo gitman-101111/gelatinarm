@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Media.Core;
 using Windows.Media.Playback;
@@ -34,8 +35,8 @@ namespace Gelatinarm.Music
                         currentItem.Name, currentItem.Type, currentItem.Id, currentItem.Container,
                         UrlHelper.RedactApiKey(sourceUri?.ToString()));
 
-                    // The console rejects some files it cannot open directly (typically embedded
-                    // artwork over MaxDirectPlayEmbeddedArtworkPixels); the server can stream them
+                    // The console refuses some files outright, such as Ogg, AIFF, WavPack and
+                    // AAC above 5.1. The server can stream them.
                     if (args.Error == MediaPlayerError.SourceNotSupported &&
                         currentItem.Type == BaseItemDto_Type.Audio && !_isInFallbackMode)
                     {
@@ -66,11 +67,98 @@ namespace Gelatinarm.Music
             await StartPlaybackReportingAsync().ConfigureAwait(false);
         }
 
-        private static bool HasOversizedEmbeddedArtwork(MediaSourceInfo mediaSource)
+        /// <summary>
+        ///     Whether a FLAC file's audio starts beyond <see cref="MusicConstants.MaxFlacBytesBeforeAudio" />.
+        ///     The server reports an embedded cover's pixels, not its bytes, so the metadata block
+        ///     headers are read from the file: one small request, sometimes two, and only for a FLAC
+        ///     file with an embedded picture. False when it cannot tell; the direct attempt and its
+        ///     fallback then decide.
+        /// </summary>
+        private async Task<bool> FlacAudioStartsTooLateAsync(BaseItemDto item, MediaSourceInfo mediaSource)
         {
-            const int MaxEdge = MusicConstants.MaxDirectPlayEmbeddedArtworkPixels;
-            return mediaSource?.MediaStreams?.Any(s => s.Type == MediaStream_Type.EmbeddedImage &&
-                                                       (s.Width > MaxEdge || s.Height > MaxEdge)) == true;
+            if (item.Id == null || mediaSource.Protocol != MediaSourceInfo_Protocol.File ||
+                !string.Equals(mediaSource.Container, "flac", StringComparison.OrdinalIgnoreCase) ||
+                mediaSource.MediaStreams?.Any(s => s.Type == MediaStream_Type.EmbeddedImage) != true)
+            {
+                return false;
+            }
+
+            try
+            {
+                using var cts = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(MusicConstants.FlacHeaderReadTimeoutSeconds));
+                var buffer = await ReadFileRangeAsync(item.Id.Value, mediaSource, 0, cts.Token).ConfigureAwait(false);
+                if (buffer.Length < 4 || buffer[0] != 'f' || buffer[1] != 'L' || buffer[2] != 'a' || buffer[3] != 'C')
+                {
+                    return false;
+                }
+
+                // Each metadata block starts with four bytes: a flag for the last block with the
+                // block's type, then the block's length. The audio follows the last block.
+                long bufferStart = 0;
+                long next = 4;
+                var reads = 1;
+                while (true)
+                {
+                    if (next - bufferStart + 4 > buffer.Length)
+                    {
+                        if (reads++ >= MusicConstants.MaxFlacHeaderReads)
+                        {
+                            return false;
+                        }
+
+                        bufferStart = next;
+                        buffer = await ReadFileRangeAsync(item.Id.Value, mediaSource, next, cts.Token).ConfigureAwait(false);
+                        if (buffer.Length < 4)
+                        {
+                            return false;
+                        }
+                    }
+
+                    var header = (int)(next - bufferStart);
+                    var isLastBlock = (buffer[header] & 0x80) != 0;
+                    next += 4 + ((buffer[header + 1] << 16) | (buffer[header + 2] << 8) | buffer[header + 3]);
+                    if (next > MusicConstants.MaxFlacBytesBeforeAudio)
+                    {
+                        return true;
+                    }
+
+                    if (isLastBlock)
+                    {
+                        return false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await ErrorHandler.HandleErrorAsync(ex,
+                    CreateErrorContext("FlacAudioStartsTooLate", ErrorCategory.Media, ErrorSeverity.Warning), false);
+                return false;
+            }
+        }
+
+        private async Task<byte[]> ReadFileRangeAsync(Guid itemId, MediaSourceInfo mediaSource, long start,
+            CancellationToken cancellationToken)
+        {
+            const int Count = MusicConstants.FlacHeaderReadBytes;
+            using var stream = await _apiClient.Audio[itemId].Stream.GetAsync(config =>
+            {
+                config.QueryParameters.Static = true;
+                config.QueryParameters.MediaSourceId = mediaSource.Id;
+                config.Headers.Add("Range", $"bytes={start}-{start + Count - 1}");
+            }, cancellationToken).ConfigureAwait(false);
+
+            var buffer = new byte[Count];
+            var total = 0;
+            int read;
+            while (total < Count &&
+                   (read = await stream.ReadAsync(buffer, total, Count - total, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                total += read;
+            }
+
+            Array.Resize(ref buffer, total);
+            return buffer;
         }
 
         private static bool IsLosslessSource(MediaSourceInfo mediaSource)
@@ -101,7 +189,7 @@ namespace Gelatinarm.Music
 
         /// <summary>
         ///     Streams <paramref name="mediaSource" /> re-encoded by the server, for tracks the
-        ///     console cannot open directly (typically oversized embedded artwork). The caller has
+        ///     console refuses to open as it is. The caller has
         ///     already chosen the source. Runs once per track, so a failing stream does not loop.
         /// </summary>
         private async Task PlayItemWithTranscodingFallbackAsync(BaseItemDto item, MediaSourceInfo mediaSource)
