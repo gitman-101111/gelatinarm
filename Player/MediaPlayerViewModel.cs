@@ -91,6 +91,9 @@ namespace Gelatinarm.Player
 
         [ObservableProperty] private bool _isNextEpisodeAvailable;
 
+        // What the Next button says: a queue can hold films as well as episodes
+        [ObservableProperty] private string _nextItemLabel = NextLabelFor(null);
+
         private bool _isOutroSkipAvailable;
 
         public bool IsPaused
@@ -185,7 +188,8 @@ namespace Gelatinarm.Player
 
         public Type NavigationSourcePage => _playbackParams?.NavigationSourcePage;
 
-        // The overlay, auto-play and Skip Outro move to a next episode; other items end
+        // The overlay, auto-play and Skip Outro move to a next episode; a queued item of another
+        // type plays to its end and moves on from there (EndOfItemAsync)
         private bool HasNextEpisode => IsNextEpisodeAvailable && CurrentItem?.Type == BaseItemDto_Type.Episode;
 
         public bool HasMultipleAudioTracks => AudioTracks?.Count > 1;
@@ -545,12 +549,23 @@ namespace Gelatinarm.Player
                 }
 
                 var nextItem = await _mediaNavigationService.GetNextEpisodeAsync();
+                NextItemLabel = NextLabelFor(nextItem);
                 IsNextEpisodeAvailable = nextItem != null;
             }
             catch (Exception ex)
             {
                 await ErrorHandler.HandleErrorAsync(ex, context, false);
             }
+        }
+
+        private static string NextLabelFor(BaseItemDto item)
+        {
+            return item?.Type switch
+            {
+                BaseItemDto_Type.Movie => "Next Movie",
+                BaseItemDto_Type.Episode or null => "Next Episode",
+                _ => "Next Video"
+            };
         }
 
         /// <summary>
@@ -827,6 +842,30 @@ namespace Gelatinarm.Player
         public Task LeavePlayerAsync()
         {
             return _mediaNavigationService.NavigateBackToOriginAsync();
+        }
+
+        /// <summary>
+        ///     The item has played to its end. A queue of anything but episodes (Play on a
+        ///     collection) goes on to its next item here; everything else returns to where
+        ///     playback was started.
+        /// </summary>
+        public Task EndOfItemAsync()
+        {
+            if (_hasAutoPlayedNext)
+            {
+                // Auto-play has already started the next episode
+                return Task.CompletedTask;
+            }
+
+            if (IsNextEpisodeAvailable && CurrentItem?.Type != BaseItemDto_Type.Episode)
+            {
+                _hasAutoPlayedNext = true;
+                Logger.LogInformation("{ItemName} ended - playing the next queued item", CurrentItem?.Name);
+                // MediaEnded arrives on the player's thread; the Frame navigates on the UI thread
+                return RunOnUIThreadAsync(PlayNextEpisodeAsync);
+            }
+
+            return LeavePlayerAsync();
         }
 
         public async Task LeaveAfterPlaybackFailureAsync()

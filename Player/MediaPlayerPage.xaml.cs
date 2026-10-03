@@ -285,11 +285,10 @@ namespace Gelatinarm.Player
                     }
                 }
 
-                // Auto-play of the next item, if any, has already started by now
-                if (!ViewModel.IsPlaying)
-                {
-                    await ViewModel.LeavePlayerAsync();
-                }
+                // Not gated on the player's state: an MKV file still reports Playing here and
+                // changes state up to a quarter of a second later (device), so the gate left
+                // most MKV files sitting on their last frame
+                await ViewModel.EndOfItemAsync();
             }
             catch (Exception ex)
             {

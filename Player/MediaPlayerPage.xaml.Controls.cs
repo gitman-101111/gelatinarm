@@ -313,7 +313,7 @@ namespace Gelatinarm.Player
             try
             {
                 if (CheckControlVisibility() &&
-                    MediaPlayer.MediaPlayer.PlaybackSession?.PlaybackState == MediaPlaybackState.Playing)
+                    MediaPlayer.MediaPlayer?.PlaybackSession?.PlaybackState == MediaPlaybackState.Playing)
                 {
                     Interlocked.Increment(ref _controlVisibilityCounter);
 

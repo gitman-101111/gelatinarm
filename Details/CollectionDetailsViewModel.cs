@@ -153,19 +153,56 @@ namespace Gelatinarm.Details
             }
         }
 
-        public override Task PlayAsync()
+        public override async Task PlayAsync()
         {
-            PlayAsQueue(_playableItems.ToList());
-            return Task.CompletedTask;
+            var items = _playableItems.ToList();
+            PlayAsQueue(items, await FirstUnwatchedIndexAsync(items));
         }
 
         [RelayCommand]
         private void ShufflePlay()
         {
-            PlayAsQueue(ShuffleHelper.Shuffled(_playableItems));
+            PlayAsQueue(ShuffleHelper.Shuffled(_playableItems), 0);
         }
 
-        private void PlayAsQueue(List<BaseItemDto> items)
+        /// <summary>
+        ///     Where Play starts, as Play on a series does: at the first item not yet watched, the
+        ///     whole collection staying queued around it. The watched state is fetched now, since
+        ///     the list on the page may have loaded before the last playback was reported. The
+        ///     first item when everything is watched.
+        /// </summary>
+        private async Task<int> FirstUnwatchedIndexAsync(List<BaseItemDto> items)
+        {
+            var context = CreateErrorContext("FirstUnwatchedIndex");
+            try
+            {
+                // The page's own query, asked again now, with the watched state read here
+                // rather than filtered by the server
+                var response = await ApiClient.Items.GetAsync(config =>
+                {
+                    config.QueryParameters.ParentId = CurrentItem.Id.Value;
+                    config.QueryParameters.UserId = UserIdGuid.Value;
+                    config.QueryParameters.EnableUserData = true;
+                    config.QueryParameters.SortBy = new[] { ItemSortBy.SortName };
+                });
+
+                var watched = new HashSet<Guid>((response?.Items ?? new List<BaseItemDto>())
+                    .Where(item => item.Id.HasValue && item.UserData?.Played == true)
+                    .Select(item => item.Id.Value));
+                var index = items.FindIndex(item => item.Id.HasValue && !watched.Contains(item.Id.Value));
+                index = Math.Max(index, 0);
+                Logger.LogInformation(
+                    "Collection Play: server reports {WatchedCount} watched, starting at {ItemName} ({Position} of {Count})",
+                    watched.Count, items.ElementAtOrDefault(index)?.Name, index + 1, items.Count);
+                return index;
+            }
+            catch (Exception ex)
+            {
+                return await ErrorHandler.HandleErrorAsync(ex, context, 0);
+            }
+        }
+
+        private void PlayAsQueue(List<BaseItemDto> items, int startIndex)
         {
             if (items.Count == 0)
             {
@@ -174,9 +211,9 @@ namespace Gelatinarm.Details
 
             var playbackParams = new MediaPlaybackParams
             {
-                Item = items[0],
+                Item = items[startIndex],
                 QueueItems = items,
-                StartIndex = 0,
+                StartIndex = startIndex,
                 NavigationSourcePage = typeof(CollectionDetailsPage),
                 NavigationSourceParameter = CurrentItem
             };

@@ -208,13 +208,13 @@
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
                         Spacing="8">
-                        <!--  Next Episode Button  -->
+                        <!--  Next Item Button  -->
                         <Button
                             Command="{x:Bind ViewModel.PlayNextEpisodeCommand, Mode=OneWay}"
                             Style="{StaticResource PlayerTextButtonStyle}"
                             Visibility="{x:Bind ViewModel.IsNextEpisodeAvailable, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="Next Episode" />
+                                <TextBlock Text="{x:Bind ViewModel.NextItemLabel, Mode=OneWay}" />
                                 <FontIcon Glyph="&#xE76C;" Style="{StaticResource PlayerSmallIconStyle}" />
                             </StackPanel>
                         </Button>
