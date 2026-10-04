@@ -175,6 +175,14 @@ namespace Gelatinarm.Player
 
         private async Task HandleResumeFailureAsync()
         {
+            // A direct play whose resume seek does not finish is reopened as a server stream,
+            // which the server starts at the position (device: the console read a 12 GB MKV from
+            // its start, 1.4 GB in 45 s, to reach a point 2.3 GB in, and the seek never completed).
+            if (TryRecoverFromMediaFailure())
+            {
+                return;
+            }
+
             var context = CreateErrorContext("ResumePlayback", ErrorCategory.Media);
             ErrorHandler.HandleError(new ResumeStuckException(), context, true);
 

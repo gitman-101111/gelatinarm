@@ -22,11 +22,12 @@ namespace Gelatinarm.Player
     ///     How a resume behaves on one kind of stream; the steps are the same for both. Direct play
     ///     seeks exactly and cheaply. A server stream (HLS) lands on segment boundaries and a seek
     ///     can restart the server's transcode, so it gets a wider tolerance, slower checks and a
-    ///     single seek.
+    ///     single seek. Direct play gives up early: a seek that works takes about 2 s, and one
+    ///     that does not is handed to the server (MediaPlayerViewModel.HandleResumeFailureAsync).
     /// </summary>
     internal sealed class ResumeProfile
     {
-        public static readonly ResumeProfile DirectPlay = new ResumeProfile("DirectPlay", 3.0, 1000, 8, 20, false);
+        public static readonly ResumeProfile DirectPlay = new ResumeProfile("DirectPlay", 3.0, 1000, 8, 5, false);
         public static readonly ResumeProfile Hls = new ResumeProfile("HLS", 10.0, 5000, 15, 45, true);
 
         private ResumeProfile(string label, double toleranceSeconds, int checkDelayMs, int maxChecks,
@@ -146,8 +147,6 @@ namespace Gelatinarm.Player
 
                 while (!resumeResult && retryCount < maxRetries)
                 {
-                    retryCount++;
-
                     if (!context.IsResumePending())
                     {
                         // Every Playing transition re-enters here until SeekCompleted sets
@@ -164,7 +163,6 @@ namespace Gelatinarm.Player
                         break;
                     }
 
-                    _logger.LogDebug("[{StreamLabel}] Retry {RetryCount}/{MaxRetries} in {RetryDelay}ms", streamLabel, retryCount, maxRetries, retryDelay);
                     try
                     {
                         await Task.Delay(retryDelay, context.Cancellation).ConfigureAwait(false);
@@ -175,6 +173,19 @@ namespace Gelatinarm.Player
                         return;
                     }
 
+                    // While the player is still carrying out the resume seek there is nothing
+                    // to verify: the position already reads as the target, and a recovery pause
+                    // or seek only restarts the fetch (device: a 15 Mbps direct play was declared
+                    // stuck 2 s after its seek, "recovered" twice and given up on at 7 s, with
+                    // SeekCompleted never raised). The wait spends no check.
+                    if (ResumeSeekRunning(context.SessionState, profile))
+                    {
+                        _logger.LogDebug("[{StreamLabel}] Waiting for the player to finish the resume seek", streamLabel);
+                        continue;
+                    }
+
+                    retryCount++;
+                    _logger.LogDebug("[{StreamLabel}] Check {RetryCount}/{MaxRetries}", streamLabel, retryCount, maxRetries);
                     resumeResult = context.ApplyResumeIfNeeded();
                 }
             }
@@ -210,6 +221,14 @@ namespace Gelatinarm.Player
                     streamLabel, retryCount, actualPosition, targetPosition);
                 await context.OnResumeFailedAsync().ConfigureAwait(false);
             }
+        }
+
+        // SeekCompleted sets HasPerformedInitialSeek. Past the profile's timeout the wait ends
+        // and the next check reports the timeout.
+        private bool ResumeSeekRunning(PlaybackSessionState sessionState, ResumeProfile profile)
+        {
+            return _seekIssued && !sessionState.HasPerformedInitialSeek &&
+                   DateTime.UtcNow - _resumeStartTime <= profile.Timeout;
         }
 
         public void Reset()

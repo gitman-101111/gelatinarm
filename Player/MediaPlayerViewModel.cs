@@ -740,11 +740,14 @@ namespace Gelatinarm.Player
 
             _directPlayRetryAttempted = true;
             Logger.LogWarning("Direct play failed for {ItemName}; retrying as a server stream", CurrentItem?.Name);
-            FireAndForget(async () =>
+            // The whole restart on the UI thread, as a track change does it. Started from a
+            // background thread while the player was still running (a resume seek that never
+            // finished), closing the stream hung in the decoder's teardown and froze the app.
+            FireAndForget(() => RunOnUIThreadAsync(async () =>
             {
-                await RunOnUIThreadAsync(PrepareForPlaybackRestart).ConfigureAwait(false);
-                await _playbackControlService.RetryAsServerStreamAsync().ConfigureAwait(false);
-            });
+                PrepareForPlaybackRestart();
+                await _playbackControlService.RetryAsServerStreamAsync();
+            }));
             return true;
         }
 
