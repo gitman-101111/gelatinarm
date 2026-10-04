@@ -368,6 +368,12 @@
       <SubType>Designer</SubType>
     </AppxManifest>
   </ItemGroup>
+  <ItemGroup Condition="'$(Edition)' != '4K'">
+    <None Include="Package.StoreAssociation.xml" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Edition)' == '4K' and Exists('Package.4K.StoreAssociation.xml')">
+    <StoreAssociationFile Include="Package.4K.StoreAssociation.xml" />
+  </ItemGroup>
   <ItemGroup Condition="'$(Edition)' == '4K'">
     <None Include="Package.appxmanifest" />
     <AppxManifest Include="$(IntermediateOutputPath)Package.4K.appxmanifest" />
@@ -402,7 +408,6 @@
     <Content Include="Assets\Square44x44Logo.targetsize-256.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-32.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-48.png" />
-    <None Include="Package.StoreAssociation.xml" />
     <Content Include="Properties\Default.rd.xml" />
     <Content Include="Assets\StoreLogo.scale-100.png" />
     <Content Include="Assets\StoreLogo.scale-125.png" />
@@ -430,6 +435,12 @@
     <Content Include="Assets\SplashScreen.scale-150.png" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\SplashScreen.scale-400.png" />
+  </ItemGroup>
+  <!-- The 4K edition's logos (Assets4K, same file names) are packaged in place of the standard ones -->
+  <ItemGroup Condition="'$(Edition)' == '4K'">
+    <EditionAsset Include="Assets4K\*.png" />
+    <Content Remove="@(EditionAsset->'Assets\%(Filename)%(Extension)')" />
+    <Content Include="@(EditionAsset)" Link="Assets\%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -614,6 +625,12 @@
       ]]></Code>
     </Task>
   </UsingTask>
+  <Target Name="NameEditionPackage" BeforeTargets="_ComputeAppxPackageOutput" Condition="'$(Edition)' == '4K' and '$(AppxPackageName)' == ''">
+    <PropertyGroup>
+      <EditionPackageSuffix Condition="'$(BaseConfiguration)' == 'Debug'">_Debug</EditionPackageSuffix>
+      <AppxPackageName>Gelatinarm4K_$(AppxManifestIdentityVersion)$(EditionPackageSuffix)</AppxPackageName>
+    </PropertyGroup>
+  </Target>
   <Target Name="WriteEditionManifest" BeforeTargets="PrepareForBuild" Condition="'$(Edition)' == '4K'">
     <WriteEditionManifest Source="$(MSBuildProjectDirectory)\Package.appxmanifest" Destination="$(MSBuildProjectDirectory)\$(IntermediateOutputPath)Package.4K.appxmanifest" />
   </Target>

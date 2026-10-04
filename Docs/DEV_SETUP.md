@@ -44,17 +44,25 @@ music and 4K video; see the root README):
 | Capability | `backgroundMediaPlayback` | `hevcPlayback` (restricted) |
 | Background music | yes | no; the app is closed when a game starts |
 | Video | capped at 1920x1080 by the device profile | no cap |
+| Display mode | never switched | switched for HDR and, optionally, the video's frame rate |
+| Logos | `Assets` | `Assets4K` (the same files with a 4K cuff), packaged under the `Assets` names |
 
 Pick the configuration in Visual Studio, or pass `/p:Configuration=Release4K`
 (`/p:Edition=4K` works with any configuration). Both editions install side by
-side; a Store release of the 4K edition needs its own reserved name in Partner
-Center.
+side.
+
+Each edition is its own Store product with its own association file, neither
+tracked in git: `Package.StoreAssociation.xml` (standard) and
+`Package.4K.StoreAssociation.xml` (4K, a copy with that product's identity name
+and reserved name). Without its file the 4K edition packages for sideloading
+only. Visual Studio's "Associate App with the Store" rewrites the standard file
+and the manifest's identity, so it is not used for the 4K product.
 
 There is one manifest, `Package.appxmanifest`. The 4K build writes
 `obj\x64\<Configuration>\Package.4K.appxmanifest` from it (the
 `WriteEditionManifest` task in `Gelatinarm.csproj`) and fails if a substitution
-does not match exactly once. `EDITION_4K` is defined for the 4K edition; it lifts
-the resolution cap in `DeviceProfileService`.
+does not match exactly once. `EDITION_4K` is defined for the 4K edition
+(`XboxDevice.IsFourKEdition`).
 
 **Judge warnings from a rebuild** (`/t:Rebuild`): an incremental build skips
 compilation and shows no C# warnings. The baseline is no errors and only
@@ -141,9 +149,8 @@ Before a release, run through at least:
    changes (playback restarts at the same position), next episode, stop, and the
    server's recorded progress.
 5. Music: a song and an album, playing on while browsing, right trigger held to
-   jump to the player, sign-out while playing (it must stop). A FLAC with large
-   embedded cover art must start without a failed first attempt, and the server
-   log shows `-acodec flac`.
+   jump to the player, sign-out while playing (it must stop). A FLAC with more than
+   4 MB of embedded cover art must start without a failed first attempt.
 6. Settings: change each one, restart the app, check it persisted.
 7. Controller only: every screen reachable and escapable with the D-pad and B,
    no focus traps.
@@ -152,6 +159,9 @@ Before a release, run through at least:
 
 For a failure, note the console model, the build configuration, the exact steps
 and what the server log shows.
+
+A change to the device profile (`DeviceProfileService`) is tested against the codec
+clip set: [CODEC_TESTING.md](CODEC_TESTING.md).
 
 ## Release
 

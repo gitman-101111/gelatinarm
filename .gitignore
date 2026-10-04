@@ -226,6 +226,7 @@ rcf/
 AppPackages/
 BundleArtifacts/
 Package.StoreAssociation.xml
+Package.4K.StoreAssociation.xml
 _pkginfo.txt
 *.appx
 *.appxbundle

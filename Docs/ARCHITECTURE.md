@@ -146,14 +146,15 @@ the shell and survives navigation.
 | `MediaControlService` | The music player's `MediaPlayer`: play, pause, repeat, state events. |
 | `MediaQueueService`, `MusicQueueService` | The video queue and next-episode lookup; the music queue, shuffle and repeat order. |
 | `DeviceProfileService`, `MediaOptimizationService` | The device profile sent to the server; playback tuning. |
-| `MusicPlayerService` | The music queue, instant mix, system media transport controls, background audio. Pages and the mini player use `IPlaybackQueueService`. Tracks with embedded art over `MusicConstants.MaxDirectPlayEmbeddedArtworkPixels` (the Xbox cannot open them) stream from the server with the picture stripped: lossless sources as FLAC (up to 8 channels), lossy as MP3; a `MediaFailed` fallback catches the rest. Those streams have no length, so music does not seek. |
+| `DisplayModeService` | Switches the display's mode to suit a video, and back on leaving the player (4K edition). |
+| `MusicPlayerService` | The music queue, instant mix, system media transport controls, background audio. Pages and the mini player use `IPlaybackQueueService`. A track the console cannot open is streamed from the server instead: lossless sources as FLAC, lossy as MP3. Those streams have no length, so music does not seek. |
 
 **Direct play or server stream.** `DeviceProfileService` describes the console;
-the server decides. Containers and codecs follow Microsoft's supported-codecs
-tables. Hardware HEVC is read at runtime with
+the server decides. Containers and codecs follow the codec test
+([CODEC_TESTING.md](CODEC_TESTING.md)). Hardware HEVC is read at runtime with
 `ProtectionCapabilities.IsTypeSupported`; `NotSupported` (the original Xbox One)
 removes HEVC from direct play and server streams alike. A direct play that fails
-to open is retried once as a server stream
+to open, or whose resume seek does not finish, is retried once as a server stream
 (`MediaPlayerViewModel.TryRecoverFromMediaFailure`,
 `PlaybackControlService.RetryAsServerStreamAsync`), at the resume point if
 playback never started. The app renders no subtitles, so they are declared

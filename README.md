@@ -7,9 +7,24 @@ It was created to fill my needs for a native Xbox client and my only hope for it
 
 A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with UWP (Universal Windows Platform) and optimized for controller navigation and TV viewing.
 
-<a href="https://apps.microsoft.com/detail/9MWJCZCP7Q17?referrer=appbadge&mode=direct">
-    <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
-</a>
+<table>
+  <tr>
+    <th>Gelatinarm</th>
+    <th>Gelatinarm 4K</th>
+  </tr>
+  <tr>
+    <td>
+      <a href="https://apps.microsoft.com/detail/9MWJCZCP7Q17?referrer=appbadge&mode=direct">
+        <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+      </a>
+    </td>
+    <td>
+      <!--<a href="https://apps.microsoft.com/detail/STORE_ID_4K?referrer=appbadge&mode=direct">
+        <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+      </a>-->
+    </td>
+  </tr>
+</table>
 
 **Note:** This app requires a Jellyfin media server to connect to. Gelatinarm is the client application that provides an Xbox-optimized interface for your Jellyfin content.
 
@@ -25,10 +40,10 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 - **Direct Play** - Compatible files play as-is, straight from your server, with no transcoding
 - **Playback statistics (Y)** - Shows whether you're direct playing, remuxing or transcoding, and the server's reasons
 - **Hardware acceleration** - Optimized decoding for smooth playback
-- **HDR support** - HDR10 (all Xbox models), HDR10+, HLG, and Dolby Vision Profile 8.1 (Xbox Series S/X only)
+- **HDR support** - HDR10 (all Xbox models), HDR10+, HLG, and Dolby Vision profiles 8.1 and 8.4 (Xbox Series S/X only)
 - **Auto-Play Next Episode** - Seamlessly continue to the next episode
 - **Episode Shuffle Mode** - Random episode playback for your favorite shows
-- **Multiple Audio & Subtitle Tracks** - Switch languages and subtitles during playback (the stream restarts from the server at the same position)
+- **Multiple Audio & Subtitle Tracks** - Switch languages and subtitles during playback (a direct-played file switches audio inside the player; otherwise the stream restarts from the server at the same position)
 - **Server streaming fallback** - Anything the Xbox can't play directly is remuxed or transcoded by your server over HLS
 - **Buffering optimization** - Smart buffering for smooth playback
 - **Profile Switching** - Switch between different users on the same server, keeping settings, playback history, etc. separate
@@ -56,105 +71,130 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
 
 ## Format Support
 
-Gelatinarm tells your Jellyfin server exactly what the Xbox can play. If a file
-qualifies, it **direct plays** (the Xbox reads the file as-is). If not, the server
-**remuxes** it (repackages it, quality untouched) or **transcodes** it (re-encodes
-the parts the Xbox can't handle). Press **Y** during playback to see which one is
-happening and why. If a file that should direct play fails to open, Gelatinarm
-retries it as a server stream from the same position.
+✅ plays directly from the file. Anything else is remuxed or transcoded by your Jellyfin
+server: the cell says what the console does with the file as it is, or ❌. Press **Y**
+during playback to see which, and why. A direct play that fails to open is retried as a
+server stream. Test method: [Docs/CODEC_TESTING.md](Docs/CODEC_TESTING.md).
 
 ### Video
 
-| Codec | Direct play | Otherwise | Notes |
-|-------|:-----------:|-----------|-------|
-| **H.264/AVC** | ✅ | – | 8-bit, up to level 5.2 (High/Main/Baseline) |
-| **H.265/HEVC** | ✅ One S and later | ❌ original Xbox One: transcoded to H.264 | 8/10-bit Main and Main 10. Hardware HEVC is detected on the console |
-| **VP9** | ✅ | – | Profile 0 and 2 |
-| **AV1** | ❌ | Transcoded | No Xbox decodes AV1 in the system player |
-| **MPEG-1/2, MPEG-4 Part 2, VC-1, WMV** | ✅ | – | By container, per Microsoft's codec tables |
-| **10-bit H.264, VP8, H.263, Motion JPEG, anything else** | ❌ | Transcoded | |
+| Codec | MP4, M4V, MOV, 3GP | MKV, WebM | TS, M2TS | MPG, VOB | AVI | WMV, ASF | Direct play requires |
+|-------|:--:|:--:|:--:|:--:|:--:|:--:|------|
+| **H.264** | ✅ | ✅ | ✅ | No picture | ✅ | ❌ | 8-bit 4:2:0 (10-bit, 4:2:2, 4:4:4: decoder error); Baseline, Main or High; level 5.2 or lower |
+| **HEVC** | ✅ | ✅ | ✅ | No picture | ❌ | ❌ | 8- or 10-bit 4:2:0 (12-bit crashes the decoder; 4:2:2, 4:4:4: decoder error); level 6.1 or lower; Xbox One S or later |
+| **VP9** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | 8- or 10-bit 4:2:0 (4:4:4: green picture) |
+| **VP8** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | |
+| **MPEG-2** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | |
+| **MPEG-1** | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | |
+| **MPEG-4 Part 2 (DivX, Xvid)** | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | Simple Profile (B-frames stall or crash the video driver) |
+| **H.263** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | |
+| **MS-MPEG4 v2, v3 (DivX 3)** | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | |
+| **WMV 7, WMV 8** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | |
+| **VC-1 (WMV 9)** | ✅ | No picture | No picture | ❌ | ❌ | ✅ | |
+| **AV1** | No picture | No picture | ❌ | ❌ | ❌ | ❌ | |
+| **VVC, ProRes** | No picture | ❌ | ❌ | ❌ | ❌ | ❌ | |
+| **DV** | ❌ | ❌ | ❌ | ❌ | Jittery | ❌ | |
+| **Others** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 
-When the server has to convert the video (an unsupported format, a burned-in subtitle,
-or a source above 1080p), it encodes HEVC if the server allows HEVC encoding
-(Jellyfin's transcoding settings) and the console decodes HEVC, and H.264 otherwise.
-HEVC keeps more detail at the same bitrate.
-
-### HDR
-
-HDR is only direct played when your **display** reports support for it; otherwise
-the server tone-maps and transcodes.
-
-| Format | Xbox One S/X | Xbox Series S/X |
-|--------|:------------:|:---------------:|
-| **HDR10** | ✅ | ✅ |
-| **HDR10+** | ✅ (display permitting) | ✅ (display permitting) |
-| **HLG** | ✅ (display permitting) | ✅ (display permitting) |
-| **Dolby Vision** | ❌ Transcoded | ✅ (not checked against the display: a file that plays today keeps playing) |
+- All video: 60 fps or lower, within the [picture size limit](#video-resolution).
+- FLV and OGV files (Sorenson, Theora): refused.
+- Motion JPEG: Jellyfin serves the audio only.
+- Transcoded video is HEVC when the server allows HEVC encoding and the console
+  decodes it, otherwise H.264.
 
 ### Audio in video files
 
-| Codec | Direct play | Otherwise |
-|-------|:-----------:|-----------|
-| **AAC, MP3, AC3 (Dolby Digital)** | ✅ | – |
-| **ALAC, AMR** | ✅ in MP4/MOV | – |
-| **MP2** | ✅ in TS/MPG | – |
-| **WMA** | ✅ in ASF/WMV | – |
-| **FLAC, PCM, E-AC3 (Dolby Digital Plus), DTS, TrueHD, Opus, Vorbis** | ❌ | Audio converted by the server; the video is still copied untouched if it qualifies. FLAC in MKV plays silent on the console, so it is converted on purpose |
+When only the audio is not ✅, the server converts the audio and copies the video.
 
-When the server has to make a stream anyway, **Settings → Playback → Audio Direct
-Stream** lets it pass AAC and AC3 through instead of re-encoding them.
+| Codec | MP4, M4V, 3GP | MOV | MKV, WebM | TS, M2TS | MPG, VOB | AVI | WMV, ASF | Channels |
+|-------|:--:|:--:|:--:|:--:|:--:|:--:|:--:|------|
+| **AAC (LC, HE-AAC)** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ | up to 5.1; 7.1 is silent |
+| **AC3 (Dolby Digital)** | ✅ | Refused | ✅ | ✅ | ✅ | ✅ | Stutters | |
+| **E-AC3 (Dolby Digital Plus, Atmos)** | ✅ | Refused | ✅ | ✅ | ❌ | ❌ | ❌ | up to 7.1 |
+| **MP3** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ | |
+| **MP2** | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | |
+| **FLAC** | ✅ | – | ✅ | ❌ | ❌ | ❌ | ❌ | up to 7.1, 24-bit; 32-bit is silent |
+| **ALAC** | Silent | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | |
+| **PCM** | Silent | ✅ | Silent | ✅ Blu-ray LPCM in M2TS | Silent | ✅ | ❌ | up to 7.1 |
+| **Opus** | Silent | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | stereo; 5.1 and 7.1 are silent |
+| **WMA** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | |
+| **AMR** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | |
+| **DTS, DTS-HD** | ❌ | ❌ | Silent | Silent | ❌ | ❌ | ❌ | |
+| **TrueHD, Vorbis** | ❌ | ❌ | Silent | ❌ | ❌ | ❌ | ❌ | |
+| **Others** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 
-### Containers
-
-| Container | Direct play |
-|-----------|:-----------:|
-| **MKV, WebM, MP4, M4V, MOV** | ✅ |
-| **TS, M2TS, MTS, MPG, MPEG** | ✅ MPEG-1/2 and H.264 video with AC3 or MP2 audio |
-| **AVI, WMV/ASF, 3GP** | ✅ (older codecs) |
-| **Anything else** | ❌ Remuxed by the server |
+- MOV: a file named `.mov` or `.qt`.
+- **Settings → Playback → Audio Direct Stream** lets a server stream pass AAC, AC3
+  and E-AC3 through unconverted.
 
 ### Music
 
-| Format | Direct play |
-|--------|:-----------:|
-| **MP3, AAC/M4A, FLAC, ALAC, WAV, WMA, AMR** | ✅ |
+| Codec | Direct play in | Limit |
+|-------|----------------|-------|
+| **MP3** | `.mp3`, `.m4a` | |
+| **MP2** | `.mp2` | |
+| **AAC (LC, HE-AAC)** | `.aac`, `.m4a`, `.m4b` | up to 5.1; 7.1 is refused |
+| **ALAC** | `.m4a` | up to 7.1 |
+| **FLAC** | `.flac`, `.m4a`, `.mka` | up to 7.1, 24-bit 192 kHz; refused with more than about 4 MB of embedded cover art |
+| **PCM (integer and float), A-law, µ-law, ADPCM, GSM** | `.wav` | up to 7.1 |
+| **WMA (Standard, Pro, Lossless)** | `.wma` | |
+| **AC3** | `.ac3`, `.m4a` | |
+| **E-AC3** | `.eac3` | up to 5.1; 7.1 is refused |
+| **Opus** | `.mka` | |
+| **AMR** | `.amr`, `.3gp`, `.m4a` | |
+| **Ogg (Vorbis, Opus), AIFF, WavPack, APE** | Refused | |
+| **DTS** | A burst of noise, then stops | |
+| **True Audio, audio in `.webm`** | Jellyfin does not import the file | |
+| **Others** | ❌ | |
 
-The Xbox's player cannot open audio files with embedded cover art larger than
-1500×1500 pixels. Gelatinarm streams those tracks through your server with the
-artwork removed: lossless files (FLAC, ALAC, WAV) as lossless FLAC, surround
-channels included, and lossy files as MP3. Files with smaller (or no) embedded
-artwork play directly.
+A track the console refuses is streamed by the server: lossless sources as FLAC,
+others as MP3.
+
+### HDR
+
+| Format | Direct play |
+|--------|-------------|
+| **HDR10, HDR10+** | ✅ |
+| **HLG** | ✅ Xbox Series X\|S |
+| **Dolby Vision over an HDR10 or HLG layer (profiles 8.1, 8.4), also with HDR10+** | ✅ Xbox Series X\|S |
+| **Dolby Vision alone (profile 5)** | Tried on Xbox Series X\|S. Without a Dolby Vision display it fails to decode and the server converts it |
+
+The standard edition has no HDR output: Xbox offers HDR display modes only to the 4K
+edition. In the standard edition the console shows HDR video converted to standard
+range.
+
+The 4K edition has three settings for it under **Settings → Playback**:
+
+- **HDR Display Mode** (on by default) switches the display to HDR when an HDR video
+  starts and back when you leave the player. Turned off, the console converts HDR to
+  standard range.
+- **HDR on Any Display** (on by default) direct plays HDR even when the console offers
+  no HDR mode for the display. Turned off, the server converts those files instead.
+- **Match Frame Rate** (off by default) switches the display to the video's frame rate,
+  24 or 50 Hz, and back when you leave the player. Turned off, the display stays at
+  60 Hz and the console converts.
 
 ### Subtitles
 
-The Xbox player cannot draw subtitles itself, so a selected subtitle (SRT, ASS/SSA,
-VTT, PGS, VobSub, DVB) is **burned into the video by the server**. That means
-choosing a subtitle always turns a direct play into a server transcode. With
-subtitles off, direct play is unaffected.
+The Xbox player draws no subtitles. A selected subtitle (SRT, ASS/SSA, VTT, PGS,
+VobSub, DVB) is burned in by the server, which transcodes the video.
 
-## Video Resolution: up to 1080p
+## Video Resolution
 
-Xbox apps choose between two modes:
-1. **Standard**: music keeps playing in the background while you play a game or use
-   another app; video is limited to 1080p.
-2. **4K** (the `hevcPlayback` capability): 2 GB more memory and 4K video, but the app
-   is closed whenever a game starts, so background music is not possible.
+| Edition | Largest picture | HDR output, frame rate matching | Background music |
+|---------|-----------------|:----------:|:----------------:|
+| **Standard** | 1920x1080 (portrait 1080x1920) | ❌ | ✅ |
+| **4K** ("Gelatinarm 4K", `Release4K`) | No limit | ✅ | ❌ Xbox closes the app when a game starts |
 
-Gelatinarm uses **standard mode**, so music keeps playing in the background. It
-tells the server that the console accepts video up to 1920x1080; the server scales
-anything larger down (a 4K film arrives as 1080p). HEVC and other formats at 1080p
-or below still play as they are.
-
-The same source also builds a **4K edition** ("Gelatinarm 4K", the `Release4K`
-configuration) that makes the other choice: 4K video, no background music. It
-installs alongside the standard app. See [Docs/DEV_SETUP.md](Docs/DEV_SETUP.md).
-
-For details, see [Microsoft's documentation on 4K video playback on Xbox](https://learn.microsoft.com/en-us/windows/uwp/audio-video-camera/hevc-xbox).
+The server scales larger video down. Xbox gives 4K video memory and HDR display modes
+only to an app with the `hevcPlayback` capability, which rules out background playback
+([Microsoft: 4K video playback on Xbox](https://learn.microsoft.com/en-us/windows/uwp/audio-video-camera/hevc-xbox)).
+The two editions install side by side; see [Docs/DEV_SETUP.md](Docs/DEV_SETUP.md).
 
 ## Known Limitations
 
-- **Subtitles are burned in** - The app does not render subtitle tracks itself, so a selected subtitle (embedded or external) is burned into the video by the server. That requires a video transcode, and changing subtitles restarts the stream.
-- **Audio track switching** - Choosing a non-default audio track also restarts the stream from the server with that track.
+- **Subtitles** - Burned in by the server; choosing or changing one restarts the stream as a transcode.
+- **Audio track switching** - A direct-played file switches audio track inside the player when the console can decode the new track. Otherwise, and on a server stream, playback restarts with the server supplying that track.
 - **Remote connections** - If your server sees the Xbox as a remote client, its internet streaming bitrate limit applies and high-bitrate files are transcoded. Configure your server's LAN networks if the Xbox is on your home network.
 
 ## Xbox Controller Mapping
@@ -249,6 +289,14 @@ The Store signs the package at publication, so the upload package is built unsig
 #### 2. Build Store Upload Package (PowerShell)
 From the project root:
 
+<table>
+<tr>
+<th>Gelatinarm</th>
+<th>Gelatinarm 4K</th>
+</tr>
+<tr>
+<td>
+
 ```powershell
 cd C:\gelatinarm
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe' `
@@ -261,9 +309,28 @@ cd C:\gelatinarm
     /p:AppxPackageDir=".\AppPackages\"
 ```
 
+</td>
+<td>
+
+```powershell
+cd C:\gelatinarm
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe' `
+    Gelatinarm.csproj `
+    /p:Configuration=Release4K `
+    /p:Platform=x64 `
+    /p:UapAppxPackageBuildMode=StoreUpload `
+    /p:AppxBundle=Always `
+    /p:AppxPackageSigningEnabled=false `
+    /p:AppxPackageDir=".\AppPackages\4K\"
+```
+
+</td>
+</tr>
+</table>
+
 #### 3. Upload to Store
-- The build creates an `.msixupload` or `.appxupload` file in `.\AppPackages\`
-- Upload it to Microsoft Partner Center
+- The build creates an `.msixupload` or `.appxupload` file in the package directory
+- Upload it to Microsoft Partner Center, each edition to its own app
 
 ## Contributing
 
