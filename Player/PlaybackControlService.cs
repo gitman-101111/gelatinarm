@@ -272,30 +272,28 @@ namespace Gelatinarm.Player
         }
 
         // HDR video that reaches the console as it is (direct play, or copied into a server
-        // stream) is shown in the display's HDR mode; anything else in the default mode, where a
+        // stream) is shown in the display's HDR mode; anything else in an SDR mode, where a
         // stream the server converted is already standard range. With Match Frame Rate the
-        // display also takes the video's rate. Before playback starts, as Microsoft asks: the
+        // display also takes the video's rate; its resolution it always takes, as Microsoft
+        // requires of a 4K app (DisplayModeService). Before playback starts, as Microsoft asks: the
         // switch blanks the screen for a moment. Only the 4K edition switches the display: it
         // alone is offered HDR modes, and the standard edition is kept free of mode switches
         // (owner decision, 2026-10-03).
         private async Task MatchDisplayModeAsync()
         {
+            if (!XboxDevice.IsFourKEdition)
+            {
+                await _displayModeService.RestoreDefaultAsync();
+                return;
+            }
+
             var preferences = await _preferencesService.GetAppPreferencesAsync();
             var video = _currentMediaSource.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
             var unconverted = _currentMediaSource.SupportsDirectPlay == true || _videoArrivesUnconverted;
-            var hdr = XboxDevice.IsFourKEdition && preferences.SwitchDisplayToHdr && unconverted &&
+            var hdr = preferences.SwitchDisplayToHdr && unconverted &&
                       HdrRangeTypes.Contains(video?.VideoRangeType?.ToString(), StringComparer.OrdinalIgnoreCase);
-            double? frameRate = XboxDevice.IsFourKEdition && preferences.MatchFrameRate
-                ? video?.AverageFrameRate ?? video?.RealFrameRate
-                : null;
-            if (hdr || frameRate > 0)
-            {
-                await _displayModeService.MatchAsync(hdr, frameRate);
-            }
-            else
-            {
-                await _displayModeService.RestoreDefaultAsync();
-            }
+            double? frameRate = preferences.MatchFrameRate ? video?.AverageFrameRate ?? video?.RealFrameRate : null;
+            await _displayModeService.MatchAsync(hdr, frameRate, video?.Width, video?.Height);
         }
 
         public void StartPlayback(MediaSource mediaSource, long? startPositionTicks)

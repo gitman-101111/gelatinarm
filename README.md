@@ -19,9 +19,9 @@ A native Jellyfin client for Xbox One and Xbox Series X|S consoles, built with U
       </a>
     </td>
     <td>
-      <!--<a href="https://apps.microsoft.com/detail/STORE_ID_4K?referrer=appbadge&mode=direct">
+      <a href="https://apps.microsoft.com/detail/9MZCKC10QNSL?referrer=appbadge&mode=direct">
         <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
-      </a>-->
+      </a>
     </td>
   </tr>
 </table>
@@ -170,9 +170,8 @@ The 4K edition has three settings for it under **Settings → Playback**:
   standard range.
 - **HDR on Any Display** (on by default) direct plays HDR even when the console offers
   no HDR mode for the display. Turned off, the server converts those files instead.
-- **Match Frame Rate** (off by default) switches the display to the video's frame rate,
-  24 or 50 Hz, and back when you leave the player. Turned off, the display stays at
-  60 Hz and the console converts.
+- **Match Frame Rate** (off by default) picks the video's frame rate, 24 or 50 Hz.
+  Turned off, the display stays at its usual rate and the console converts.
 
 ### Subtitles
 

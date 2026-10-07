@@ -40,8 +40,8 @@ namespace Gelatinarm.Shared.Preferences
         // HDR formats direct play whatever the display reports (true), or only the formats it reports
         public bool PlayHdrOnAnyDisplay { get; set; } = true;
 
-        // The display is put in HDR mode for an HDR video (true), or stays in its default mode,
-        // where the console shows HDR converted to SDR
+        // The display is put in HDR mode for an HDR video (true), or in an SDR mode, where the
+        // console shows HDR converted to SDR
         public bool SwitchDisplayToHdr { get; set; } = true;
 
         // The display is put at the video's frame rate (true), or stays at its own, where the

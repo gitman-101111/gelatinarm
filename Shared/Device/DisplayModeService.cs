@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Windows.Graphics.Display.Core;
 using Gelatinarm.Shared.Base;
@@ -9,20 +10,21 @@ using Microsoft.Extensions.Logging;
 namespace Gelatinarm.Shared.Device
 {
     /// <summary>
-    ///     Switches the TV between the console's default mode and a mode that suits a video: HDR,
-    ///     the video's frame rate, or both. Xbox shows HDR only in a display mode the app asks
-    ///     for; in the default mode the media pipeline tone-maps HDR to SDR and converts other
+    ///     Switches the TV between the console's default mode and a mode that suits a video: its
+    ///     resolution, HDR, the video's frame rate. Xbox shows HDR only in a display mode the app
+    ///     asks for; in the default mode the media pipeline tone-maps HDR to SDR and converts other
     ///     frame rates to the display's (Microsoft, "4K video playback for UWP apps on Xbox",
     ///     Switching Display modes).
     /// </summary>
     public interface IDisplayModeService
     {
         /// <summary>
-        ///     The mode for a video: HDR when <paramref name="hdr" />, at the refresh rate that
-        ///     shows <paramref name="frameRate" /> without conversion when one is given. Each
-        ///     falls back to what the display is in when the console offers no such mode.
+        ///     The mode for a video: at least <paramref name="width" /> by <paramref name="height" />,
+        ///     HDR when <paramref name="hdr" />, at the refresh rate that shows
+        ///     <paramref name="frameRate" /> without conversion when one is given. Each falls back
+        ///     to what the display is in when the console offers no such mode.
         /// </summary>
-        Task MatchAsync(bool hdr, double? frameRate);
+        Task MatchAsync(bool hdr, double? frameRate, int? width, int? height);
 
         /// <summary>
         ///     Back to the default mode, which the app's own pages are drawn for
@@ -32,8 +34,8 @@ namespace Gelatinarm.Shared.Device
 
     public class DisplayModeService : BaseService, IDisplayModeService
     {
-        // The mode the console was in before the first switch: its resolution is kept, and its
-        // refresh rate is the one to fall back to
+        // The mode the console was in before the first switch: its resolution is the least used,
+        // and its refresh rate is the one to fall back to
         private HdmiDisplayMode _defaultMode;
         private bool _isSwitched;
 
@@ -41,7 +43,7 @@ namespace Gelatinarm.Shared.Device
         {
         }
 
-        public Task MatchAsync(bool hdr, double? frameRate)
+        public Task MatchAsync(bool hdr, double? frameRate, int? width, int? height)
         {
             if (!XboxDevice.IsXbox)
             {
@@ -61,14 +63,23 @@ namespace Gelatinarm.Shared.Device
                     _defaultMode = hdmi.GetCurrentDisplayMode();
                 }
 
-                var mode = _defaultMode == null ? null : FindMode(hdmi, hdr, frameRate);
-                if (mode == null)
+                if (_defaultMode == null)
                 {
-                    Logger.LogInformation("Display mode: none offered for HDR {Hdr} at {FrameRate} fps; staying as it is", hdr, frameRate);
+                    Logger.LogInformation("Display mode: the current mode is unknown; staying as it is");
                     return;
                 }
 
-                if (!mode.IsSmpte2084Supported && mode.IsEqual(_defaultMode))
+                var modes = hdmi.GetSupportedDisplayModes();
+                var mode = FindMode(modes, hdr, frameRate, width, height)
+                           ?? (hdr ? FindMode(modes, false, frameRate, width, height) : null);
+                if (mode == null)
+                {
+                    Logger.LogInformation("Display mode: none offered for HDR {Hdr}, {FrameRate} fps, {Width}x{Height}; " +
+                                          "staying as it is", hdr, frameRate, width, height);
+                    return;
+                }
+
+                if (mode.IsEqual(_defaultMode))
                 {
                     await RestoreAsync(hdmi);
                     return;
@@ -80,9 +91,9 @@ namespace Gelatinarm.Shared.Device
                 _isSwitched = _isSwitched || accepted;
                 Logger.LogInformation(
                     "Display mode: {Width}x{Height} at {RefreshRate:0.###} Hz, {ColorSpace}, {BitsPerPixel} bits, HDR {Hdr} " +
-                    "requested for {FrameRate} fps - accepted: {Accepted}",
+                    "requested for {VideoWidth}x{VideoHeight} at {FrameRate} fps, HDR {VideoHdr} - accepted: {Accepted}",
                     mode.ResolutionWidthInRawPixels, mode.ResolutionHeightInRawPixels, mode.RefreshRate, mode.ColorSpace,
-                    mode.BitsPerPixel, mode.IsSmpte2084Supported, frameRate, accepted);
+                    mode.BitsPerPixel, mode.IsSmpte2084Supported, width, height, frameRate, hdr, accepted);
             });
         }
 
@@ -121,17 +132,19 @@ namespace Gelatinarm.Shared.Device
             }
         }
 
-        // Among the modes at the default resolution: HDR or not as asked, then the refresh rate
-        // that fits the video, else the default's; then BT.2020 before any other colour space and
-        // the most bits per pixel (HDR), or the default's own colour format (SDR).
-        private HdmiDisplayMode FindMode(HdmiDisplayInformation hdmi, bool hdr, double? frameRate)
+        // Among the modes at the video's resolution (FindResolution): HDR or not as asked, then the
+        // refresh rate that fits the video, else the default's or 60 Hz; then BT.2020 before any
+        // other colour space and the most bits per pixel (HDR), or the default's own colour format (SDR).
+        private HdmiDisplayMode FindMode(IReadOnlyList<HdmiDisplayMode> modes, bool hdr, double? frameRate, int? width,
+            int? height)
         {
+            var resolution = FindResolution(modes, width, height);
             HdmiDisplayMode best = null;
             var bestRank = -1;
-            foreach (var mode in hdmi.GetSupportedDisplayModes())
+            foreach (var mode in modes)
             {
-                if (mode.ResolutionWidthInRawPixels != _defaultMode.ResolutionWidthInRawPixels ||
-                    mode.ResolutionHeightInRawPixels != _defaultMode.ResolutionHeightInRawPixels ||
+                if (mode.ResolutionWidthInRawPixels != resolution.Width ||
+                    mode.ResolutionHeightInRawPixels != resolution.Height ||
                     mode.IsSmpte2084Supported != hdr)
                 {
                     continue;
@@ -154,6 +167,42 @@ namespace Gelatinarm.Shared.Device
             return best;
         }
 
+        // The smallest offered resolution that holds the video, never below the default's: a
+        // video smaller than the display is scaled up by the console as before, a larger one is
+        // not scaled down while the display has a mode for it. A portrait video is measured by
+        // its longer side, as the display is.
+        private (uint Width, uint Height) FindResolution(IReadOnlyList<HdmiDisplayMode> modes, int? width, int? height)
+        {
+            var videoWidth = (uint)Math.Max(Math.Max(width ?? 0, height ?? 0), 0);
+            var videoHeight = (uint)Math.Max(Math.Min(width ?? 0, height ?? 0), 0);
+            var neededWidth = Math.Max(videoWidth, _defaultMode.ResolutionWidthInRawPixels);
+            var neededHeight = Math.Max(videoHeight, _defaultMode.ResolutionHeightInRawPixels);
+
+            (uint Width, uint Height) smallestFit = (0, 0);
+            (uint Width, uint Height) largest = (0, 0);
+            foreach (var mode in modes)
+            {
+                var size = (Width: mode.ResolutionWidthInRawPixels, Height: mode.ResolutionHeightInRawPixels);
+                if (Pixels(size) > Pixels(largest))
+                {
+                    largest = size;
+                }
+
+                var fits = size.Width >= neededWidth && size.Height >= neededHeight;
+                if (fits && (smallestFit.Width == 0 || Pixels(size) < Pixels(smallestFit)))
+                {
+                    smallestFit = size;
+                }
+            }
+
+            return smallestFit.Width > 0 ? smallestFit : largest;
+        }
+
+        private static ulong Pixels((uint Width, uint Height) size)
+        {
+            return (ulong)size.Width * size.Height;
+        }
+
         private int FormatRank(HdmiDisplayMode mode, bool hdr)
         {
             if (hdr)
@@ -167,7 +216,8 @@ namespace Gelatinarm.Shared.Device
 
         // Best is a rate that shows the video's frames one for one, such as 23.976 fps at
         // 23.976 Hz. Next is one that shows each frame twice, as 25 fps at 50 Hz does. Then the
-        // default rate, where the console converts. Any other rate is ruled out. Rates within
+        // default rate, where the console converts, and failing that 60 Hz (a larger resolution
+        // than the default's may not offer its rate). Any other rate is ruled out. Rates within
         // one percent of each other count as equal, which pairs 24 fps with 23.976 Hz.
         private int RefreshRank(double refreshRate, double? frameRate)
         {
@@ -176,16 +226,21 @@ namespace Gelatinarm.Shared.Device
                 var ratio = refreshRate / frameRate.Value;
                 if (Math.Abs(ratio - 1) < 0.01)
                 {
-                    return 3;
+                    return 4;
                 }
 
                 if (Math.Abs(ratio - 2) < 0.02)
                 {
-                    return 2;
+                    return 3;
                 }
             }
 
-            return Math.Abs(refreshRate - _defaultMode.RefreshRate) < 0.5 ? 1 : 0;
+            if (Math.Abs(refreshRate - _defaultMode.RefreshRate) < 0.5)
+            {
+                return 2;
+            }
+
+            return Math.Abs(refreshRate - 60) < 0.5 || Math.Abs(refreshRate - 59.94) < 0.5 ? 1 : 0;
         }
     }
 }

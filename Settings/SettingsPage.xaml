@@ -182,7 +182,7 @@
                             OffContent="Keep the display as it is; HDR video is shown converted"
                             OnContent="Switch the display to HDR for HDR video"
                             Style="{StaticResource StandardToggleSwitchStyle}" />
-                        <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="When enabled, the display switches to HDR when an HDR video starts and back when you leave the player; the screen may go black for a moment each time. Disable if your display handles the switch badly: HDR video is then converted to standard range by the console." />
+                        <TextBlock Style="{StaticResource SettingDescriptionTextStyle}" Text="The display is set to a mode for each video (its resolution) when it starts, and back to the console's default when you leave the player; the screen may go black for a moment each time. When enabled, that mode is HDR for an HDR video. Disable if you experience issues and HDR video will be converted to SDR by the console." />
 
                         <ToggleSwitch
                             Header="HDR on Any Display"

@@ -763,7 +763,6 @@ namespace Gelatinarm.Player
 
         private void PrepareForPlaybackRestart()
         {
-            // Allow resume flow to run again after restart.
             _hasVideoStarted = false;
             _resumeAttemptInProgress = false;
             _actualResumePosition = TimeSpan.Zero;

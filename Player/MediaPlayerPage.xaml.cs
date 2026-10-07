@@ -417,7 +417,6 @@ namespace Gelatinarm.Player
 
                     if (pauseOnFocusLoss && _stateBeforeFocusLost == MediaPlaybackState.Playing)
                     {
-                        // Resume playback only if we paused it
                         MediaPlayer.MediaPlayer.Play();
                         Logger.LogInformation("Resumed video after window activation");
                     }

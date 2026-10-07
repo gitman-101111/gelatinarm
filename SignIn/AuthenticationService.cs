@@ -540,7 +540,6 @@ namespace Gelatinarm.SignIn
                 _preferencesService.RemoveValue(PreferenceConstants.ServerUrl);
             }
 
-            // Clear in-memory values BEFORE updating SDK settings
             var oldServerUrl = ServerUrl;
             if (!hasRemainingProfiles)
             {

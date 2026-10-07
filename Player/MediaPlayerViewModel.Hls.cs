@@ -313,19 +313,16 @@ namespace Gelatinarm.Player
 
             try
             {
-                // Use provided session first (safe from any thread)
                 if (session != null)
                 {
                     rawPosition = session.Position;
                 }
-                // Only access MediaPlayerElement if we're on UI thread
                 else if (CoreApplication.MainView.CoreWindow.Dispatcher.HasThreadAccess)
                 {
                     rawPosition = MediaPlayerElement?.MediaPlayer?.PlaybackSession?.Position ?? TimeSpan.Zero;
                 }
                 else
                 {
-                    // If called from background thread without session, use cached position
                     rawPosition = _position;
                 }
             }
