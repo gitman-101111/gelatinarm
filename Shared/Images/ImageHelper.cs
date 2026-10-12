@@ -46,20 +46,21 @@ namespace Gelatinarm.Shared.Images
         }
 
         /// <summary>
-        ///     The /UserImage endpoint (userId as a query parameter, not the path).
-        ///     The endpoint serves the image as stored - no server-side resizing.
+        ///     The /UserImage endpoint (userId as a query parameter, not the path) on the given
+        ///     server. The profile picker shows users from several servers, so the active
+        ///     server and token do not apply: the request goes to the profile's own server and,
+        ///     as the sign-in page of every Jellyfin client relies on, needs no token. The
+        ///     endpoint serves the image as stored - no server-side resizing.
         /// </summary>
-        public static string BuildUserImageUrl(Guid userId, string tag)
+        public static string BuildUserImageUrl(string serverUrl, Guid userId, string tag)
         {
-            return BuildAuthenticatedUrl(apiClient => apiClient.UserImage.ToGetRequestInformation(config =>
+            if (string.IsNullOrEmpty(serverUrl) || serverUrl == "about:blank")
             {
-                config.QueryParameters.UserId = userId;
+                return null;
+            }
 
-                if (!string.IsNullOrEmpty(tag))
-                {
-                    config.QueryParameters.Tag = tag;
-                }
-            }), "user image");
+            var url = $"{serverUrl.TrimEnd('/')}/UserImage?userId={userId}";
+            return string.IsNullOrEmpty(tag) ? url : $"{url}&tag={Uri.EscapeDataString(tag)}";
         }
 
         private static string BuildAuthenticatedUrl(Func<JellyfinApiClient, RequestInformation> buildRequest,

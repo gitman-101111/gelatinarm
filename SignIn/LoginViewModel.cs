@@ -25,6 +25,9 @@ namespace Gelatinarm.SignIn
 
         [ObservableProperty] private string _password = string.Empty;
 
+        // The server this sign-in goes to, named under the title
+        [ObservableProperty] private string _serverName;
+
         [ObservableProperty] private string _username = string.Empty;
 
         public LoginViewModel(
@@ -45,11 +48,23 @@ namespace Gelatinarm.SignIn
             }
 
             // The server chosen on the server page, or the saved profile's
-            if (string.IsNullOrEmpty(_authService.ServerUrl))
+            if (string.IsNullOrEmpty(_authService.SignInServerUrl))
             {
                 Logger.LogWarning("No server set - back to server selection");
                 _navigationService.Navigate(typeof(ServerSelectionPage));
+                return;
             }
+
+            ServerName = _authService.SignInServerName;
+        }
+
+        /// <summary>
+        ///     Another server for this sign-in: the server page, pre-filled with the current one
+        /// </summary>
+        [RelayCommand]
+        private void ChangeServer()
+        {
+            _navigationService.Navigate(typeof(ServerSelectionPage));
         }
 
         [RelayCommand]
@@ -99,7 +114,7 @@ namespace Gelatinarm.SignIn
                 IsQuickConnectEnabled = false;
                 HideError();
 
-                var serverUrl = _authService.ServerUrl;
+                var serverUrl = _authService.SignInServerUrl;
                 if (string.IsNullOrEmpty(serverUrl))
                 {
                     ShowError("No server configured. Please go back and select a server first.");

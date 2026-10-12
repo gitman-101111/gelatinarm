@@ -17,10 +17,26 @@ namespace Gelatinarm.SignIn
 {
     public interface IAuthenticationService
     {
+        /// <summary>
+        ///     The active user's server. Every request outside sign-in goes here.
+        /// </summary>
         string ServerUrl { get; }
+
         string AccessToken { get; }
         string UserId { get; }
         bool IsAuthenticated { get; }
+
+        /// <summary>
+        ///     The server the sign-in pages work against: the one chosen on the server page, or
+        ///     the active user's when none was chosen. Becomes <see cref="ServerUrl" /> when a
+        ///     sign-in succeeds; an abandoned sign-in leaves the active user's server alone.
+        /// </summary>
+        string SignInServerUrl { get; }
+
+        /// <summary>
+        ///     Display name of <see cref="SignInServerUrl" />'s server; its host when unknown.
+        /// </summary>
+        string SignInServerName { get; }
 
         /// <summary>
         ///     The signed-in user or the server has changed (sign-in as someone else, profile switch,
@@ -29,7 +45,14 @@ namespace Gelatinarm.SignIn
         event EventHandler UserChanged;
 
         Task<bool> AuthenticateAsync(string username, string password, CancellationToken cancellationToken);
-        void SetServerUrl(string serverUrl);
+
+        /// <summary>
+        ///     Names the server for the sign-in that follows. Nothing is persisted until a user
+        ///     signs in on it. <paramref name="serverId" /> and <paramref name="serverName" /> come
+        ///     from the server's public system info and may be null.
+        /// </summary>
+        void SetSignInServer(string serverUrl, string serverId, string serverName);
+
         void Logout();
         Task<QuickConnectResult> InitiateQuickConnectAsync(CancellationToken cancellationToken);
         Task<bool> CheckQuickConnectStatusAsync(string secret, CancellationToken cancellationToken);
@@ -47,6 +70,12 @@ namespace Gelatinarm.SignIn
         bool HasMultipleSavedProfiles { get; }
 
         /// <summary>
+        ///     The saved profiles span two or more servers: the profile picker names each
+        ///     tile's server.
+        /// </summary>
+        bool HasMultipleSavedServers { get; }
+
+        /// <summary>
         ///     Switches the session to a saved profile using its stored token.
         ///     Returns false when no valid token is stored (caller routes to login).
         /// </summary>
@@ -58,6 +87,7 @@ namespace Gelatinarm.SignIn
         private const string ResourceName = BrandingConstants.AppName;
         private readonly ICacheManagerService _cacheManagerService;
         private readonly IPreferencesService _preferencesService;
+        private readonly IAvatarCache _avatarCache;
         private readonly JellyfinSdkSettings _sdkSettings;
         private readonly JellyfinApiClient _apiClient;
         private readonly object _profilesLock = new();
@@ -67,11 +97,13 @@ namespace Gelatinarm.SignIn
             ILogger<AuthenticationService> logger,
             IPreferencesService preferencesService,
             ICacheManagerService cacheManagerService,
+            IAvatarCache avatarCache,
             JellyfinSdkSettings sdkSettings,
             JellyfinApiClient apiClient) : base(logger)
         {
             _preferencesService = preferencesService;
             _cacheManagerService = cacheManagerService;
+            _avatarCache = avatarCache;
             _sdkSettings = sdkSettings;
             _apiClient = apiClient;
 
@@ -79,6 +111,16 @@ namespace Gelatinarm.SignIn
         }
 
         public string ServerUrl { get; private set; }
+
+        // The active server's identity, kept on the saved profile; the picker shows the name
+        private string ServerId { get; set; }
+        private string ServerName { get; set; }
+
+        // The server chosen on the server page for a sign-in in progress; null when the sign-in
+        // pages work against the active user's server
+        private string _pendingServerUrl;
+        private string _pendingServerId;
+        private string _pendingServerName;
 
         public string AccessToken { get; private set; }
 
@@ -89,18 +131,23 @@ namespace Gelatinarm.SignIn
 
         public bool IsAuthenticated => !string.IsNullOrEmpty(AccessToken);
 
+        public string SignInServerUrl => _pendingServerUrl ?? ServerUrl;
+
+        public string SignInServerName => DisplayServerName(
+            _pendingServerUrl != null ? _pendingServerName : ServerName, SignInServerUrl);
+
         public event EventHandler UserChanged;
 
         public async Task<bool> AuthenticateAsync(string username, string password,
             CancellationToken cancellationToken)
         {
-            if (!string.IsNullOrEmpty(ServerUrl) &&
+            if (!string.IsNullOrEmpty(SignInServerUrl) &&
                 !await NetworkHelper.CheckNetworkAsync(ErrorHandler).ConfigureAwait(false))
             {
                 return false;
             }
 
-            Logger.LogInformation("Attempting authentication for user '{Username}' at server: {ServerUrl}", username, ServerUrl);
+            Logger.LogInformation("Attempting authentication for user '{Username}' at server: {ServerUrl}", username, SignInServerUrl);
             var authRequest = new AuthenticateUserByName
             {
                 Username = username,
@@ -129,7 +176,7 @@ namespace Gelatinarm.SignIn
         private async Task<bool> SignInAsync(string operation, string username,
             Func<CancellationToken, Task<AuthenticationResult>> request, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(ServerUrl))
+            if (string.IsNullOrEmpty(SignInServerUrl))
             {
                 Logger.LogError("Server URL not set");
                 return false;
@@ -139,13 +186,13 @@ namespace Gelatinarm.SignIn
             var previousUserId = UserId;
             try
             {
-                UpdateSdkSettings();
-
-                var authResponse = await RetryAsync(() => request(cancellationToken),
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                var authResponse = await RequestFromSignInServerAsync(
+                    () => RetryAsync(() => request(cancellationToken), cancellationToken: cancellationToken))
+                    .ConfigureAwait(false);
 
                 if (authResponse != null && !string.IsNullOrEmpty(authResponse.AccessToken))
                 {
+                    AdoptSignInServer();
                     AccessToken = authResponse.AccessToken;
                     UserId = authResponse.User?.Id?.ToString();
                     Username = username ?? authResponse.User?.Name;
@@ -154,6 +201,7 @@ namespace Gelatinarm.SignIn
 
                     StoreCredentials(authResponse.User);
                     ClearCachesIfUserChanged(previousUserId);
+                    RefreshAvatarCache();
 
                     Logger.LogInformation("{Operation} successful for user: {Username}", operation, Username);
                     return true;
@@ -169,20 +217,76 @@ namespace Gelatinarm.SignIn
             }
         }
 
-        public void SetServerUrl(string serverUrl)
+        public void SetSignInServer(string serverUrl, string serverId, string serverName)
         {
-            Logger.LogDebug("Setting server URL to: {ServerUrl}", serverUrl);
+            Logger.LogDebug("Sign-in server set to {ServerUrl} ({ServerName})", serverUrl, serverName);
 
-            if (!string.IsNullOrEmpty(ServerUrl) && ServerUrl != serverUrl)
+            _pendingServerUrl = serverUrl;
+            _pendingServerId = serverId;
+            _pendingServerName = serverName;
+
+            // Before any user has signed in there is no active server to protect: the SDK goes
+            // to the chosen one so the first requests (Quick Connect, images) have somewhere to go
+            if (string.IsNullOrEmpty(ServerUrl))
             {
-                Logger.LogInformation("Switching servers from {ServerUrl} to {ServerUrl2}", ServerUrl, serverUrl);
+                _sdkSettings.SetServerUrl(serverUrl);
+            }
+        }
+
+        /// <summary>
+        ///     The chosen server becomes the active one. Caches go when it is a different server:
+        ///     a user signing in on another server would otherwise see the previous server's
+        ///     home screen until it reloaded.
+        /// </summary>
+        private void AdoptSignInServer()
+        {
+            if (_pendingServerUrl == null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(ServerUrl) && ServerUrl != _pendingServerUrl)
+            {
+                Logger.LogInformation("Switching servers from {ServerUrl} to {ServerUrl2}", ServerUrl, _pendingServerUrl);
                 ClearUserCaches("when switching servers");
             }
 
-            ServerUrl = serverUrl;
-            _preferencesService.SetValue(PreferenceConstants.ServerUrl, serverUrl);
+            ServerUrl = _pendingServerUrl;
+            ServerId = _pendingServerId;
+            ServerName = _pendingServerName;
+            ClearSignInServer();
+        }
 
-            UpdateSdkSettings();
+        private void ClearSignInServer()
+        {
+            _pendingServerUrl = null;
+            _pendingServerId = null;
+            _pendingServerName = null;
+        }
+
+        /// <summary>
+        ///     Runs a sign-in request against <see cref="SignInServerUrl" />. The SDK client is
+        ///     shared with the active user's pages, so it points at the sign-in server only for
+        ///     the request and returns to the active server afterwards (or stays on the new one
+        ///     when the request adopted it).
+        /// </summary>
+        private async Task<T> RequestFromSignInServerAsync<T>(Func<Task<T>> request)
+        {
+            _sdkSettings.SetServerUrl(SignInServerUrl);
+            if (_pendingServerUrl != null && _pendingServerUrl != ServerUrl)
+            {
+                // Another server does not know the active user's token
+                _sdkSettings.SetAccessToken(null);
+            }
+
+            try
+            {
+                return await request().ConfigureAwait(false);
+            }
+            finally
+            {
+                UpdateSdkSettings();
+            }
         }
 
         public async Task<QuickConnectResult> InitiateQuickConnectAsync(CancellationToken cancellationToken)
@@ -192,9 +296,9 @@ namespace Gelatinarm.SignIn
                 return null;
             }
 
-            Logger.LogInformation("Initiating Quick Connect with server URL: {ServerUrl}", ServerUrl);
+            Logger.LogInformation("Initiating Quick Connect with server URL: {ServerUrl}", SignInServerUrl);
 
-            if (string.IsNullOrEmpty(ServerUrl))
+            if (string.IsNullOrEmpty(SignInServerUrl))
             {
                 throw new InvalidOperationException("Server URL must be set before initiating Quick Connect");
             }
@@ -202,12 +306,10 @@ namespace Gelatinarm.SignIn
             var context = CreateErrorContext("InitiateQuickConnect", ErrorCategory.Authentication);
             try
             {
-                UpdateSdkSettings();
-
-                var response = await RetryAsync(
+                var response = await RequestFromSignInServerAsync(() => RetryAsync(
                     () => _apiClient.QuickConnect.Initiate.PostAsync(null, cancellationToken),
                     cancellationToken: cancellationToken
-                ).ConfigureAwait(false);
+                )).ConfigureAwait(false);
 
                 if (response != null)
                 {
@@ -229,10 +331,10 @@ namespace Gelatinarm.SignIn
         public async Task<bool> CheckQuickConnectStatusAsync(string secret,
             CancellationToken cancellationToken)
         {
-            var response = await RetryAsync(
+            var response = await RequestFromSignInServerAsync(() => RetryAsync(
                 () => _apiClient.QuickConnect.Connect.GetAsync(config => config.QueryParameters.Secret = secret, cancellationToken),
                 cancellationToken: cancellationToken
-            ).ConfigureAwait(false);
+            )).ConfigureAwait(false);
 
             if (response?.Authenticated == true)
             {
@@ -267,7 +369,15 @@ namespace Gelatinarm.SignIn
                     cancellationToken: cancellationToken
                 ).ConfigureAwait(false);
 
-                return user != null;
+                if (user == null)
+                {
+                    return false;
+                }
+
+                // The picture may have changed since the last sign-in here: the profile takes
+                // the current tag, and the picker's cached copy follows it
+                UpsertSavedProfile(user);
+                return true;
             }
             catch (ApiException apiEx) when (apiEx.ResponseStatusCode == 401)
             {
@@ -293,18 +403,39 @@ namespace Gelatinarm.SignIn
 
         public bool HasMultipleSavedProfiles => GetSavedProfiles().Count >= 2;
 
+        public bool HasMultipleSavedServers =>
+            GetSavedProfiles().Select(ServerKey).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2;
+
+        /// <summary>
+        ///     What makes two profiles share a server: the server's id, or its address for a
+        ///     profile saved before ids were kept.
+        /// </summary>
+        private static string ServerKey(UserProfile profile)
+        {
+            return !string.IsNullOrEmpty(profile.ServerId)
+                ? profile.ServerId
+                : (profile.ServerUrl ?? string.Empty).TrimEnd('/');
+        }
+
+        /// <summary>
+        ///     The server's name, or its host when the name is not known
+        /// </summary>
+        public static string DisplayServerName(string serverName, string serverUrl)
+        {
+            if (!string.IsNullOrWhiteSpace(serverName))
+            {
+                return serverName;
+            }
+
+            return Uri.TryCreate(serverUrl, UriKind.Absolute, out var uri) ? uri.Host : serverUrl;
+        }
+
         public async Task<bool> SwitchToProfileAsync(string userId, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(userId))
             {
                 Logger.LogWarning("SwitchToProfileAsync called with empty userId");
                 return false;
-            }
-
-            if (userId == UserId && IsAuthenticated)
-            {
-                Logger.LogDebug("Already signed in as user {UserId} - nothing to switch", userId);
-                return true;
             }
 
             UserProfile profile;
@@ -319,16 +450,32 @@ namespace Gelatinarm.SignIn
                 return false;
             }
 
+            // An abandoned sign-in on another server may have left its address pending: the
+            // chosen profile's server is the one that counts again
+            ClearSignInServer();
+
+            if (userId == UserId && IsAuthenticated)
+            {
+                Logger.LogDebug("Already signed in as user {UserId} - nothing to switch", userId);
+                UpdateSdkSettings();
+                // The last user at startup takes this path, never the validating one
+                RefreshAvatarCache();
+                return true;
+            }
+
             var token = TryGetTokenFromVault(userId);
             if (string.IsNullOrEmpty(token))
             {
                 Logger.LogInformation("No stored token for user {ProfileUsername} - login required", profile.Username);
+                // The login page signs in on this profile's server; whoever is signed in now
+                // keeps their own until that sign-in succeeds
+                SetSignInServer(profile.ServerUrl, profile.ServerId, profile.ServerName);
                 return false;
             }
 
             Logger.LogInformation("Switching to profile: {ProfileUsername}", profile.Username);
 
-            ServerUrl = profile.ServerUrl;
+            ApplyProfileServer(profile);
             AccessToken = token;
             UserId = profile.UserId;
             Username = profile.Username;
@@ -339,22 +486,98 @@ namespace Gelatinarm.SignIn
 
             // Only a confirmed 401 clears AccessToken (via ClearInvalidCredentials); a transient
             // network failure leaves it intact
-            await ValidateTokenAsync(cancellationToken).ConfigureAwait(false);
+            var valid = await ValidateTokenAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrEmpty(AccessToken))
             {
                 Logger.LogWarning("Stored token for {ProfileUsername} was rejected - login required", profile.Username);
                 return false;
             }
 
+            if (valid)
+            {
+                await EnsureServerInfoAsync(cancellationToken).ConfigureAwait(false);
+                RefreshAvatarCache();
+            }
+
             return true;
         }
 
-        public Task<bool> RestoreLastSessionAsync()
+        private void ApplyProfileServer(UserProfile profile)
         {
+            ServerUrl = profile.ServerUrl;
+            ServerId = profile.ServerId;
+            ServerName = profile.ServerName;
+        }
+
+        public async Task<bool> RestoreLastSessionAsync()
+        {
+            if (string.IsNullOrEmpty(AccessToken))
+            {
+                return false;
+            }
+
             // ValidateTokenAsync handles its own failures: false, and a 401 clears the token
-            return string.IsNullOrEmpty(AccessToken)
-                ? Task.FromResult(false)
-                : ValidateTokenAsync();
+            var valid = await ValidateTokenAsync().ConfigureAwait(false);
+            if (valid)
+            {
+                await EnsureServerInfoAsync(CancellationToken.None).ConfigureAwait(false);
+                RefreshAvatarCache();
+            }
+
+            return valid;
+        }
+
+        /// <summary>
+        ///     Fetched now, while the token is known good and the server is reachable: the picker
+        ///     later shows it whether or not the server still is.
+        /// </summary>
+        private void RefreshAvatarCache()
+        {
+            UserProfile profile;
+            lock (_profilesLock)
+            {
+                profile = GetSavedProfilesUnsafe().FirstOrDefault(p => p.UserId == UserId);
+            }
+
+            if (profile == null)
+            {
+                return;
+            }
+
+            var token = AccessToken;
+            FireAndForget(() => _avatarCache.RefreshAsync(profile, token, CancellationToken.None));
+        }
+
+        /// <summary>
+        ///     Profiles saved before multi-server carry no server id or name. The server answers
+        ///     for itself once the token is known good, and the profile is completed.
+        /// </summary>
+        private async Task EnsureServerInfoAsync(CancellationToken cancellationToken)
+        {
+            if (!string.IsNullOrEmpty(ServerId) || string.IsNullOrEmpty(UserId))
+            {
+                return;
+            }
+
+            try
+            {
+                var info = await _apiClient.System.Info.Public.GetAsync(null, cancellationToken).ConfigureAwait(false);
+                if (info == null || string.IsNullOrEmpty(info.Id))
+                {
+                    return;
+                }
+
+                ServerId = info.Id;
+                ServerName = info.ServerName;
+                UpsertSavedProfile(null);
+                Logger.LogInformation("Recorded server {ServerName} for user {Username}", ServerName, Username);
+            }
+            catch (Exception ex)
+            {
+                // The profile keeps working without an id; the next validation tries again
+                await ErrorHandler.HandleErrorAsync(ex,
+                    CreateErrorContext("EnsureServerInfo", ErrorCategory.Network, ErrorSeverity.Warning)).ConfigureAwait(false);
+            }
         }
 
         private void UpdateSdkSettings()
@@ -379,6 +602,14 @@ namespace Gelatinarm.SignIn
                 if (!string.IsNullOrEmpty(UserId))
                 {
                     _preferencesService.SetActiveUserScope(UserId);
+
+                    // Preferences hold only the server's address; its id and name are on the profile
+                    lock (_profilesLock)
+                    {
+                        var profile = GetSavedProfilesUnsafe().FirstOrDefault(p => p.UserId == UserId);
+                        ServerId = profile?.ServerId;
+                        ServerName = profile?.ServerName;
+                    }
 
                     AccessToken = TryGetTokenFromVault(UserId);
                     if (string.IsNullOrEmpty(AccessToken) && !string.IsNullOrEmpty(Username))
@@ -457,6 +688,13 @@ namespace Gelatinarm.SignIn
         private void ClearUserCaches(string reason)
         {
             _cacheManagerService.Clear();
+
+            // The library page remembers the last library opened, for a bare return after
+            // playback. It belongs to the previous user's server; another server has no such library
+            _preferencesService.RemoveValue(PreferenceConstants.CurrentLibraryId);
+            _preferencesService.RemoveValue(PreferenceConstants.CurrentLibraryName);
+            _preferencesService.RemoveValue(PreferenceConstants.CurrentLibraryType);
+
             UserChanged?.Invoke(this, EventArgs.Empty);
             Logger.LogDebug("Cleared cached data {Reason}", reason);
         }
@@ -518,6 +756,7 @@ namespace Gelatinarm.SignIn
             if (!string.IsNullOrEmpty(activeUserId))
             {
                 RemoveVaultEntry(activeUserId);
+                _avatarCache.Remove(activeUserId);
 
                 lock (_profilesLock)
                 {
@@ -544,8 +783,11 @@ namespace Gelatinarm.SignIn
             if (!hasRemainingProfiles)
             {
                 ServerUrl = null;
+                ServerId = null;
+                ServerName = null;
             }
 
+            ClearSignInServer();
             AccessToken = null;
             UserId = null;
             Username = null;
@@ -609,9 +851,18 @@ namespace Gelatinarm.SignIn
                     profiles.Add(profile);
                 }
 
+                // The same server reached by another address (LAN, then remote) stays one
+                // server: the id is stable and the address follows the last sign-in
                 profile.ServerUrl = ServerUrl;
+                profile.ServerId = ServerId ?? profile.ServerId;
+                profile.ServerName = ServerName ?? profile.ServerName;
                 profile.Username = Username;
-                profile.PrimaryImageTag = user?.PrimaryImageTag ?? profile.PrimaryImageTag;
+                if (user != null)
+                {
+                    // Null when the picture was removed on the server
+                    profile.PrimaryImageTag = user.PrimaryImageTag;
+                }
+
                 SaveProfilesUnsafe();
             }
         }

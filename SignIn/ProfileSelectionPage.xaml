@@ -40,7 +40,7 @@
                                     Width="140"
                                     Height="140"
                                     DisplayName="{x:Bind DisplayName}"
-                                    ProfilePicture="{x:Bind Avatar}"
+                                    ProfilePicture="{x:Bind Avatar, Mode=OneWay}"
                                     Visibility="{x:Bind AvatarVisibility}" />
                                 <Ellipse
                                     Width="140"
@@ -58,6 +58,12 @@
                                 Style="{StaticResource SubheaderTextStyle}"
                                 Text="{x:Bind DisplayName}"
                                 TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Style="{StaticResource SecondaryTextStyle}"
+                                Text="{x:Bind ServerName}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind ServerNameVisibility}" />
                         </StackPanel>
                     </DataTemplate>
                 </GridView.ItemTemplate>

@@ -39,9 +39,9 @@ and to `NavigationService`.
    descriptors; the `try`/`catch` in the factory lambdas run at first resolution.
 2. `OnLaunched` creates the `RootContainer` shell (the navigation frame and the
    `MusicPlayer` bar) and picks the first page: no server URL or stored token,
-   `ServerSelectionPage`; two or more saved profiles, `ProfileSelectionPage`;
-   otherwise `MainPage`, with the token validated in the background (a rejected
-   token returns to server selection).
+   `ServerSelectionPage`; two or more saved profiles (on one server or several),
+   `ProfileSelectionPage`; otherwise `MainPage`, with the token validated in the
+   background (a rejected token returns to server selection).
 
 ## Dependency injection and lifetimes
 
@@ -120,6 +120,25 @@ preferences. Each user who signs in on the device is saved as a `UserProfile`
 for switching without signing in again (`ProfileSelectionPage`). Before a user
 change, `StopMusicBeforeUserChangeAsync` stops music (waiting briefly for the
 stop report) and the home screen cache is cleared.
+
+Profiles may be on different servers: each carries its server's address, id and
+name (from `/System/Info/Public`, read by the server page's connection test).
+The picker labels tiles with the server name once profiles span more than one
+server, and the login page's Change Server button leads to the server page.
+`AuthenticationService` keeps two servers apart: `ServerUrl` is the active
+user's and is persisted only with a successful sign-in or switch;
+`SignInServerUrl` is the one chosen on the server page, which the sign-in pages
+and requests use and which becomes active when a sign-in succeeds. An abandoned
+sign-in therefore leaves the active user's session as it was. The SDK client is
+shared, so a sign-in request points it at the sign-in server for the request
+only (`RequestFromSignInServerAsync`). Profiles saved before server ids were kept
+are completed on their next validated sign-in (`EnsureServerInfoAsync`).
+
+The picker's avatars come from each profile's own server, without a token, with
+a copy kept in local storage (`AvatarCache`, `LocalFolder\Avatars`, named by
+user id and image tag) so a profile whose server is out of reach still shows its
+picture. The copy is fetched after a validated sign-in or switch, follows the
+tag the server reports, and goes with the profile on sign-out.
 
 ## Preferences
 

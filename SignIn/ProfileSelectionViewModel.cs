@@ -18,30 +18,40 @@ namespace Gelatinarm.SignIn
     /// <summary>
     ///     A tile in the profile picker: either a saved user profile or the "Add user" action.
     /// </summary>
-    public class ProfileTile
+    public partial class ProfileTile : ObservableObject
     {
         public UserProfile Profile { get; set; }
         public string DisplayName { get; set; }
-        public ImageSource Avatar { get; set; }
+
+        // PersonPicture shows the initials only while this is null; a picture that failed to
+        // load leaves the circle empty, so a failed load clears it
+        [ObservableProperty] private ImageSource _avatar;
+
+        // Shown only when the saved profiles span more than one server
+        public string ServerName { get; set; }
 
         public bool IsAddTile => Profile == null;
         public Visibility AvatarVisibility => IsAddTile ? Visibility.Collapsed : Visibility.Visible;
         public Visibility AddIconVisibility => IsAddTile ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility ServerNameVisibility => string.IsNullOrEmpty(ServerName) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public partial class ProfileSelectionViewModel : BaseViewModel, IPageViewModel
     {
         private readonly IAuthenticationService _authService;
+        private readonly IAvatarCache _avatarCache;
         private readonly INavigationService _navigationService;
 
         [ObservableProperty] private bool _isSwitching;
 
         public ProfileSelectionViewModel(
             IAuthenticationService authService,
+            IAvatarCache avatarCache,
             INavigationService navigationService,
             ILogger<ProfileSelectionViewModel> logger) : base(logger)
         {
             _authService = authService;
+            _avatarCache = avatarCache;
             _navigationService = navigationService;
         }
 
@@ -54,21 +64,29 @@ namespace Gelatinarm.SignIn
         {
             Profiles.Clear();
 
+            // Two "ashik" tiles on two servers need telling apart; one server needs no labels
+            var nameServers = _authService.HasMultipleSavedServers;
+
             foreach (var profile in _authService.GetSavedProfiles())
             {
-                Profiles.Add(new ProfileTile
+                var tile = new ProfileTile
                 {
                     Profile = profile,
                     DisplayName = profile.Username,
-                    Avatar = CreateAvatarSource(profile)
-                });
+                    ServerName = nameServers
+                        ? AuthenticationService.DisplayServerName(profile.ServerName, profile.ServerUrl)
+                        : null
+                };
+                tile.Avatar = CreateAvatarSource(tile);
+                Profiles.Add(tile);
             }
 
             Profiles.Add(new ProfileTile { DisplayName = "Add user" });
         }
 
-        private ImageSource CreateAvatarSource(UserProfile profile)
+        private ImageSource CreateAvatarSource(ProfileTile tile)
         {
+            var profile = tile.Profile;
             try
             {
                 if (string.IsNullOrEmpty(profile.PrimaryImageTag) || !Guid.TryParse(profile.UserId, out var userGuid))
@@ -76,9 +94,29 @@ namespace Gelatinarm.SignIn
                     return null; // PersonPicture falls back to initials
                 }
 
-                var url = ImageHelper.BuildUserImageUrl(userGuid, profile.PrimaryImageTag);
+                // The copy saved at the last sign-in first: it needs no server at all
+                var source = _avatarCache.TryGetCached(profile);
+                if (source == null)
+                {
+                    var url = ImageHelper.BuildUserImageUrl(profile.ServerUrl, userGuid, profile.PrimaryImageTag);
+                    if (url == null)
+                    {
+                        return null;
+                    }
+
+                    source = new Uri(url);
+                }
+
                 // No server-side resizing on /UserImage - decode at display size instead
-                return url != null ? new BitmapImage(new Uri(url)) { DecodePixelWidth = 200 } : null;
+                var image = new BitmapImage(source) { DecodePixelWidth = 200 };
+                // The profile's server may be unreachable from here (a remote server, a LAN
+                // address away from home): initials rather than an empty circle
+                image.ImageFailed += (_, args) =>
+                {
+                    Logger.LogDebug("Avatar for {Username} did not load: {Message}", profile.Username, args.ErrorMessage);
+                    tile.Avatar = null;
+                };
+                return image;
             }
             catch (Exception ex)
             {

@@ -19,6 +19,11 @@
                 HorizontalAlignment="Center"
                 Style="{StaticResource PageTitleTextStyle}"
                 Text="Sign In" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource SecondaryTextStyle}"
+                Text="{x:Bind ViewModel.ServerName, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <!--  Login Form  -->
@@ -71,6 +76,16 @@
                     IsEnabled="{x:Bind ViewModel.IsQuickConnectEnabled, Mode=OneWay}"
                     Style="{StaticResource SecondaryButtonStyle}"
                     TabIndex="4" />
+
+                <!--  Another server: a second account elsewhere, or the first one on it  -->
+                <Button
+                    Height="48"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.ChangeServerCommand}"
+                    Content="Change Server"
+                    FontSize="16"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    TabIndex="5" />
 
                 <TextBlock
                     HorizontalAlignment="Center"

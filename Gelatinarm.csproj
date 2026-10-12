@@ -341,6 +341,7 @@
     <Compile Include="Shared\Ui\VisibilityConverter.cs" />
     <!-- SignIn -->
     <Compile Include="SignIn\AuthenticationService.cs" />
+    <Compile Include="SignIn\AvatarCache.cs" />
     <Compile Include="SignIn\LoginPage.xaml.cs">
       <DependentUpon>LoginPage.xaml</DependentUpon>
     </Compile>
@@ -436,11 +437,14 @@
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\SplashScreen.scale-400.png" />
   </ItemGroup>
-  <!-- The 4K edition's logos (Assets4K, same file names) are packaged in place of the standard ones -->
+  <!-- The 4K edition's logos (Assets4K, same file names) are packaged in place of the standard ones.
+       Visible=false: Visual Studio refuses to show a linked item whose file is inside the project
+       tree ("could not be added to the project", one warning per file) and the packaging does not
+       need the tree entry; the files stay on disk under Assets4K. -->
   <ItemGroup Condition="'$(Edition)' == '4K'">
     <EditionAsset Include="Assets4K\*.png" />
     <Content Remove="@(EditionAsset->'Assets\%(Filename)%(Extension)')" />
-    <Content Include="@(EditionAsset)" Link="Assets\%(Filename)%(Extension)" />
+    <Content Include="@(EditionAsset)" Link="Assets\%(Filename)%(Extension)" Visible="false" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">

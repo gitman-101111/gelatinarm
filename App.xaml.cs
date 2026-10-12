@@ -205,6 +205,7 @@ namespace Gelatinarm
             services.AddSingleton<IRequestAdapter>(sp => sp.GetRequiredService<JellyfinRequestAdapter>());
             services.AddSingleton<JellyfinApiClient>();
 
+            services.AddSingleton<IAvatarCache, AvatarCache>();
             services.AddSingleton<IAuthenticationService, AuthenticationService>();
             services.AddSingleton<IUserProfileService, UserProfileService>();
             services.AddSingleton<IMediaDiscoveryService, MediaDiscoveryService>();
