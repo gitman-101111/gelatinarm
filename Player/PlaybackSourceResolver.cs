@@ -118,5 +118,25 @@ namespace Gelatinarm.Player
             _logger.LogInformation("Stream URL generated: {Url}", UrlHelper.RedactApiKey(url));
             return url;
         }
+
+        /// <summary>
+        ///     The subtitle the server sends as a file beside the stream, with the access token;
+        ///     null when that subtitle is burned in or none is selected
+        /// </summary>
+        public string BuildExternalSubtitleUrl(MediaSourceInfo mediaSource, int? subtitleStreamIndex)
+        {
+            var subtitle = mediaSource?.MediaStreams?.FirstOrDefault(s =>
+                s.Type == MediaStream_Type.Subtitle && s.Index == subtitleStreamIndex);
+            if (subtitle?.DeliveryMethod != MediaStream_DeliveryMethod.External || string.IsNullOrEmpty(subtitle.DeliveryUrl))
+            {
+                return null;
+            }
+
+            var url = UrlHelper.AppendApiKey(UrlHelper.ResolveServerUrl(_authService.ServerUrl, subtitle.DeliveryUrl),
+                _authService.AccessToken);
+            _logger.LogInformation("Subtitle {SubtitleStreamIndex} URL generated: {Url}", subtitleStreamIndex,
+                UrlHelper.RedactApiKey(url));
+            return url;
+        }
     }
 }

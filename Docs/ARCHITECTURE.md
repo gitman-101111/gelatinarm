@@ -176,8 +176,10 @@ removes HEVC from direct play and server streams alike. A direct play that fails
 to open, or whose resume seek does not finish, is retried once as a server stream
 (`MediaPlayerViewModel.TryRecoverFromMediaFailure`,
 `PlaybackControlService.RetryAsServerStreamAsync`), at the resume point if
-playback never started. The app renders no subtitles, so they are declared
-`Encode` (burned in by the server). In a direct play the audio track is selected
+playback never started. Text subtitles are declared `External` as WebVTT, ASS
+and SSA: the server converts SRT to WebVTT, sends the file beside the stream, and
+`PlaybackControlService` adds it as a `TimedTextSource` that the player draws.
+Picture subtitles are declared `Encode` (burned in by the server). In a direct play the audio track is selected
 in the player (`MediaPlaybackItem.AudioTracks`, by position among the file's
 audio streams); a server stream carries one track, so switching reopens it. Two
 server rules:
