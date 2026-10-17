@@ -29,7 +29,7 @@ namespace Gelatinarm.Playback
         ///     Whether the server will copy this source's video rather than re-encode it: HEVC the
         ///     console decodes, within the profile's picture, depth, level, profile, range and bitrate
         ///     limits (<paramref name="maxStreamingBitrateMbps" /> 0 meaning the console's own), and no
-        ///     subtitle chosen, since every subtitle is burned in.
+        ///     picture subtitle chosen, since those are burned in.
         /// </summary>
         bool ExpectsVideoCopy(MediaSourceInfo source, int? subtitleStreamIndex, int maxStreamingBitrateMbps,
             bool hdrOnAnyDisplay);
@@ -37,10 +37,7 @@ namespace Gelatinarm.Playback
 
     public class DeviceProfileService : BaseService, IDeviceProfileService
     {
-        private static readonly string[] SubtitleFormats =
-        {
-            "srt", "subrip", "ass", "ssa", "vtt", "webvtt", "pgs", "pgssub", "dvdsub", "dvbsub"
-        };
+        private static readonly string[] PictureSubtitleFormats = { "pgs", "pgssub", "dvdsub", "dvbsub" };
 
         private static readonly string[] HevcCodecs = { "hevc", "h265", "hev1", "hvc1" };
         private static readonly string[] HevcProfiles = { "main", "main 10", "main10", "dvhe.08" };
@@ -130,10 +127,10 @@ namespace Gelatinarm.Playback
             bool hdrOnAnyDisplay)
         {
             var video = source?.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
-            if (video?.Codec == null || subtitleStreamIndex >= 0 ||
+            if (video?.Codec == null || IsBurnedIn(source, subtitleStreamIndex) ||
                 !HevcCodecs.Contains(video.Codec, StringComparer.OrdinalIgnoreCase) || !HasHardwareDecode("hvc1"))
             {
-                return false; // a chosen subtitle is burned in by the server, which means a re-encode
+                return false; // a burned-in subtitle means a re-encode
             }
 
             var portrait = IsPortrait(source);
@@ -542,16 +539,36 @@ namespace Gelatinarm.Playback
             };
         }
 
+        // Text subtitles come as a file beside the stream and the player draws them
+        // (PlaybackControlService), so the video can still direct play. The server converts SRT
+        // to WebVTT but refuses to convert ASS and SSA, so those are sent as they are. Picture
+        // subtitles are burned in by the server. Embed is never declared: the player shows no
+        // subtitle track from inside the file.
         private static List<SubtitleProfile> GetSubtitleProfiles()
         {
-            // The player renders no subtitles itself: nothing enables the MediaPlaybackItem's
-            // timed-text tracks. So every format is Encode (burned in by the server). A
-            // selected subtitle therefore means a transcode; with no subtitle selected the
-            // file can still direct play. Declaring Embed here would let the server direct
-            // play with a subtitle selected, and the subtitle would never appear.
-            return SubtitleFormats
-                .Select(format => new SubtitleProfile { Format = format, Method = SubtitleProfile_Method.Encode })
-                .ToList();
+            var profiles = new List<SubtitleProfile>
+            {
+                new SubtitleProfile { Format = "vtt", Method = SubtitleProfile_Method.External },
+                new SubtitleProfile { Format = "ass", Method = SubtitleProfile_Method.External },
+                new SubtitleProfile { Format = "ssa", Method = SubtitleProfile_Method.External }
+            };
+            profiles.AddRange(PictureSubtitleFormats
+                .Select(format => new SubtitleProfile { Format = format, Method = SubtitleProfile_Method.Encode }));
+
+            return profiles;
+        }
+
+        // Only a picture subtitle: every text format has an External profile above
+        private static bool IsBurnedIn(MediaSourceInfo source, int? subtitleStreamIndex)
+        {
+            if (!(subtitleStreamIndex >= 0))
+            {
+                return false;
+            }
+
+            var subtitle = source?.MediaStreams?.FirstOrDefault(s =>
+                s.Type == MediaStream_Type.Subtitle && s.Index == subtitleStreamIndex);
+            return subtitle?.IsTextSubtitleStream != true;
         }
 
         // The standard edition is offered no HDR display mode (UnifiedDeviceService): the

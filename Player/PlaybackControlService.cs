@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Media.Core;
@@ -131,6 +132,13 @@ namespace Gelatinarm.Player
 
         private MediaPlayer _mediaPlayer;
         private MediaSource _openStream;
+        private MediaPlaybackItem _playbackItem;
+        private readonly HashSet<string> _externalSubtitleTrackIds = new HashSet<string>();
+        private readonly List<ExternalSubtitleCue> _externalSubtitleCues = new List<ExternalSubtitleCue>();
+        private TimeSpan _appliedSubtitleOffset;
+        private TimeSpan _hlsManifestOffset;
+        private static readonly Regex OverrideTag = new Regex(@"\{\\[^}]*\}", RegexOptions.None, TimeSpan.FromSeconds(1));
+        private static readonly Regex TopAlignmentTag = new Regex(@"\{[^}]*\\an[789]", RegexOptions.None, TimeSpan.FromSeconds(1));
         private string _playSessionId;
         private MediaPlaybackParams _playbackParams;
         private TimeSpan? _pendingResumePosition;
@@ -159,7 +167,34 @@ namespace Gelatinarm.Player
             _sourceResolver = new PlaybackSourceResolver(logger, apiClient, authService, deviceService);
         }
 
-        public TimeSpan HlsManifestOffset { get; set; }
+        /// <summary>
+        ///     Position 0 of the player's current HLS manifest as a position in the item. The
+        ///     subtitle file counts from the start of the item, so its cues follow this
+        ///     (AlignExternalSubtitleCues).
+        /// </summary>
+        public TimeSpan HlsManifestOffset
+        {
+            get => _hlsManifestOffset;
+            set
+            {
+                if (_hlsManifestOffset == value)
+                {
+                    return;
+                }
+
+                _hlsManifestOffset = value;
+                AlignExternalSubtitleCues();
+            }
+        }
+
+        // A cue of the subtitle file and the item position it was written for
+        private sealed class ExternalSubtitleCue
+        {
+            public TimedMetadataTrack Track;
+            public TimedTextCue Cue;
+            public TimeSpan ItemStart;
+            public bool InTrack;
+        }
 
         public void Initialize(MediaPlayer mediaPlayer, MediaPlaybackParams playbackParams)
         {
@@ -266,9 +301,180 @@ namespace Gelatinarm.Player
 
             await MatchDisplayModeAsync();
 
-            return await (_currentMediaSource.SupportsDirectPlay == true
+            var mediaSource = await (_currentMediaSource.SupportsDirectPlay == true
                 ? CreateDirectPlayMediaSourceAsync(playbackInfo)
                 : CreateStreamingMediaSourceAsync(playbackInfo));
+            AddExternalSubtitle(mediaSource);
+
+            return mediaSource;
+        }
+
+        // With no subtitle asked for, the server applies the file's default one
+        private void AddExternalSubtitle(MediaSource mediaSource)
+        {
+            lock (_externalSubtitleTrackIds)
+            {
+                _externalSubtitleTrackIds.Clear();
+                _externalSubtitleCues.Clear();
+                _appliedSubtitleOffset = TimeSpan.Zero;
+            }
+
+            var url = _sourceResolver.BuildExternalSubtitleUrl(_currentMediaSource,
+                _playbackParams.SubtitleStreamIndex ?? _currentMediaSource.DefaultSubtitleStreamIndex);
+            if (url == null)
+            {
+                return;
+            }
+
+            var subtitles = TimedTextSource.CreateFromUri(new Uri(url));
+            subtitles.Resolved += OnExternalSubtitleResolved;
+            mediaSource.ExternalTimedTextSources.Add(subtitles);
+        }
+
+        private void OnExternalSubtitleResolved(TimedTextSource sender, TimedTextSourceResolveResultEventArgs args)
+        {
+            if (args.Error != null)
+            {
+                Logger.LogWarning("Subtitle file could not be read: {ErrorCode} {HResult:X8}", args.Error.ErrorCode,
+                    args.Error.ExtendedError?.HResult ?? 0);
+                return;
+            }
+
+            lock (_externalSubtitleTrackIds)
+            {
+                foreach (var track in args.Tracks)
+                {
+                    _externalSubtitleTrackIds.Add(track.Id);
+                    StyleCues(track);
+                    foreach (var cue in track.Cues.OfType<TimedTextCue>())
+                    {
+                        _externalSubtitleCues.Add(new ExternalSubtitleCue
+                        {
+                            Track = track,
+                            Cue = cue,
+                            ItemStart = cue.StartTime,
+                            InTrack = true
+                        });
+                    }
+                }
+            }
+
+            // The file may arrive after the manifest offset is already known
+            AlignExternalSubtitleCues();
+            PresentExternalSubtitle(_playbackItem);
+        }
+
+        // The player counts from the start of its manifest (HlsManifestOffset) while the
+        // subtitle file counts from the start of the item, so with an offset every cue would
+        // show late by that much. Each cue is moved to where the player will reach it; one
+        // that falls before the manifest's start is taken out, and comes back should a later
+        // manifest (a backward seek) start before it. Cues are re-added rather than edited in
+        // place so the track's own index sees the new times. Nothing happens on a direct play
+        // or an untouched transcode, where the offset stays zero.
+        private void AlignExternalSubtitleCues()
+        {
+            lock (_externalSubtitleTrackIds)
+            {
+                var offset = _hlsManifestOffset;
+                if (_externalSubtitleCues.Count == 0 || offset == _appliedSubtitleOffset)
+                {
+                    return;
+                }
+
+                var dropped = 0;
+                foreach (var entry in _externalSubtitleCues)
+                {
+                    if (entry.InTrack)
+                    {
+                        entry.Track.RemoveCue(entry.Cue);
+                        entry.InTrack = false;
+                    }
+
+                    var start = entry.ItemStart - offset;
+                    if (start < TimeSpan.Zero)
+                    {
+                        dropped++;
+                        continue;
+                    }
+
+                    entry.Cue.StartTime = start;
+                    entry.Track.AddCue(entry.Cue);
+                    entry.InTrack = true;
+                }
+
+                _appliedSubtitleOffset = offset;
+                Logger.LogInformation(
+                    "Subtitle cues moved to follow the manifest starting at {Offset:hh\\:mm\\:ss}; {Dropped} of {Total} fall before it",
+                    offset, dropped, _externalSubtitleCues.Count);
+            }
+        }
+
+        // The Xbox player draws plain white text, unreadable on a bright picture, so every cue
+        // gets a black outline. SRT files often carry ASS tags such as {\an8}, which the server
+        // passes through and the player prints as text. They are removed, and a line asking for
+        // the top goes there.
+        private static void StyleCues(TimedMetadataTrack track)
+        {
+            foreach (var cue in track.Cues.OfType<TimedTextCue>())
+            {
+                if (cue.CueStyle != null)
+                {
+                    cue.CueStyle.OutlineColor = Windows.UI.Colors.Black;
+                    cue.CueStyle.OutlineThickness = new TimedTextDouble { Value = 8, Unit = TimedTextUnit.Percentage };
+                    cue.CueStyle.OutlineRadius = new TimedTextDouble { Value = 4, Unit = TimedTextUnit.Percentage };
+                }
+
+                var atTop = cue.Lines.Any(line => TopAlignmentTag.IsMatch(line.Text));
+                foreach (var line in cue.Lines)
+                {
+                    line.Text = OverrideTag.Replace(line.Text, string.Empty);
+                }
+
+                if (atTop)
+                {
+                    cue.CueRegion = TopRegion(cue.CueRegion);
+                }
+            }
+        }
+
+        private static TimedTextRegion TopRegion(TimedTextRegion region)
+        {
+            return new TimedTextRegion
+            {
+                Name = "top",
+                Position = new TimedTextPoint { X = 10, Y = 5, Unit = TimedTextUnit.Percentage },
+                Extent = new TimedTextSize { Width = 80, Height = 30, Unit = TimedTextUnit.Percentage },
+                DisplayAlignment = TimedTextDisplayAlignment.Before,
+                Background = region.Background,
+                WritingMode = region.WritingMode,
+                LineHeight = region.LineHeight,
+                Padding = region.Padding,
+                TextWrapping = region.TextWrapping,
+                ZIndex = region.ZIndex,
+                ScrollMode = region.ScrollMode
+            };
+        }
+
+        // Whichever comes first, the subtitle file being read or its track joining the item, the
+        // other one shows it. Tracks inside the file stay hidden.
+        private void PresentExternalSubtitle(MediaPlaybackItem playbackItem)
+        {
+            var tracks = playbackItem?.TimedMetadataTracks;
+            if (tracks == null)
+            {
+                return;
+            }
+
+            lock (_externalSubtitleTrackIds)
+            {
+                for (var i = 0; i < tracks.Count; i++)
+                {
+                    if (_externalSubtitleTrackIds.Contains(tracks[i].Id))
+                    {
+                        tracks.SetPresentationMode((uint)i, TimedMetadataTrackPresentationMode.PlatformPresented);
+                    }
+                }
+            }
         }
 
         // HDR video that reaches the console as it is (direct play, or copied into a server
@@ -302,6 +508,8 @@ namespace Gelatinarm.Player
                                   "Duration: {DurationTotalSeconds}s", mediaSource?.State, mediaSource?.IsOpen,
                 mediaSource?.Duration?.TotalSeconds);
             var playbackItem = new MediaPlaybackItem(mediaSource);
+            playbackItem.TimedMetadataTracksChanged += (item, _) => PresentExternalSubtitle(item);
+            _playbackItem = playbackItem;
 
             // TIERED RESUME APPROACH:
             // Tier 1: StartTimeTicks was already sent to server in GetPlaybackInfoAsync
@@ -572,8 +780,8 @@ namespace Gelatinarm.Player
 
         public Task ChangeSubtitleTrackAsync(SubtitleTrack subtitle)
         {
-            // Subtitles are burned in by the server, so enabling, changing and disabling all
-            // restart the stream; -1 asks for none.
+            // The server decides per subtitle whether it is burned in or sent beside the stream,
+            // so enabling, changing and disabling all restart the stream; -1 asks for none.
             return RestartPlaybackAsync(
                 $"subtitle change to {subtitle.DisplayTitle}",
                 subtitleStreamIndex: subtitle.IsNoneOption ? -1 : subtitle.ServerStreamIndex);
@@ -609,6 +817,12 @@ namespace Gelatinarm.Player
 
             _openStream?.Dispose();
             _openStream = null;
+            _playbackItem = null;
+            lock (_externalSubtitleTrackIds)
+            {
+                _externalSubtitleCues.Clear();
+                _appliedSubtitleOffset = TimeSpan.Zero;
+            }
         }
 
         public void ReleasePlayer(MediaPlayer player)
