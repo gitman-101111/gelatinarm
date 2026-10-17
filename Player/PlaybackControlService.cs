@@ -134,6 +134,9 @@ namespace Gelatinarm.Player
         private MediaSource _openStream;
         private MediaPlaybackItem _playbackItem;
         private readonly HashSet<string> _externalSubtitleTrackIds = new HashSet<string>();
+        private readonly List<ExternalSubtitleCue> _externalSubtitleCues = new List<ExternalSubtitleCue>();
+        private TimeSpan _appliedSubtitleOffset;
+        private TimeSpan _hlsManifestOffset;
         private static readonly Regex OverrideTag = new Regex(@"\{\\[^}]*\}", RegexOptions.None, TimeSpan.FromSeconds(1));
         private static readonly Regex TopAlignmentTag = new Regex(@"\{[^}]*\\an[789]", RegexOptions.None, TimeSpan.FromSeconds(1));
         private string _playSessionId;
@@ -164,7 +167,34 @@ namespace Gelatinarm.Player
             _sourceResolver = new PlaybackSourceResolver(logger, apiClient, authService, deviceService);
         }
 
-        public TimeSpan HlsManifestOffset { get; set; }
+        /// <summary>
+        ///     Position 0 of the player's current HLS manifest as a position in the item. The
+        ///     subtitle file counts from the start of the item, so its cues follow this
+        ///     (AlignExternalSubtitleCues).
+        /// </summary>
+        public TimeSpan HlsManifestOffset
+        {
+            get => _hlsManifestOffset;
+            set
+            {
+                if (_hlsManifestOffset == value)
+                {
+                    return;
+                }
+
+                _hlsManifestOffset = value;
+                AlignExternalSubtitleCues();
+            }
+        }
+
+        // A cue of the subtitle file and the item position it was written for
+        private sealed class ExternalSubtitleCue
+        {
+            public TimedMetadataTrack Track;
+            public TimedTextCue Cue;
+            public TimeSpan ItemStart;
+            public bool InTrack;
+        }
 
         public void Initialize(MediaPlayer mediaPlayer, MediaPlaybackParams playbackParams)
         {
@@ -285,6 +315,8 @@ namespace Gelatinarm.Player
             lock (_externalSubtitleTrackIds)
             {
                 _externalSubtitleTrackIds.Clear();
+                _externalSubtitleCues.Clear();
+                _appliedSubtitleOffset = TimeSpan.Zero;
             }
 
             var url = _sourceResolver.BuildExternalSubtitleUrl(_currentMediaSource,
@@ -314,10 +346,67 @@ namespace Gelatinarm.Player
                 {
                     _externalSubtitleTrackIds.Add(track.Id);
                     StyleCues(track);
+                    foreach (var cue in track.Cues.OfType<TimedTextCue>())
+                    {
+                        _externalSubtitleCues.Add(new ExternalSubtitleCue
+                        {
+                            Track = track,
+                            Cue = cue,
+                            ItemStart = cue.StartTime,
+                            InTrack = true
+                        });
+                    }
                 }
             }
 
+            // The file may arrive after the manifest offset is already known
+            AlignExternalSubtitleCues();
             PresentExternalSubtitle(_playbackItem);
+        }
+
+        // The player counts from the start of its manifest (HlsManifestOffset) while the
+        // subtitle file counts from the start of the item, so with an offset every cue would
+        // show late by that much. Each cue is moved to where the player will reach it; one
+        // that falls before the manifest's start is taken out, and comes back should a later
+        // manifest (a backward seek) start before it. Cues are re-added rather than edited in
+        // place so the track's own index sees the new times. Nothing happens on a direct play
+        // or an untouched transcode, where the offset stays zero.
+        private void AlignExternalSubtitleCues()
+        {
+            lock (_externalSubtitleTrackIds)
+            {
+                var offset = _hlsManifestOffset;
+                if (_externalSubtitleCues.Count == 0 || offset == _appliedSubtitleOffset)
+                {
+                    return;
+                }
+
+                var dropped = 0;
+                foreach (var entry in _externalSubtitleCues)
+                {
+                    if (entry.InTrack)
+                    {
+                        entry.Track.RemoveCue(entry.Cue);
+                        entry.InTrack = false;
+                    }
+
+                    var start = entry.ItemStart - offset;
+                    if (start < TimeSpan.Zero)
+                    {
+                        dropped++;
+                        continue;
+                    }
+
+                    entry.Cue.StartTime = start;
+                    entry.Track.AddCue(entry.Cue);
+                    entry.InTrack = true;
+                }
+
+                _appliedSubtitleOffset = offset;
+                Logger.LogInformation(
+                    "Subtitle cues moved to follow the manifest starting at {Offset:hh\\:mm\\:ss}; {Dropped} of {Total} fall before it",
+                    offset, dropped, _externalSubtitleCues.Count);
+            }
         }
 
         // The Xbox player draws plain white text, unreadable on a bright picture, so every cue
@@ -729,6 +818,11 @@ namespace Gelatinarm.Player
             _openStream?.Dispose();
             _openStream = null;
             _playbackItem = null;
+            lock (_externalSubtitleTrackIds)
+            {
+                _externalSubtitleCues.Clear();
+                _appliedSubtitleOffset = TimeSpan.Zero;
+            }
         }
 
         public void ReleasePlayer(MediaPlayer player)
